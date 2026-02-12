@@ -19,10 +19,10 @@ export function Navbar() {
             <Link href="/pages/queue" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
               Check Queue
             </Link>
-            <Link href="/book" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
+            <Link href="/pages/book" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
               Book Appointment
             </Link>
-            <Link href="#about" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
+            <Link href="/pages/about" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
               About
             </Link>
           </nav>
