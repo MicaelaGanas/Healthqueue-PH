@@ -9,7 +9,7 @@ export function Navbar() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Logo />
         <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">
-          <Link href="#check-queue" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
+          <Link href="/pages/queue" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
             Check Queue
           </Link>
           <Link href="#book-appointment" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">

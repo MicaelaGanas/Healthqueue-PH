@@ -41,7 +41,7 @@ export function Footer() {
             <h3 className="font-semibold text-[#333333]">Quick Links</h3>
             <ul className="mt-3 space-y-2 text-sm">
               <li>
-                <Link href="#check-queue" className="hover:text-[#333333]">Check Queue</Link>
+                <Link href="/pages/queue" className="hover:text-[#333333]">Check Queue</Link>
               </li>
               <li>
                 <Link href="#book-appointment" className="hover:text-[#333333]">Book Appointment</Link>
