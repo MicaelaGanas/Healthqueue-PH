@@ -57,9 +57,9 @@ export function FeatureCards() {
             </div>
             <h2 className="mt-4 text-lg font-bold text-[#212529]">Book Appointment</h2>
             <p className="mt-2 max-w-[200px] text-sm leading-snug text-[#6c757d]">Schedule a visit to reduce wait time.</p>
-            <Link href="#book-appointment" className="mt-4 inline-block rounded-lg border border-[#dee2e6] bg-[#f8f9fa] px-4 py-2.5 text-sm font-medium text-[#212529] hover:bg-[#e9ecef]">
-              Book Now
-            </Link>
+<Link href="/book" className="mt-4 inline-block rounded-lg border border-[#dee2e6] bg-[#f8f9fa] px-4 py-2.5 text-sm font-medium text-[#212529] hover:bg-[#e9ecef]">
+                  Book Now
+                </Link>
           </article>
           <article className={`flex flex-col items-center rounded-xl border border-[#e9ecef] bg-white p-6 text-center ${cardShadow}`}>
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#e65100] bg-[#FFF3E0]">
