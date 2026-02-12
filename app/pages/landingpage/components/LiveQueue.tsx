@@ -34,7 +34,7 @@ const queueDepartments = [
 export function LiveQueue() {
   return (
     <section id="live-queue" className="border-t border-[#E9ECEF] bg-[#f8f9fa] py-12 sm:py-16" aria-labelledby="queue-heading">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Header: title + subtitle left, "Updated just now" with green dot right */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

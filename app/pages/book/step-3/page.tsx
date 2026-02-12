@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Navbar } from "../../../components/common/Navbar";
-import { Footer } from "../../../components/common/Footer";
+import { Navbar } from "../../../components/Navbar";
+import { Footer } from "../../../components/Footer";
 import { BackToHome } from "../components/BackToHome";
 import { StepIndicator } from "../components/StepIndicator";
 import { ConfirmationDetails } from "./components/ConfirmationDetails";
@@ -66,7 +66,7 @@ export default function BookStep3Page() {
     <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <BackToHome />
 
         <h1 className="mt-6 text-3xl font-bold text-[#333333]">Booking an Appointment</h1>

@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Navbar } from "../../../components/common/Navbar";
-import { Footer } from "../../../components/common/Footer";
+import { Navbar } from "../../../components/Navbar";
+import { Footer } from "../../../components/Footer";
 import { BackToHome } from "../components/BackToHome";
 import { StepIndicator } from "../components/StepIndicator";
 import { SelectDateCard } from "./components/SelectDateCard";
@@ -38,7 +38,7 @@ export default function BookStep1Page() {
     if (typeof window !== "undefined") {
       sessionStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(payload));
     }
-    router.push("/book/step-2");
+    router.push("/pages/book/step-2");
   };
 
   const canContinue = selectedDate != null && selectedTime !== "";
@@ -47,7 +47,7 @@ export default function BookStep1Page() {
     <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <BackToHome />
 
         <h1 className="mt-6 text-3xl font-bold text-[#333333]">Booking an Appointment</h1>

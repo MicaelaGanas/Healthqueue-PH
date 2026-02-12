@@ -1,6 +1,6 @@
 import React from "react";
-import { Navbar } from "../../../components/common/Navbar";
-import { Footer } from "../../../components/common/Footer";
+import { Navbar } from "../../../components/Navbar";
+import { Footer } from "../../../components/Footer";
 import { BackToHome } from "../components/BackToHome";
 import { QueueInfoCards } from "../components/QueueInfoCards";
 import { Instructions } from "../components/Instructions";
@@ -26,7 +26,7 @@ export default async function QueueResultPage({ searchParams }: Props) {
     <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <BackToHome />
 
         <div className="mt-8">
