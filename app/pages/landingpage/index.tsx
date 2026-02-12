@@ -1,6 +1,7 @@
+
 import React from "react";
-import { Navbar } from "../../components/common/Navbar";
-import { Footer } from "../../components/common/Footer";
+import { Navbar } from "../../components/Navbar";
+import { Footer } from "../../components/Footer";
 import { HeroBanner } from "./components/HeroBanner";
 import { FeatureCards } from "./components/FeatureCards";
 import { LiveQueue } from "./components/LiveQueue";

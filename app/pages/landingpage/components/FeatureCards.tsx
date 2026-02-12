@@ -39,7 +39,7 @@ const cardShadow = "shadow-[0_2px_8px_rgba(0,0,0,0.08)]";
 export function FeatureCards() {
   return (
     <section className="py-12 sm:py-16" aria-labelledby="actions-heading">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <article className={`flex flex-col items-center rounded-xl border border-[#e9ecef] bg-white p-6 text-center ${cardShadow}`}>
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#007bff] bg-[#E0EDFF]">
@@ -57,7 +57,7 @@ export function FeatureCards() {
             </div>
             <h2 className="mt-4 text-lg font-bold text-[#212529]">Book Appointment</h2>
             <p className="mt-2 max-w-[200px] text-sm leading-snug text-[#6c757d]">Schedule a visit to reduce wait time.</p>
-<Link href="/book" className="mt-4 inline-block rounded-lg border border-[#dee2e6] bg-[#f8f9fa] px-4 py-2.5 text-sm font-medium text-[#212529] hover:bg-[#e9ecef]">
+<Link href="/pages/book" className="mt-4 inline-block rounded-lg border border-[#dee2e6] bg-[#f8f9fa] px-4 py-2.5 text-sm font-medium text-[#212529] hover:bg-[#e9ecef]">
                   Book Now
                 </Link>
           </article>

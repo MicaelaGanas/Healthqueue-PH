@@ -40,7 +40,7 @@ const quickHelpItems = [
 export function QuickHelp() {
   return (
     <section className="border-t border-[#E9ECEF] bg-white py-12 sm:py-16" aria-labelledby="quick-help-heading">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <h2 id="quick-help-heading" className="text-2xl font-bold text-[#333333] sm:text-3xl">Quick Help</h2>
         <p className="mt-1 text-[#6C757D]">Frequently accessed information</p>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

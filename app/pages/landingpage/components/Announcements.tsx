@@ -39,7 +39,7 @@ const announcementStyles: Record<AnnouncementType, { pill: string; iconBg: strin
 export function Announcements() {
   return (
     <section className="border-t border-[#E9ECEF] bg-[#F8F9FB] py-12 sm:py-16" aria-labelledby="announcements-heading">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <h2 id="announcements-heading" className="text-2xl font-bold text-[#333333] sm:text-3xl">Announcements</h2>
         <p className="mt-1 text-[#6C757D]">Important updates and notices</p>
         <div className="mt-8 space-y-4">
