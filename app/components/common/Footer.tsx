@@ -28,7 +28,7 @@ function LocationIcon({ className }: { className?: string }) {
 
 export function Footer() {
   return (
-    <footer className="border-t border-[#E9ECEF] bg-white text-[#6C757D]">
+    <footer className="mt-16 border-t border-[#E9ECEF] bg-white text-[#6C757D]">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -44,7 +44,7 @@ export function Footer() {
                 <Link href="/pages/queue" className="hover:text-[#333333]">Check Queue</Link>
               </li>
               <li>
-                <Link href="#book-appointment" className="hover:text-[#333333]">Book Appointment</Link>
+                <Link href="/book" className="hover:text-[#333333]">Book Appointment</Link>
               </li>
               <li>
                 <Link href="#about" className="hover:text-[#333333]">About Us</Link>
