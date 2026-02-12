@@ -47,9 +47,9 @@ export function FeatureCards() {
             </div>
             <h2 className="mt-4 text-lg font-bold text-[#212529]">Check Queue</h2>
             <p className="mt-2 max-w-[200px] text-sm leading-snug text-[#6c757d]">View your current queue position and wait time.</p>
-            <Link href="#check-queue" className="mt-4 inline-block rounded-lg bg-[#007bff] px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#0069d9]">
-              Check Now
-            </Link>
+<Link href="/pages/queue" className="mt-4 inline-block rounded-lg bg-[#007bff] px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#0069d9]">
+                  Check Now
+                </Link>
           </article>
           <article className={`flex flex-col items-center rounded-xl border border-[#e9ecef] bg-white p-6 text-center ${cardShadow}`}>
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#2e7d32] bg-[#E8F5E9]">
