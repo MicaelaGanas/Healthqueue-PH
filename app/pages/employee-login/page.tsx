@@ -2,16 +2,22 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Navbar } from '../../components/Navbar';
 import { Footer } from '../../components/Footer';
 
 export default function EmployeeLoginPage() {
+  const router = useRouter();
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('');
 
   const handleSignIn = () => {
-    // Handle login logic here
+    if (role === 'nurse') {
+      router.push('/pages/nurse-dashboard');
+      return;
+    }
+    // TODO: other roles
     console.log('Employee ID:', employeeId, 'Password:', password, 'Role:', role);
   };
 
