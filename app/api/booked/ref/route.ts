@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase/server";
+import { requireRoles } from "../../../lib/api/auth";
+
+const requireStaff = requireRoles(["admin", "nurse", "receptionist"]);
 
 /** DELETE /api/booked/ref?referenceNo=APT-xxx */
 export async function DELETE(request: Request) {
+  const auth = await requireStaff(request);
+  if (auth instanceof Response) return auth;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json(

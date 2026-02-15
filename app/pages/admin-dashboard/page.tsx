@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AuthGuard } from "../../components/AuthGuard";
 import { AdminSidebar, type AdminTabId } from "./components/layout/AdminSidebar";
 import { AdminHeader } from "./components/layout/AdminHeader";
 import { UsersManagement } from "./components/users/UsersManagement";
@@ -12,6 +13,7 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<AdminTabId>("users");
 
   return (
+    <AuthGuard allowedRoles={["admin"]}>
     <div className="flex h-screen min-h-0 overflow-hidden bg-[#f8f9fa]">
       <AdminSidebar activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab)} />
       <div className="flex min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
@@ -50,5 +52,6 @@ export default function AdminDashboardPage() {
         </main>
       </div>
     </div>
+    </AuthGuard>
   );
 }

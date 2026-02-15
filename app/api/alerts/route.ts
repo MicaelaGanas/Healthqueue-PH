@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../lib/supabase/server";
 import type { DbAlert } from "../../lib/supabase/types";
+import { requireRoles } from "../../lib/api/auth";
 
 function toAppAlert(r: DbAlert) {
   return {
@@ -13,7 +14,11 @@ function toAppAlert(r: DbAlert) {
   };
 }
 
-export async function GET() {
+const requireStaff = requireRoles(["admin", "nurse", "receptionist"]);
+
+export async function GET(request: Request) {
+  const auth = await requireStaff(request);
+  if (auth instanceof Response) return auth;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json(

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase/server";
+import { requireRoles } from "../../../../lib/api/auth";
+
+const requireAdmin = requireRoles(["admin"]);
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdmin(request);
+  if (auth instanceof Response) return auth;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json(

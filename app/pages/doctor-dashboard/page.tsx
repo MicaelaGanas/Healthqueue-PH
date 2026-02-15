@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AuthGuard } from "../../components/AuthGuard";
 import { DoctorSidebar } from "./components/layout/DoctorSidebar";
 import { DoctorHeader } from "./components/layout/DoctorHeader";
 import { DoctorConsultationContent } from "./components/consultation";
@@ -11,6 +12,7 @@ export default function DoctorDashboardPage() {
   const [activeTab, setActiveTab] = useState<DoctorTabId>("consultation");
 
   return (
+    <AuthGuard allowedRoles={["doctor"]}>
     <div className="flex h-screen min-h-0 overflow-hidden bg-[#f8f9fa]">
       <DoctorSidebar activeTab={activeTab} onTabChange={setActiveTab} />
       <div className="flex min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
@@ -27,5 +29,6 @@ export default function DoctorDashboardPage() {
         </main>
       </div>
     </div>
+    </AuthGuard>
   );
 }

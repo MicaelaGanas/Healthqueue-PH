@@ -38,6 +38,7 @@ This guide walks you through creating a Supabase project and connecting the Heal
 2. Click **New query**.
 3. Open the file `supabase/migrations/20260212000000_initial_schema.sql` in this repo and copy its full contents.
 4. Paste into the SQL Editor and click **Run** (or press Ctrl+Enter).
+5. Run the second migration **`supabase/migrations/20260212100000_auth_and_roles.sql`** the same way (adds `auth_user_id` to `admin_users` for linking to Supabase Auth).
 
 This creates the tables:
 
@@ -88,7 +89,20 @@ The app currently uses **localStorage** for queue, booked list, admin users, and
 
 All JSON request/response use **camelCase** (e.g. `patientName`, `referenceNo`). The database uses **snake_case** (e.g. `patient_name`, `reference_no`); the API maps between them.
 
-## 7. Restart the dev server
+## 7. Authentication and roles
+
+Staff sign in with **email + password** (Supabase Auth). Their **role** comes from the **admin_users** table (matched by email).
+
+- **First-time setup:** Create at least one staff user in both places:
+  1. **Supabase Dashboard** → **Authentication** → **Users** → **Add user** → enter email and password.
+  2. **admin_users table:** Add a row with the **same email**, and set `role` (`admin`, `nurse`, `doctor`, or `receptionist`), `name`, `employee_id`, `status = 'active'`. You can do this via the app (Admin dashboard → Users → Add user) **after** the first admin has an auth account, or run a one-off SQL insert in the SQL Editor, for example:
+     ```sql
+     insert into public.admin_users (name, email, role, status, employee_id)
+     values ('Admin User', 'your@email.com', 'admin', 'active', 'EMP-001');
+     ```
+- After that, staff go to **Staff Login**, enter that email and password; the app looks up their role from **admin_users** and redirects to the correct dashboard (nurse/doctor/admin). Dashboards are protected: if the user is not signed in or their role doesn’t match, they are redirected to the login page.
+
+## 8. Restart the dev server
 
 After changing `.env.local`, restart the Next.js dev server:
 

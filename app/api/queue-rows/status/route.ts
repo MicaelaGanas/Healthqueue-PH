@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase/server";
+import { requireRoles } from "../../../lib/api/auth";
+
+const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
 
 /** PATCH body: { ticket: string, status: string } */
 export async function PATCH(request: Request) {
+  const auth = await requireStaff(request);
+  if (auth instanceof Response) return auth;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json(

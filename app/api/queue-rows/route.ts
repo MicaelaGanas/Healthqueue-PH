@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../lib/supabase/server";
 import type { DbQueueRow } from "../../lib/supabase/types";
+import { requireRoles } from "../../lib/api/auth";
 
 function toAppRow(r: DbQueueRow) {
   return {
@@ -18,7 +19,11 @@ function toAppRow(r: DbQueueRow) {
   };
 }
 
-export async function GET() {
+const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
+
+export async function GET(request: Request) {
+  const auth = await requireStaff(request);
+  if (auth instanceof Response) return auth;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json(
@@ -37,6 +42,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const auth = await requireStaff(request);
+  if (auth instanceof Response) return auth;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json(

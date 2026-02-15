@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase/server";
 import type { DbAdminUser } from "../../../lib/supabase/types";
+import { requireRoles } from "../../../lib/api/auth";
 
 function toAppUser(r: DbAdminUser) {
   return {
@@ -14,7 +15,11 @@ function toAppUser(r: DbAdminUser) {
   };
 }
 
-export async function GET() {
+const requireAdmin = requireRoles(["admin"]);
+
+export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if (auth instanceof Response) return auth;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json(
@@ -33,6 +38,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireAdmin(request);
+  if (auth instanceof Response) return auth;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json(

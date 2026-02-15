@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../lib/supabase/server";
 import type { DbBookedEntry } from "../../lib/supabase/types";
+import { requireRoles } from "../../lib/api/auth";
 
 function toAppEntry(r: DbBookedEntry) {
   return {
@@ -14,7 +15,11 @@ function toAppEntry(r: DbBookedEntry) {
   };
 }
 
-export async function GET() {
+const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
+
+export async function GET(request: Request) {
+  const auth = await requireStaff(request);
+  if (auth instanceof Response) return auth;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json(
@@ -32,6 +37,7 @@ export async function GET() {
   return NextResponse.json((data ?? []).map(toAppEntry));
 }
 
+/** POST: create/upsert booking. Public (no auth) so the booking form can submit. */
 export async function POST(request: Request) {
   const supabase = getSupabaseServer();
   if (!supabase) {

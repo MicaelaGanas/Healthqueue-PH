@@ -11,6 +11,7 @@ import { QueueManagementContent } from "./components/queue-management/QueueManag
 import { AppointmentsContent } from "./components/appointments/AppointmentsContent";
 import { AlertsNotifications } from "./components/dashboard/alerts/AlertsNotifications";
 import { AccessRestrictionsFooter } from "./components/AccessRestrictionsFooter";
+import { AuthGuard } from "../../components/AuthGuard";
 import { NurseQueueProvider } from "./context/NurseQueueContext";
 import { SettingsContent } from "./components/settings/SettingsContent";
 
@@ -27,6 +28,7 @@ export default function NurseDashboardPage() {
   const [activeTab, setActiveTab] = useState<ActiveView>("registration");
 
   return (
+    <AuthGuard allowedRoles={["nurse", "receptionist"]}>
     <NurseQueueProvider>
     <div className="flex h-screen min-h-0 overflow-hidden bg-[#f8f9fa]">
       <StaffSidebar
@@ -117,5 +119,6 @@ export default function NurseDashboardPage() {
       </div>
     </div>
     </NurseQueueProvider>
+    </AuthGuard>
   );
 }
