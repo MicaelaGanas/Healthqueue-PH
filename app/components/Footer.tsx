@@ -50,7 +50,7 @@ export function Footer() {
                 <Link href="#about" className="hover:text-[#333333]">About Us</Link>
               </li>
               <li>
-                <Link href="/patient-login" className="hover:text-[#333333]">Patient Login</Link>
+                <Link href="/pages/patient-login" className="hover:text-[#333333]">Patient Login</Link>
               </li>
             </ul>
           </div>

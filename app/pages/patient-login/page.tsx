@@ -2,16 +2,18 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Navbar } from '../../components/Navbar';
 import { Footer } from '../../components/Footer';
 
 export default function PatientLoginPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'gadget' | 'account'>('gadget');
   const [gadgetId, setGadgetId] = useState('');
 
   const handleAccessDashboard = () => {
-    // Handle login logic here
-    console.log('Gadget ID:', gadgetId);
+    // For now: redirect to patient dashboard
+    router.push('/pages/patient-dashboard');
   };
 
   return (
