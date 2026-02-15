@@ -6,7 +6,7 @@ import Link from "next/link";
 const navItems: { href: string; label: string; icon: string; tabId?: string }[] = [
   { href: "/pages/nurse-dashboard", label: "Dashboard", icon: "grid", tabId: "registration" },
   { href: "#queue", label: "Queue Management", icon: "people", tabId: "queue" },
-  { href: "#appointments", label: "Appointments", icon: "calendar" },
+  { href: "#appointments", label: "Appointments", icon: "calendar", tabId: "appointments" },
   { href: "#beds", label: "Bed Allocation", icon: "bed" },
   { href: "#emergency", label: "Emergency", icon: "alert" },
   { href: "#settings", label: "Settings", icon: "gear" },
@@ -89,7 +89,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   gear: GearIcon,
 };
 
-type TabId = "registration" | "vitals" | "queue" | "alerts";
+type TabId = "registration" | "vitals" | "queue" | "appointments" | "alerts";
 
 type StaffSidebarProps = {
   activeTab?: string;

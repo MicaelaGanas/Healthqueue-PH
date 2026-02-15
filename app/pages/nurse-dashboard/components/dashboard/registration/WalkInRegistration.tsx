@@ -20,6 +20,9 @@ export function WalkInRegistration() {
   const [lastName, setLastName] = useState("");
   const [age, setAge] = useState("");
   const [sex, setSex] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [bookingReference, setBookingReference] = useState("");
   const [symptoms, setSymptoms] = useState<Record<string, boolean>>({});
   const [otherSymptoms, setOtherSymptoms] = useState("");
 
@@ -39,6 +42,9 @@ export function WalkInRegistration() {
         </svg>
         <h2 className="text-lg font-bold text-[#333333]">Walk-In Patient Registration</h2>
       </div>
+      <p className="mb-4 text-sm text-[#6C757D]">
+        For patients without an appointment. Add phone, email, or booking reference to link to an existing online booking or patient record.
+      </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-medium text-[#333333]">First Name *</label>
@@ -81,6 +87,36 @@ export function WalkInRegistration() {
             <option value="M">Male</option>
             <option value="F">Female</option>
           </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-[#333333]">Phone (optional, for record sync)</label>
+          <input
+            type="text"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="e.g. 09XX XXX XXXX"
+            className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] placeholder:text-[#6C757D] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-[#333333]">Email (optional, for record sync)</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="e.g. patient@email.com"
+            className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] placeholder:text-[#6C757D] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-[#333333]">Booking reference (optional)</label>
+          <input
+            type="text"
+            value={bookingReference}
+            onChange={(e) => setBookingReference(e.target.value)}
+            placeholder="e.g. APT-2026-0131-001 — if they booked online"
+            className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] placeholder:text-[#6C757D] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
+          />
         </div>
       </div>
       <div className="mt-4">

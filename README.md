@@ -20,6 +20,12 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Booking vs Walk-in (record sync)
+
+- **Book appointment (online)** — Patient fills department, date, time, and contact info (name, phone, email). The flow stores a schedule request (e.g. in sessionStorage for now). When a backend exists, this can create an appointment tied to the patient's account and show in the nurse dashboard. Patients are told to use the same phone/email when they visit so the visit can be matched to their request.
+- **Walk-in (nurse dashboard)** — For patients without an appointment. The nurse registers name, age, sex, symptoms, and can optionally add phone, email, and booking reference (e.g. APT-2026-0131-001). Those fields allow linking the walk-in to an existing online booking or patient record.
+- **Syncing records** — Matching uses the same phone and/or email, or the booking reference from the confirmation page. No extra "count" field is required; the booking reference or contact info is enough to sync.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
