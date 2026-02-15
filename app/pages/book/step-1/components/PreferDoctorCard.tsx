@@ -1,18 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
-/** Doctors with the department(s) they belong to (for filtering). */
-const DOCTORS_BY_DEPARTMENT: Record<string, string[]> = {
-  "General Consultation": ["Dr. Maria Santos - General Medicine", "Dr. Carlos Gomez - Internal Medicine"],
-  "Emergency Room": ["Dr. Maria Santos - General Medicine", "Dr. Carlos Gomez - Internal Medicine"],
-  "Laboratory": [],
-  "Pharmacy": [],
-  "X-Ray / Imaging": [],
-  "Pediatrics": ["Dr. Juan Dela Cruz - Pediatrics"],
-  "OB-GYN": ["Dr. Ana Reyes - OB-GYN"],
-  "Dental": ["Dr. Elena Torres - Dental"],
-};
+import { DOCTORS_BY_DEPARTMENT } from "../../../../lib/departments";
 
 const NO_PREFERENCE = "No preference";
 

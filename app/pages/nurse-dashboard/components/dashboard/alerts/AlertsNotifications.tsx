@@ -2,35 +2,17 @@
 
 import { useState } from "react";
 
-const INITIAL_ALERTS = [
-  {
-    id: "1",
-    type: "Missed Patient",
-    icon: "person-x",
-    detail: "Carlos Mendoza (TRG-002) did not respond to queue call. 3 attempts made.",
-    time: "2 mins ago",
-    unread: true,
-  },
-  {
-    id: "2",
-    type: "Gadget Disconnected",
-    icon: "wifi-off",
-    detail: "GDG-004 has gone offline. Last connected patient: Pedro Garcia.",
-    time: "5 mins ago",
-    unread: true,
-  },
-  {
-    id: "3",
-    type: "Reassessment Due",
-    icon: "clock",
-    detail: "Maria Santos (TRG-001) needs vital signs reassessment. Last check: 30 mins ago.",
-    time: "8 mins ago",
-    unread: true,
-  },
-];
+export type AlertItem = {
+  id: string;
+  type: string;
+  icon: string;
+  detail: string;
+  time: string;
+  unread: boolean;
+};
 
 export function AlertsNotifications() {
-  const [alerts, setAlerts] = useState(INITIAL_ALERTS);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
 
   const markRead = (id: string) => {
     setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, unread: false } : a)));
@@ -60,6 +42,11 @@ export function AlertsNotifications() {
         )}
       </div>
       <div className="space-y-3">
+        {alerts.length === 0 && (
+          <p className="rounded-lg border border-[#e9ecef] bg-[#f8f9fa] p-4 text-center text-sm text-[#6C757D]">
+            No alerts. Alerts will load from the server when connected.
+          </p>
+        )}
         {alerts.map((a) => (
           <div
             key={a.id}

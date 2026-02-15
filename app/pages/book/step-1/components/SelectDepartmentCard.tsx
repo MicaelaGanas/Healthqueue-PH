@@ -1,17 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const DEPARTMENTS = [
-  "General Consultation",
-  "Emergency Room",
-  "Laboratory",
-  "Pharmacy",
-  "X-Ray / Imaging",
-  "Pediatrics",
-  "OB-GYN",
-  "Dental",
-];
+import { DEPARTMENTS } from "../../../../lib/departments";
 
 function BuildingIcon({ className }: { className?: string }) {
   return (

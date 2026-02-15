@@ -1,0 +1,1 @@
+export { DoctorConsultationContent } from "./DoctorConsultationContent";
