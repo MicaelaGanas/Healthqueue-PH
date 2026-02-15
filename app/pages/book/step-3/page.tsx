@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Navbar } from "../../../components/Navbar";
 import { Footer } from "../../../components/Footer";
 import { BackToHome } from "../components/BackToHome";
@@ -8,6 +8,11 @@ import { StepIndicator } from "../components/StepIndicator";
 import { ConfirmationDetails } from "./components/ConfirmationDetails";
 import { ConfirmationDisclaimer } from "./components/ConfirmationDisclaimer";
 import { ConfirmationActions } from "./components/ConfirmationActions";
+import {
+  appendBookedToStorage,
+  parseTimeTo24,
+  generateReferenceNo,
+} from "../../../lib/queueBookedStorage";
 
 const BOOKING_STORAGE_KEY = "healthqueue_booking";
 
@@ -23,10 +28,10 @@ type BookingData = {
 };
 
 const DEFAULT_CONFIRMATION = {
-  referenceNo: "APT-2026-0131-001",
-  department: "Pediatrics",
-  date: "2/4/2026",
-  time: "1:30 PM",
+  referenceNo: "",
+  department: "",
+  date: "",
+  time: "",
 };
 
 function getDisplayName(booking: BookingData | null): string {
@@ -39,7 +44,8 @@ function getDisplayName(booking: BookingData | null): string {
 
 export default function BookStep3Page() {
   const [booking, setBooking] = useState<BookingData | null>(null);
-  const [referenceNo] = useState(DEFAULT_CONFIRMATION.referenceNo);
+  const [referenceNo, setReferenceNo] = useState(DEFAULT_CONFIRMATION.referenceNo);
+  const hasAddedToQueue = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -54,9 +60,30 @@ export default function BookStep3Page() {
     }
   }, []);
 
-  const department = booking?.department ?? DEFAULT_CONFIRMATION.department;
-  const date = booking?.date ?? DEFAULT_CONFIRMATION.date;
-  const time = booking?.time ?? DEFAULT_CONFIRMATION.time;
+  useEffect(() => {
+    if (!booking || hasAddedToQueue.current || typeof window === "undefined") return;
+    const ref = generateReferenceNo();
+    setReferenceNo(ref);
+    hasAddedToQueue.current = true;
+    const patientName = getDisplayName(booking) || "Patient";
+    const department = (booking.department ?? "").trim() || "General Medicine";
+    const timeStr = (booking.time ?? "").trim();
+    const dateStr = (booking.date ?? "").trim();
+    const preferredDoctor = (booking.preferredDoctor ?? "").trim() || undefined;
+    appendBookedToStorage({
+      referenceNo: ref,
+      patientName,
+      department,
+      appointmentTime: parseTimeTo24(timeStr),
+      addedAt: new Date().toISOString(),
+      preferredDoctor,
+      appointmentDate: dateStr || undefined,
+    });
+  }, [booking]);
+
+  const department = booking?.department ?? "";
+  const date = booking?.date ?? "";
+  const time = booking?.time ?? "";
   const preferredDoctor = (booking?.preferredDoctor ?? "").trim() || undefined;
   const name = getDisplayName(booking);
   const phone = (booking?.phone ?? "").trim() || "—";

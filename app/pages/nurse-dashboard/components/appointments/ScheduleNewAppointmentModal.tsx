@@ -8,8 +8,10 @@ type ScheduleNewAppointmentModalProps = {
   onClose: () => void;
 };
 
+import { DEPARTMENTS as DEPT_LIST } from "../../../../lib/departments";
+
 const DOCTORS = ["Select doctor", "Dr. Jose Rizal", "Dr. Maria Clara", "Dr. Andres Bonifacio", "Dr. Emilio Aguinaldo"];
-const DEPARTMENTS = ["Select department", "General Consultation", "Laboratory", "Emergency Room", "Pediatrics", "Pharmacy"];
+const DEPARTMENTS = ["Select department", ...DEPT_LIST];
 const TYPES = ["Select type", "consultation", "follow up", "procedure"];
 
 export function ScheduleNewAppointmentModal({ open, onClose }: ScheduleNewAppointmentModalProps) {

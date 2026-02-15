@@ -4,14 +4,15 @@ import { useState } from "react";
 import { StaffSidebar } from "./components/layout/StaffSidebar";
 import { StaffHeader } from "./components/layout/StaffHeader";
 import { MetricCards } from "./components/dashboard/MetricCards";
-import { WalkInRegistration } from "./components/dashboard/registration/WalkInRegistration";
+import { WalkInRegistration, WalkInPendingQueue } from "./components/dashboard/registration/WalkInRegistration";
 import { IoTGadgetAssignment } from "./components/dashboard/registration/IoTGadgetAssignment";
 import { VitalSignsForm } from "./components/dashboard/vitals-triage/VitalSignsForm";
-import { EmergencyEscalationPanel } from "./components/dashboard/vitals-triage/EmergencyEscalationPanel";
 import { QueueManagementContent } from "./components/queue-management/QueueManagementContent";
 import { AppointmentsContent } from "./components/appointments/AppointmentsContent";
 import { AlertsNotifications } from "./components/dashboard/alerts/AlertsNotifications";
 import { AccessRestrictionsFooter } from "./components/AccessRestrictionsFooter";
+import { NurseQueueProvider } from "./context/NurseQueueContext";
+import { SettingsContent } from "./components/settings/SettingsContent";
 
 const TABS = [
   { id: "registration", label: "Registration" },
@@ -20,12 +21,13 @@ const TABS = [
   { id: "alerts", label: "Alerts" },
 ] as const;
 
-type ActiveView = (typeof TABS)[number]["id"] | "appointments";
+type ActiveView = (typeof TABS)[number]["id"] | "appointments" | "settings";
 
 export default function NurseDashboardPage() {
   const [activeTab, setActiveTab] = useState<ActiveView>("registration");
 
   return (
+    <NurseQueueProvider>
     <div className="flex h-screen min-h-0 overflow-hidden bg-[#f8f9fa]">
       <StaffSidebar
         activeTab={activeTab}
@@ -38,7 +40,14 @@ export default function NurseDashboardPage() {
             {activeTab === "appointments" ? (
               <>
                 <div className="mt-0 sm:mt-0">
-                  <AppointmentsContent />
+                  <AppointmentsContent onGoToVitals={() => setActiveTab("vitals")} />
+                </div>
+                <AccessRestrictionsFooter />
+              </>
+            ) : activeTab === "settings" ? (
+              <>
+                <div className="mt-0 sm:mt-0">
+                  <SettingsContent />
                 </div>
                 <AccessRestrictionsFooter />
               </>
@@ -76,23 +85,21 @@ export default function NurseDashboardPage() {
                   <div className="mt-4 grid gap-4 sm:mt-6 sm:gap-6 md:grid-cols-2">
                     <WalkInRegistration />
                     <IoTGadgetAssignment />
+                    <div className="md:col-span-2">
+                      <WalkInPendingQueue />
+                    </div>
                   </div>
                 )}
 
                 {activeTab === "vitals" && (
-                  <div className="mt-4 flex flex-col gap-4 sm:mt-6 sm:flex-row sm:gap-6">
-                    <div className="min-w-0 flex-1">
-                      <VitalSignsForm />
-                    </div>
-                    <div className="w-full min-w-0 shrink-0 sm:w-[340px] lg:w-[380px]">
-                      <EmergencyEscalationPanel />
-                    </div>
+                  <div className="mt-4 sm:mt-6">
+                    <VitalSignsForm />
                   </div>
                 )}
 
                 {activeTab === "queue" && (
                   <div className="mt-4 sm:mt-6">
-                    <QueueManagementContent />
+                    <QueueManagementContent onAddWalkIn={() => setActiveTab("registration")} />
                   </div>
                 )}
 
@@ -109,5 +116,6 @@ export default function NurseDashboardPage() {
         </main>
       </div>
     </div>
+    </NurseQueueProvider>
   );
 }

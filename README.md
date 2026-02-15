@@ -20,6 +20,16 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Backend and database (Supabase)
+
+To use a real database instead of localStorage:
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and (optionally) `SUPABASE_SERVICE_ROLE_KEY`.
+3. Run the SQL in `supabase/migrations/20260212000000_initial_schema.sql` in the Supabase SQL Editor.
+
+See **[docs/SETUP_SUPABASE.md](docs/SETUP_SUPABASE.md)** for step-by-step instructions and API endpoint reference.
+
 ## Booking vs Walk-in (record sync)
 
 - **Book appointment (online)** — Patient fills department, date, time, and contact info (name, phone, email). The flow stores a schedule request (e.g. in sessionStorage for now). When a backend exists, this can create an appointment tied to the patient's account and show in the nurse dashboard. Patients are told to use the same phone/email when they visit so the visit can be matched to their request.

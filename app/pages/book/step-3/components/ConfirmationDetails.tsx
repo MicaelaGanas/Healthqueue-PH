@@ -29,7 +29,7 @@ export function ConfirmationDetails({
     <div className="mx-auto mt-8 max-w-lg space-y-0 rounded-lg border border-[#e9ecef] bg-[#f8f9fa] p-4 text-[#333333]">
       <div className={rowClass}>
         <span className={labelClass}>Reference No.</span>
-        <span className="rounded bg-[#e7f1ff] px-2 py-1 font-bold text-[#007bff]">{referenceNo}</span>
+        <span className="rounded bg-[#e7f1ff] px-2 py-1 font-bold text-[#007bff]">{referenceNo || "—"}</span>
       </div>
       <div className={rowClass}>
         <span className={labelClass}>Name</span>
@@ -45,20 +45,20 @@ export function ConfirmationDetails({
       </div>
       <div className={rowClass}>
         <span className={labelClass}>Department</span>
-        <span className={valueClass}>{department}</span>
+        <span className={valueClass}>{department || "—"}</span>
       </div>
       <div className={rowClass}>
         <span className={labelClass}>Date</span>
-        <span className={valueClass}>{date}</span>
+        <span className={valueClass}>{date || "—"}</span>
       </div>
       <div className={rowClass}>
         <span className={labelClass}>Time</span>
-        <span className={valueClass}>{time}</span>
+        <span className={valueClass}>{time || "—"}</span>
       </div>
-      {preferredDoctor && preferredDoctor !== "—" && (
+      {(preferredDoctor ?? "") && (
         <div className={rowClass}>
           <span className={labelClass}>Preferred Doctor</span>
-          <span className={valueClass}>{preferredDoctor}</span>
+          <span className={valueClass}>{preferredDoctor || "—"}</span>
         </div>
       )}
     </div>

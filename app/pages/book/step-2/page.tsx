@@ -13,10 +13,10 @@ import { Step2ActionButtons } from "./components/Step2ActionButtons";
 const BOOKING_STORAGE_KEY = "healthqueue_booking";
 
 const DEFAULT_SUMMARY = {
-  department: "—",
-  date: "—",
-  time: "—",
-  preferredDoctor: "—",
+  department: "",
+  date: "",
+  time: "",
+  preferredDoctor: "",
 };
 
 export default function BookStep2Page() {
@@ -38,10 +38,10 @@ export default function BookStep2Page() {
       if (raw) {
         const stored = JSON.parse(raw) as Record<string, string>;
         setSummary({
-          department: stored.department ?? DEFAULT_SUMMARY.department,
-          date: stored.date ?? DEFAULT_SUMMARY.date,
-          time: stored.time ?? DEFAULT_SUMMARY.time,
-          preferredDoctor: stored.preferredDoctor ?? DEFAULT_SUMMARY.preferredDoctor,
+          department: stored.department ?? "",
+          date: stored.date ?? "",
+          time: stored.time ?? "",
+          preferredDoctor: stored.preferredDoctor ?? "",
         });
       }
     } catch {

@@ -17,7 +17,15 @@ export default function EmployeeLoginPage() {
       router.push('/pages/nurse-dashboard');
       return;
     }
-    // TODO: other roles
+    if (role === 'doctor') {
+      router.push('/pages/doctor-dashboard');
+      return;
+    }
+    if (role === 'admin') {
+      router.push('/pages/admin-dashboard');
+      return;
+    }
+    // receptionist or other: stay on page or show message
     console.log('Employee ID:', employeeId, 'Password:', password, 'Role:', role);
   };
 
