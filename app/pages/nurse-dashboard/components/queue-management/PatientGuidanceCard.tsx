@@ -2,19 +2,31 @@
 
 import { useState } from "react";
 
+function PaperPlaneIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+    </svg>
+  );
+}
+
 export function PatientGuidanceCard() {
   const [destination, setDestination] = useState("");
   const [message, setMessage] = useState("");
-  const [vibration, setVibration] = useState(false);
+  const [vibration, setVibration] = useState(true);
   const [voice, setVoice] = useState(false);
-  const [display, setDisplay] = useState(false);
+  const [display, setDisplay] = useState(true);
 
   return (
     <div className="rounded-lg border border-[#e9ecef] bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-lg font-bold text-[#333333]">Patient Guidance & Status Update</h2>
-      <p className="mb-4 text-sm text-[#6C757D]">
-        Record vitals for: <span className="font-semibold text-[#333333]">Maria Santos (TRG-001)</span>
-      </p>
+      <div className="mb-4 flex items-center gap-2">
+        <PaperPlaneIcon className="h-5 w-5 text-[#007bff]" />
+        <h2 className="text-lg font-bold text-[#333333]">Patient Guidance & Status Update</h2>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[#333333]">
+        <span><span className="text-[#6C757D]">Patient:</span> <span className="font-medium">Maria Santos</span></span>
+        <span><span className="text-[#6C757D]">Gadget:</span> <span className="font-medium">GDG-001</span></span>
+      </div>
       <div className="mb-4">
         <label className="block text-sm font-medium text-[#333333]">Next Location / Step</label>
         <select
@@ -30,11 +42,11 @@ export function PatientGuidanceCard() {
         </select>
       </div>
       <div className="mb-4">
-        <label className="block text-sm font-medium text-[#333333]">Custom Message (optional)</label>
+        <label className="block text-sm font-medium text-[#333333]">Custom Message (Optional)</label>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="e.g. Please bring your lab results."
+          placeholder="e.g., Please bring your lab results."
           rows={2}
           className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
         />
@@ -67,8 +79,9 @@ export function PatientGuidanceCard() {
       </div>
       <button
         type="button"
-        className="w-full rounded-lg bg-[#e9ecef] py-3 font-medium text-[#333333] hover:bg-[#dee2e6]"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#007bff] py-3 font-medium text-white hover:bg-[#0069d9]"
       >
+        <PaperPlaneIcon className="h-5 w-5" />
         Send Guidance to Patient
       </button>
     </div>

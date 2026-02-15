@@ -4,13 +4,12 @@ import { useState } from "react";
 import { StaffSidebar } from "./components/layout/StaffSidebar";
 import { StaffHeader } from "./components/layout/StaffHeader";
 import { MetricCards } from "./components/dashboard/MetricCards";
-import { WalkInRegistration } from "./components/registration/WalkInRegistration";
-import { IoTGadgetAssignment } from "./components/registration/IoTGadgetAssignment";
-import { VitalSignsForm } from "./components/vitals-triage/VitalSignsForm";
-import { EmergencyEscalationPanel } from "./components/vitals-triage/EmergencyEscalationPanel";
-import { PatientQueueTable } from "./components/queue/PatientQueueTable";
-import { PatientGuidanceCard } from "./components/queue/PatientGuidanceCard";
-import { AlertsNotifications } from "./components/alerts/AlertsNotifications";
+import { WalkInRegistration } from "./components/dashboard/registration/WalkInRegistration";
+import { IoTGadgetAssignment } from "./components/dashboard/registration/IoTGadgetAssignment";
+import { VitalSignsForm } from "./components/dashboard/vitals-triage/VitalSignsForm";
+import { EmergencyEscalationPanel } from "./components/dashboard/vitals-triage/EmergencyEscalationPanel";
+import { QueueManagementContent } from "./components/queue-management/QueueManagementContent";
+import { AlertsNotifications } from "./components/dashboard/alerts/AlertsNotifications";
 import { AccessRestrictionsFooter } from "./components/AccessRestrictionsFooter";
 
 const TABS = [
@@ -24,11 +23,14 @@ export default function NurseDashboardPage() {
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["id"]>("registration");
 
   return (
-    <div className="flex min-h-screen bg-[#f8f9fa]">
-      <StaffSidebar />
-      <div className="flex flex-1 flex-col min-w-0">
+    <div className="flex h-screen min-h-0 overflow-hidden bg-[#f8f9fa]">
+      <StaffSidebar
+        activeTab={activeTab}
+        onTabChange={(tab) => setActiveTab(tab)}
+      />
+      <div className="flex min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
         <StaffHeader />
-        <main className="flex-1 overflow-auto p-4 sm:p-6">
+        <main className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
           <div className="w-full min-w-0 max-w-[1920px]">
             <h2 className="text-lg font-bold text-[#333333] sm:text-xl">Triage / Staff Nurse Dashboard</h2>
             <p className="mt-0.5 text-xs text-[#6C757D] sm:mt-1 sm:text-sm">
@@ -77,9 +79,8 @@ export default function NurseDashboardPage() {
             )}
 
             {activeTab === "queue" && (
-              <div className="mt-4 space-y-4 sm:mt-6 sm:space-y-6">
-                <PatientQueueTable />
-                <PatientGuidanceCard />
+              <div className="mt-4 sm:mt-6">
+                <QueueManagementContent />
               </div>
             )}
 

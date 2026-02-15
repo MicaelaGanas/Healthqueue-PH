@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 
-const navItems = [
-  { href: "/pages/nurse-dashboard", label: "Dashboard", icon: "grid" },
-  { href: "#queue", label: "Queue Management", icon: "people" },
+const navItems: { href: string; label: string; icon: string; tabId?: string }[] = [
+  { href: "/pages/nurse-dashboard", label: "Dashboard", icon: "grid", tabId: "registration" },
+  { href: "#queue", label: "Queue Management", icon: "people", tabId: "queue" },
   { href: "#appointments", label: "Appointments", icon: "calendar" },
   { href: "#beds", label: "Bed Allocation", icon: "bed" },
   { href: "#emergency", label: "Emergency", icon: "alert" },
@@ -89,7 +89,14 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   gear: GearIcon,
 };
 
-export function StaffSidebar() {
+type TabId = "registration" | "vitals" | "queue" | "alerts";
+
+type StaffSidebarProps = {
+  activeTab?: string;
+  onTabChange?: (tab: TabId) => void;
+};
+
+export function StaffSidebar({ activeTab, onTabChange }: StaffSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -120,14 +127,30 @@ export function StaffSidebar() {
       <nav className={`flex-1 space-y-1 ${collapsed ? "flex flex-col items-center px-0 py-3" : "p-3"}`}>
         {navItems.map((item) => {
           const Icon = iconMap[item.icon] ?? GridIcon;
+          const isActive = item.tabId && activeTab === item.tabId;
+          const baseClass = `flex w-full min-w-0 items-center rounded-lg py-2.5 text-sm font-medium text-white/90 hover:bg-white/10 hover:text-white ${
+            collapsed ? "justify-center px-0" : "gap-3 px-3"
+          } ${isActive ? "bg-white/10 text-white" : ""}`;
+          if (item.tabId && onTabChange) {
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => onTabChange(item.tabId as TabId)}
+                title={collapsed ? item.label : undefined}
+                className={baseClass}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </button>
+            );
+          }
           return (
             <Link
               key={item.href}
               href={item.href}
               title={collapsed ? item.label : undefined}
-              className={`flex w-full min-w-0 items-center rounded-lg py-2.5 text-sm font-medium text-white/90 hover:bg-white/10 hover:text-white ${
-                collapsed ? "justify-center px-0" : "gap-3 px-3"
-              }`}
+              className={baseClass}
             >
               <Icon className="h-5 w-5 shrink-0" />
               {!collapsed && <span className="truncate">{item.label}</span>}
