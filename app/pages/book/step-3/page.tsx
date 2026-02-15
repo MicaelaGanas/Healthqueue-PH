@@ -80,7 +80,8 @@ export default function BookStep3Page() {
           </h2>
           <p className="mt-3 text-center text-[#333333]">
             Your schedule request has been sent to the doctor&apos;s office. Final confirmation will
-            be sent to your email or the office will call your phone.
+            be sent to your email or the office will call your phone. When you visit, give your
+            reference number or the same phone/email so we can link this request to your visit.
           </p>
 
           <ConfirmationDetails

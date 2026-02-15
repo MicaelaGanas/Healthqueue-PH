@@ -107,7 +107,8 @@ export default function BookStep2Page() {
           <h2 className="text-xl font-bold text-[#333333]">Your Information</h2>
           <p className="mt-2 text-sm text-[#6C757D]">
             This sends a schedule request to the doctor&apos;s office. Final confirmation of your
-            appointment will be sent to your email or the office will call your phone.
+            appointment will be sent to your email or the office will call your phone. Use the same
+            phone and email when you visit so we can match this request to your record.
           </p>
 
           <YourInformationForm
