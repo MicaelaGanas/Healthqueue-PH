@@ -1,8 +1,9 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { getBookedQueueFromStorage, removeBookedFromStorage } from "../../../lib/queueBookedStorage";
 import { getQueueRowsFromStorage, setQueueRowsInStorage } from "../../../lib/queueSyncStorage";
+import { createSupabaseBrowser } from "../../../lib/supabase/client";
 
 export type Priority = "normal" | "urgent";
 
@@ -48,8 +49,8 @@ export type OpenSlot = {
   offeredToTickets: string[];
 };
 
-/** Build initial queue from storage only (no seed data). Replace with API fetch when backend is ready. */
-function loadInitialQueue(): QueueRow[] {
+/** Fallback when Supabase is not configured or API fails: load from localStorage or booked queue. */
+function loadFallbackQueue(): QueueRow[] {
   const fromStorage = getQueueRowsFromStorage();
   if (fromStorage.length > 0) return fromStorage as QueueRow[];
   const booked = getBookedQueueFromStorage();
@@ -125,14 +126,71 @@ function nextOpenSlotId(): string {
 }
 
 export function NurseQueueProvider({ children }: { children: React.ReactNode }) {
-  const [queueRows, setQueueRows] = useState<QueueRow[]>(loadInitialQueue);
+  const [queueRows, setQueueRows] = useState<QueueRow[]>([]);
   const [pendingWalkIns, setPendingWalkIns] = useState<PendingWalkIn[]>([]);
   const [scheduledWalkIns, setScheduledWalkIns] = useState<{ id: string; time: string; patientName: string }[]>([]);
   const [openSlots, setOpenSlots] = useState<OpenSlot[]>([]);
   const [confirmedForTriage, setConfirmedForTriage] = useState<string[]>([]);
+  const skipNextSyncToApiRef = useRef(false);
 
+  // Fetch queue from Supabase on mount (nurse dashboard is behind AuthGuard, so session exists).
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createSupabaseBrowser();
+    (async () => {
+      if (!supabase) {
+        setQueueRows(loadFallbackQueue());
+        return;
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (!session?.access_token) {
+        setQueueRows(loadFallbackQueue());
+        return;
+      }
+      const res = await fetch("/api/queue-rows", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (cancelled) return;
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          skipNextSyncToApiRef.current = true;
+          setQueueRows(data as QueueRow[]);
+        } else {
+          setQueueRows(loadFallbackQueue());
+        }
+      } else {
+        setQueueRows(loadFallbackQueue());
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Sync queue to localStorage and to Supabase when queue changes (skip right after we hydrated from API).
   useEffect(() => {
     setQueueRowsInStorage(queueRows);
+    if (skipNextSyncToApiRef.current) {
+      skipNextSyncToApiRef.current = false;
+      return;
+    }
+    if (queueRows.length === 0) return;
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+    let cancelled = false;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled || !session?.access_token) return;
+      await fetch("/api/queue-rows", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(queueRows),
+      });
+    })();
+    return () => { cancelled = true; };
   }, [queueRows]);
 
   useEffect(() => {
