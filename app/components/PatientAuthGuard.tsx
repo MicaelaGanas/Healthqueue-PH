@@ -3,10 +3,9 @@
 import { useEffect, useState, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "../lib/supabase/client";
-import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 
-interface PatientProfile {
+export interface PatientProfile {
   id: string;
   email: string;
   first_name: string;
@@ -130,7 +129,6 @@ export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
   if (status === "loading" || status === "denied") {
     return (
       <div className="min-h-screen bg-[#f8f9fa] flex flex-col">
-        <Navbar />
         <div className="min-h-screen flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="relative">

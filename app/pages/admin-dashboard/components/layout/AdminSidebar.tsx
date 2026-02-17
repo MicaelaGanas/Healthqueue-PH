@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 
 const navItems: { href: string; label: string; icon: string; tabId?: string }[] = [
   { href: "#users", label: "Users", icon: "people", tabId: "users" },
@@ -77,13 +79,47 @@ type AdminSidebarProps = {
 
 export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Small delay to ensure logout completes
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Redirect to landing page after logout
+      router.push("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
-    <aside
-      className={`flex shrink-0 flex-col overflow-hidden bg-[#1e3a5f] text-white transition-[width] duration-200 ${
-        collapsed ? "w-[4.5rem]" : "w-56"
-      }`}
-    >
+    <>
+      {isLoggingOut && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/90 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <div className="w-12 h-12 border-4 border-[#1e3a5f] border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <p className="text-[#333333] font-medium">Logging out...</p>
+          </div>
+        </div>
+      )}
+      <aside
+        className={`flex shrink-0 flex-col overflow-hidden bg-[#1e3a5f] text-white transition-[width] duration-200 ${
+          collapsed ? "w-[4.5rem]" : "w-56"
+        }`}
+      >
       <div
         className={`flex h-14 items-center border-b border-white/10 ${
           collapsed ? "justify-center px-0" : "justify-between px-3"
@@ -138,17 +174,20 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
         })}
       </nav>
       <div className={`border-t border-white/10 ${collapsed ? "flex flex-col items-center px-0 py-3" : "p-3"}`}>
-        <Link
-          href="/"
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
           title={collapsed ? "Logout" : undefined}
-          className={`flex w-full min-w-0 items-center rounded-lg py-2.5 text-sm font-medium text-white/90 hover:bg-white/10 hover:text-white ${
+          className={`flex w-full min-w-0 items-center rounded-lg py-2.5 text-sm font-medium text-white/90 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed ${
             collapsed ? "justify-center px-0" : "gap-3 px-3"
           }`}
         >
           <LogoutIcon className="h-5 w-5 shrink-0" />
           {!collapsed && <span className="truncate">Logout</span>}
-        </Link>
+        </button>
       </div>
     </aside>
+    </>
   );
 }

@@ -41,7 +41,13 @@ create table if not exists public.admin_users (
 );
 
 create index if not exists idx_admin_users_email on public.admin_users (email);
-create index if not exists idx_admin_users_employee_id on public.admin_users (employee_id);
+create unique index if not exists idx_admin_users_employee_id_unique on public.admin_users (employee_id);
+
+-- Add unique constraint to ensure each employee has a unique ID
+alter table public.admin_users
+  add constraint if not exists unique_employee_id unique (employee_id);
+
+comment on constraint unique_employee_id on public.admin_users is 'Ensures each employee has a unique employee ID';
 
 -- Patient users (sign-up from patient portal, linked to Supabase Auth)
 create table if not exists public.patient_users (

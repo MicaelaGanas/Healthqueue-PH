@@ -6,14 +6,7 @@ import { useRouter } from "next/navigation";
 import { Logo } from "./Logo";
 import {LoginModal} from "./LoginModal";
 import { createSupabaseBrowser } from "../lib/supabase/client";
-import { usePatientProfileFromGuard } from "./PatientAuthGuard";
-
-interface PatientProfile {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-}
+import { usePatientProfileFromGuard, type PatientProfile } from "./PatientAuthGuard";
 
 const PROFILE_CACHE_KEY = "patient_profile_cache";
 const USER_TYPE_CACHE_KEY = "user_type_cache"; // Cache to avoid repeated staff checks
