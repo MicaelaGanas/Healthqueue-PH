@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Navbar } from "../../components/Navbar";
 import { Footer } from "../../components/Footer";
+import { PatientAuthGuard } from "../../components/PatientAuthGuard";
 import { QueueStatus } from "./components/QueueStatus";
 import { Appointment } from "./components/Appointment";
 import { Notification } from "./components/Notification";
@@ -12,7 +13,7 @@ export default function PatientDashboardPage() {
   const [activeTab, setActiveTab] = useState<"queue" | "appointment" | "notification">("queue");
 
   return (
-    <>
+    <PatientAuthGuard>
       <Navbar />
       <div className="min-h-[80vh] bg-gray-100 relative overflow-hidden">
         <div className="max-w-7xl mx-auto relative">
@@ -87,6 +88,6 @@ export default function PatientDashboardPage() {
         </div>
       </div>
       <Footer />
-    </>
+    </PatientAuthGuard>
   );
 }

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "../lib/supabase/client";
+import { Navbar } from "./Navbar";
+import { Footer } from "./Footer";
 
 type Role = "admin" | "nurse" | "doctor" | "receptionist";
 
@@ -29,8 +31,12 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
       const { data: { session } } = await supabase.auth.getSession();
       if (cancelled) return;
       if (!session?.access_token) {
-        router.replace("/pages/employee-login");
         setStatus("denied");
+        setTimeout(() => {
+          if (!cancelled) {
+            router.replace("/pages/employee-login");
+          }
+        }, 500);
         return;
       }
       const res = await fetch("/api/auth/me", {
@@ -38,15 +44,23 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
       });
       if (cancelled) return;
       if (!res.ok) {
-        router.replace("/pages/employee-login");
         setStatus("denied");
+        setTimeout(() => {
+          if (!cancelled) {
+            router.replace("/pages/employee-login");
+          }
+        }, 500);
         return;
       }
       const body = await res.json().catch(() => ({}));
       const role = body.role as Role | undefined;
       if (!role || !roles.includes(role)) {
-        router.replace("/pages/employee-login");
         setStatus("denied");
+        setTimeout(() => {
+          if (!cancelled) {
+            router.replace("/pages/employee-login");
+          }
+        }, 500);
         return;
       }
       setStatus("allowed");
@@ -54,13 +68,21 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
     return () => { cancelled = true; };
   }, [supabase, router, rolesKey]);
 
-  if (status === "loading") {
+  if (status === "loading" || status === "denied") {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <p className="text-[#6C757D]">Checking access…</p>
+      <div className="min-h-screen bg-[#f8f9fa] flex flex-col">
+        <Navbar />
+        <div className="min-h-screen flex flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <div className="w-12 h-12 border-4 border-[#007bff] border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <p className="text-[#6C757D]">Loading…</p>
+          </div>
+        </div>
+        <Footer />
       </div>
     );
   }
-  if (status === "denied") return null;
   return <>{children}</>;
 }
