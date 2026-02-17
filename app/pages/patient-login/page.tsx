@@ -188,6 +188,12 @@ export default function PatientLoginPage() {
                 >
                     Login
                 </button>
+                <p className="text-center text-sm text-gray-500 mt-4">
+                    Don&apos;t have an account?{' '}
+                    <Link href="/pages/patient-signup" className="text-blue-600 hover:underline">
+                        Sign up
+                    </Link>
+                </p>
                 </div>
             )}
             </div>

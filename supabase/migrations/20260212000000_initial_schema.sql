@@ -43,6 +43,20 @@ create table if not exists public.admin_users (
 create index if not exists idx_admin_users_email on public.admin_users (email);
 create index if not exists idx_admin_users_employee_id on public.admin_users (employee_id);
 
+-- Patient users (sign-up from patient portal, linked to Supabase Auth)
+create table if not exists public.patient_users (
+  id uuid primary key references auth.users(id) on delete cascade,
+  first_name text not null,
+  last_name text not null,
+  date_of_birth date not null,
+  gender text not null,
+  number text not null,
+  address text not null,
+  email text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_patient_users_email on public.patient_users (email);
+
 -- Alerts (nurse dashboard)
 create table if not exists public.alerts (
   id uuid primary key default gen_random_uuid(),
@@ -59,6 +73,7 @@ create table if not exists public.alerts (
 alter table public.queue_rows enable row level security;
 alter table public.booked_queue enable row level security;
 alter table public.admin_users enable row level security;
+alter table public.patient_users enable row level security;
 alter table public.alerts enable row level security;
 
 -- Allow service role and anon to read/write (restrict later with real auth)
@@ -66,9 +81,11 @@ alter table public.alerts enable row level security;
 drop policy if exists "Allow all for queue_rows" on public.queue_rows;
 drop policy if exists "Allow all for booked_queue" on public.booked_queue;
 drop policy if exists "Allow all for admin_users" on public.admin_users;
+drop policy if exists "Allow all for patient_users" on public.patient_users;
 drop policy if exists "Allow all for alerts" on public.alerts;
 
 create policy "Allow all for queue_rows" on public.queue_rows for all using (true) with check (true);
 create policy "Allow all for booked_queue" on public.booked_queue for all using (true) with check (true);
 create policy "Allow all for admin_users" on public.admin_users for all using (true) with check (true);
+create policy "Allow all for patient_users" on public.patient_users for all using (true) with check (true);
 create policy "Allow all for alerts" on public.alerts for all using (true) with check (true);

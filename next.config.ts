@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/patient-login", destination: "/pages/patient-login", permanent: false },
       { source: "/patient-dashboard", destination: "/pages/patient-dashboard", permanent: false },
+      { source: "/patient-signup", destination: "/pages/patient-signup", permanent: false },
     ];
   },
 };
