@@ -45,3 +45,15 @@ export type DbAlert = {
   unread: boolean;
   created_at?: string;
 };
+
+export type DbPatientUser = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  date_of_birth: string;
+  gender: string;
+  number: string;
+  address: string;
+  email: string;
+  created_at: string;
+};
