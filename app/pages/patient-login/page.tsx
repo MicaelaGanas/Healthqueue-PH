@@ -5,15 +5,71 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '../../components/Navbar';
 import { Footer } from '../../components/Footer';
+import { createSupabaseBrowser } from '../../lib/supabase/client';
 
 export default function PatientLoginPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'gadget' | 'account'>('gadget');
   const [gadgetId, setGadgetId] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const supabase = createSupabaseBrowser();
 
   const handleAccessDashboard = () => {
     // For now: redirect to patient dashboard
     router.push('/pages/patient-dashboard');
+  };
+
+  const handleAccountLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) {
+      setError('Authentication is not configured. Please contact support.');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (signInError) {
+        setError(signInError.message || 'Login failed. Please check your credentials.');
+        setLoading(false);
+        return;
+      }
+
+      if (!data.session?.access_token) {
+        setError('No session created. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Verify patient profile exists
+      const res = await fetch('/api/patient-users', {
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || 'Could not load your profile. Please contact support.');
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      // Success - redirect to dashboard
+      router.push('/pages/patient-dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -151,19 +207,28 @@ export default function PatientLoginPage() {
 
             {/* Account Tab Content */}
             {activeTab === 'account' && (
-                <div className="space-y-6">
+                <form onSubmit={handleAccountLogin} className="space-y-6">
+                {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                        {error}
+                    </div>
+                )}
                 <div>
                     <label 
                     htmlFor="email" 
                     className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                    Phone number
+                    Email
                     </label>
                     <input
                     type="email"
                     id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    required
+                    disabled={loading}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                 </div>
 
@@ -177,16 +242,21 @@ export default function PatientLoginPage() {
                     <input
                     type="password"
                     id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    required
+                    disabled={loading}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                 </div>
 
                 <button
-                    onClick={handleAccessDashboard}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 rounded-lg transition-colors"
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 rounded-lg transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
                 >
-                    Login
+                    {loading ? 'Logging in...' : 'Login'}
                 </button>
                 <p className="text-center text-sm text-gray-500 mt-4">
                     Don&apos;t have an account?{' '}
@@ -194,7 +264,7 @@ export default function PatientLoginPage() {
                         Sign up
                     </Link>
                 </p>
-                </div>
+                </form>
             )}
             </div>
         </div>

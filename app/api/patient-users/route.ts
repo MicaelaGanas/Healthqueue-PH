@@ -4,6 +4,63 @@ import { getSupabaseServer } from "../../lib/supabase/server";
 import type { DbPatientUser } from "../../lib/supabase/types";
 
 /**
+ * GET /api/patient-users
+ * Returns the patient_users profile for the currently authenticated user.
+ * Requires: Authorization: Bearer <access_token> (Supabase session access_token).
+ * Returns: { id, email, first_name, last_name, date_of_birth, gender, number, address } or 401/404.
+ */
+export async function GET(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) {
+    return NextResponse.json({ error: "Missing or invalid Authorization header" }, { status: 401 });
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    return NextResponse.json({ error: "Auth not configured" }, { status: 503 });
+  }
+
+  const supabaseAuth = createClient(url, anonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+  if (userError || !user?.id || !user?.email) {
+    return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+  }
+
+  const supabase = getSupabaseServer();
+  if (!supabase) {
+    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  }
+
+  const { data: patient, error } = await supabase
+    .from("patient_users")
+    .select("id, email, first_name, last_name, date_of_birth, gender, number, address")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (!patient) {
+    return NextResponse.json({ error: "Patient profile not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    id: patient.id,
+    email: patient.email,
+    first_name: patient.first_name,
+    last_name: patient.last_name,
+    date_of_birth: patient.date_of_birth,
+    gender: patient.gender,
+    number: patient.number,
+    address: patient.address,
+  });
+}
+
+/**
  * POST /api/patient-users
  * Creates a patient_users row for the currently signed-up user.
  * Requires: Authorization: Bearer <access_token> (Supabase session after signUp).

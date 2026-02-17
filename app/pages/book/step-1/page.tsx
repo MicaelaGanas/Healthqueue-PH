@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "../../../components/Navbar";
 import { Footer } from "../../../components/Footer";
+import { PatientAuthGuard } from "../../../components/PatientAuthGuard";
 import { BackToHome } from "../components/BackToHome";
 import { StepIndicator } from "../components/StepIndicator";
 import { SelectDateCard } from "./components/SelectDateCard";
@@ -44,8 +45,9 @@ export default function BookStep1Page() {
   const canContinue = selectedDate != null && selectedTime !== "";
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
-      <Navbar />
+    <PatientAuthGuard>
+      <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
+        <Navbar />
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <BackToHome />
@@ -87,7 +89,8 @@ export default function BookStep1Page() {
         </div>
       </main>
 
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </PatientAuthGuard>
   );
 }

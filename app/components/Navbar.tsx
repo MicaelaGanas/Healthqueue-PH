@@ -1,12 +1,263 @@
 "use client";
 
 import Link from "next/link";
-import {useState} from "react";
+import {useState, useEffect, useRef} from "react";
+import { useRouter } from "next/navigation";
 import { Logo } from "./Logo";
 import {LoginModal} from "./LoginModal";
+import { createSupabaseBrowser } from "../lib/supabase/client";
+import { usePatientProfileFromGuard } from "./PatientAuthGuard";
+
+interface PatientProfile {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
+const PROFILE_CACHE_KEY = "patient_profile_cache";
+const USER_TYPE_CACHE_KEY = "user_type_cache"; // Cache to avoid repeated staff checks
 
 export function Navbar() {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // Initialize from cache immediately to prevent login button flash
+  const [profile, setProfile] = useState<PatientProfile | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
+        return cached ? JSON.parse(cached) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState(true); // Start as loading to prevent flash
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Get profile from PatientAuthGuard context if available (instant - no API call!)
+  // Returns null if not inside PatientAuthGuard provider
+  const profileFromGuard = usePatientProfileFromGuard();
+
+  // Helper to update profile and cache
+  const updateProfile = (newProfile: PatientProfile | null) => {
+    setProfile(newProfile);
+    if (typeof window !== "undefined") {
+      if (newProfile) {
+        sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(newProfile));
+        sessionStorage.setItem(USER_TYPE_CACHE_KEY, "patient");
+      } else {
+        sessionStorage.removeItem(PROFILE_CACHE_KEY);
+      }
+    }
+  };
+
+  useEffect(() => {
+    // If we have profile from guard, use it immediately - no API call needed!
+    if (profileFromGuard) {
+      updateProfile(profileFromGuard);
+      setIsLoading(false);
+      return;
+    }
+
+    // Only fetch if not inside PatientAuthGuard (e.g., on landing page)
+    const supabase = createSupabaseBrowser();
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkAuth = async () => {
+      try {
+        // Quick session check first
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
+
+        if (!session?.access_token) {
+          updateProfile(null);
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.removeItem(USER_TYPE_CACHE_KEY);
+            } catch {
+              // Ignore cache errors
+            }
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        // Check cached user type first to avoid unnecessary API calls
+        let cachedUserType: "patient" | "staff" | null = null;
+        if (typeof window !== "undefined") {
+          try {
+            cachedUserType = sessionStorage.getItem(USER_TYPE_CACHE_KEY) as "patient" | "staff" | null;
+          } catch {
+            // Ignore cache errors
+          }
+        }
+
+        // If we have cached profile, use it immediately (no API calls needed!)
+        if (cachedUserType === "patient" && profile) {
+          setIsLoading(false);
+          return;
+        }
+
+        // If we know user is staff from cache, skip patient check (no 404!)
+        if (cachedUserType === "staff") {
+          updateProfile(null);
+          setIsLoading(false);
+          return;
+        }
+
+        // Check patient profile first (more common case, avoids 403 for patients)
+        const res = await fetch("/api/patient-users", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        
+        if (cancelled) {
+          setIsLoading(false);
+          return;
+        }
+
+        if (res.ok) {
+          // User is a patient - cache this info and update profile
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem(USER_TYPE_CACHE_KEY, "patient");
+            } catch {
+              // Ignore cache errors
+            }
+          }
+          const data = await res.json();
+          if (!cancelled) {
+            updateProfile({
+              id: data.id,
+              email: data.email,
+              first_name: data.first_name,
+              last_name: data.last_name,
+            });
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        // If not a patient, check if they're staff (only if not already cached as patient)
+        if (cachedUserType !== "patient") {
+          const staffRes = await fetch("/api/auth/me", {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          
+          if (cancelled) {
+            setIsLoading(false);
+            return;
+          }
+
+          // Cache user type for future page loads
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem(USER_TYPE_CACHE_KEY, staffRes.ok ? "staff" : "patient");
+            } catch {
+              // Ignore cache errors
+            }
+          }
+
+          // If user is staff/employee, they don't have patient profile
+          if (staffRes.ok) {
+            updateProfile(null);
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // If we get here, user is neither patient nor staff (or error occurred)
+        if (!cancelled) {
+          updateProfile(null);
+        }
+      } catch (error) {
+        // Silently handle errors - don't log expected 404s
+        if (!cancelled) {
+          updateProfile(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    // Run auth check in background without blocking UI
+    checkAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (!cancelled) {
+        if (event === "SIGNED_OUT") {
+          // Immediately clear profile and cache - no API calls needed
+          updateProfile(null);
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.removeItem(USER_TYPE_CACHE_KEY);
+            } catch {
+              // Ignore cache errors
+            }
+          }
+          setIsLoading(false);
+        } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          // Clear cache on sign in to re-check user type
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.removeItem(USER_TYPE_CACHE_KEY);
+            } catch {
+              // Ignore cache errors
+            }
+          }
+          // Only check auth on sign in or token refresh, not on every change
+          checkAuth();
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [profileFromGuard]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
+  const handleLogout = async () => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+
+    // Immediately clear profile and cache for instant UI feedback
+    updateProfile(null);
+    setIsDropdownOpen(false);
+    
+    // Sign out from Supabase (no API call needed - just clears local session)
+    await supabase.auth.signOut();
+    
+    // Redirect to landing page after logout
+    router.push("/");
+  };
 
   return (
     <>
@@ -27,12 +278,66 @@ export function Navbar() {
             </Link>
           </nav>
           <div className="absolute right-4 sm:right-6 flex items-center gap-3">
-            <button
-              onClick={()=> setIsModalOpen(true)}
-              className="rounded-lg border border-[#CCCCCC] bg-white px-4 py-2 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5]"
-            >
-              Login
-            </button>
+            {isLoading ? (
+              // Show profile placeholder while loading to prevent login button flash
+              profile ? (
+                <div className="flex items-center gap-2 px-2 py-1">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-semibold shadow-sm">
+                    {profile.first_name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-sm font-medium text-[#333333] hidden sm:inline">
+                    {profile.first_name} {profile.last_name}
+                  </span>
+                </div>
+              ) : (
+                // Show invisible placeholder to prevent layout shift
+                <div className="w-20 h-9" />
+              )
+            ) : profile ? (
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer"
+                >
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-semibold shadow-sm">
+                    {profile.first_name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-sm font-medium text-[#333333] hidden sm:inline">
+                    {profile.first_name} {profile.last_name}
+                  </span>
+                </button>
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-[#E9ECEF] py-1 z-50">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-[#333333] hover:bg-[#F5F5F5] transition-colors flex items-center gap-2"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={()=> setIsModalOpen(true)}
+                className="rounded-lg border border-[#CCCCCC] bg-white px-4 py-2 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5]"
+              >
+                Login
+              </button>
+            )}
           </div>
         </div>
       </header>
