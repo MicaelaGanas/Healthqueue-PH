@@ -2,11 +2,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-<<<<<<< Updated upstream
-=======
 import { toYYYYMMDD } from "../../../lib/schedule";
 import { Navbar } from "../../../components/Navbar";
->>>>>>> Stashed changes
 import { Footer } from "../../../components/Footer";
 import { PatientAuthGuard } from "../../../components/PatientAuthGuard";
 import { BackToHome } from "../components/BackToHome";

@@ -1,12 +1,9 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-<<<<<<< Updated upstream
-=======
 import { createSupabaseBrowser } from "../../../lib/supabase/client";
 import { parseTimeTo24 } from "../../../lib/queueBookedStorage";
 import { Navbar } from "../../../components/Navbar";
->>>>>>> Stashed changes
 import { Footer } from "../../../components/Footer";
 import { PatientAuthGuard } from "../../../components/PatientAuthGuard";
 import { BackToHome } from "../components/BackToHome";
