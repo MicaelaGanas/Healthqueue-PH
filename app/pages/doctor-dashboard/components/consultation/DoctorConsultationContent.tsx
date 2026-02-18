@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { getQueueRowsFromStorage, updateQueueRowStatusInStorage } from "../../../../lib/queueSyncStorage";
 import type { QueueRowSync } from "../../../../lib/queueSyncStorage";
 import { DOCTORS_BY_DEPARTMENT } from "../../../../lib/departments";
@@ -11,18 +12,68 @@ function loadQueue(): QueueRowSync[] {
   return getQueueRowsFromStorage();
 }
 
+/** Resolve staff name (and optional department) to full doctor string used in queue (e.g. "Dr. Ana Reyes - OB-GYN"). */
+function resolveDoctorFromStaff(name: string | null | undefined, department: string | null | undefined): string {
+  if (!name || typeof name !== "string") return "";
+  const n = name.trim();
+  if (!n) return "";
+  const candidates = department
+    ? (DOCTORS_BY_DEPARTMENT[department] ?? []).filter((d) => d.includes(n) || n.includes(d))
+    : ALL_DOCTORS.filter((d) => d.includes(n) || n.includes(d));
+  return candidates.length === 1 ? candidates[0] : candidates.find((d) => d.startsWith(n) || d.includes(` ${n} `)) ?? candidates[0] ?? "";
+}
+
 export function DoctorConsultationContent() {
   const [rows, setRows] = useState<QueueRowSync[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState("");
+  const [staffDoctor, setStaffDoctor] = useState<string | null>(null);
+  const [staffLoading, setStaffLoading] = useState(true);
 
   useEffect(() => {
     setRows(loadQueue());
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createSupabaseBrowser();
+    if (!supabase) {
+      setStaffLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled || !session?.access_token) {
+          setStaffLoading(false);
+          return;
+        }
+        const res = await fetch("/api/auth/me", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (cancelled || !res.ok) {
+          setStaffLoading(false);
+          return;
+        }
+        const body = await res.json().catch(() => ({}));
+        const name = body.name ?? null;
+        const department = body.department ?? null;
+        const resolved = resolveDoctorFromStaff(name, department);
+        if (resolved) {
+          setStaffDoctor(resolved);
+          setSelectedDoctor(resolved);
+        }
+      } finally {
+        if (!cancelled) setStaffLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const effectiveDoctor = selectedDoctor || staffDoctor || "";
   const myQueue = useMemo(() => {
-    if (!selectedDoctor) return [];
-    return rows.filter((r) => r.assignedDoctor === selectedDoctor);
-  }, [rows, selectedDoctor]);
+    if (!effectiveDoctor) return [];
+    return rows.filter((r) => r.assignedDoctor === effectiveDoctor);
+  }, [rows, effectiveDoctor]);
 
   const refresh = () => setRows(loadQueue());
 
@@ -42,37 +93,55 @@ export function DoctorConsultationContent() {
   const inProgress = myQueue.filter((r) => r.status.toLowerCase() === "in progress");
   const completed = myQueue.filter((r) => r.status.toLowerCase() === "completed");
 
+  const showDoctorSelector = !staffDoctor;
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-[#333333]">Consultation</h2>
         <p className="mt-0.5 text-sm text-[#6C757D]">
-          Select yourself to see your queue and manage consultations.
+          {showDoctorSelector
+            ? "Select yourself to see your queue and manage consultations."
+            : "You only see your assigned queue. Contact an administrator to change your assignment."}
         </p>
       </div>
 
-      <div className="rounded-lg border border-[#dee2e6] bg-white p-4 shadow-sm">
-        <label htmlFor="doctor-select" className="mb-2 block text-sm font-semibold text-[#333333]">
-          I am
-        </label>
-        <select
-          id="doctor-select"
-          value={selectedDoctor}
-          onChange={(e) => setSelectedDoctor(e.target.value)}
-          className="w-full max-w-md rounded-lg border border-[#dee2e6] bg-white px-3 py-2.5 text-[#333333] focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
-        >
-          <option value="">Select doctor...</option>
-          {ALL_DOCTORS.map((doc) => (
-            <option key={doc} value={doc}>
-              {doc}
-            </option>
-          ))}
-        </select>
-      </div>
+      {staffLoading ? (
+        <div className="rounded-lg border border-[#dee2e6] bg-[#f8f9fa] p-6 text-center text-[#6C757D]">
+          Loading your assignment…
+        </div>
+      ) : staffDoctor ? (
+        <div className="rounded-lg border border-[#dee2e6] bg-white p-4 shadow-sm">
+          <p className="text-sm font-medium text-[#333333]">
+            Your queue: <span className="text-[#1e3a5f]">{staffDoctor}</span>
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-[#dee2e6] bg-white p-4 shadow-sm">
+          <label htmlFor="doctor-select" className="mb-2 block text-sm font-semibold text-[#333333]">
+            I am
+          </label>
+          <select
+            id="doctor-select"
+            value={selectedDoctor}
+            onChange={(e) => setSelectedDoctor(e.target.value)}
+            className="w-full max-w-md rounded-lg border border-[#dee2e6] bg-white px-3 py-2.5 text-[#333333] focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
+          >
+            <option value="">Select doctor...</option>
+            {ALL_DOCTORS.map((doc) => (
+              <option key={doc} value={doc}>
+                {doc}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
-      {!selectedDoctor ? (
+      {!effectiveDoctor ? (
         <div className="rounded-lg border border-[#dee2e6] bg-[#f8f9fa] p-8 text-center text-[#6C757D]">
-          Select a doctor above to view your consultation queue.
+          {staffLoading
+            ? "Loading your assignment…"
+            : "Select a doctor above to view your consultation queue. If you have an assigned department, ask an administrator to set your name so you see only your queue."}
         </div>
       ) : myQueue.length === 0 ? (
         <div className="rounded-lg border border-[#dee2e6] bg-[#f8f9fa] p-8 text-center text-[#6C757D]">

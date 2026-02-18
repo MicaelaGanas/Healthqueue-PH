@@ -8,8 +8,6 @@ import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 const navItems: { href: string; label: string; icon: string; tabId?: string }[] = [
   { href: "/pages/nurse-dashboard", label: "Dashboard", icon: "grid", tabId: "registration" },
   { href: "#queue", label: "Queue Management", icon: "people", tabId: "queue" },
-  { href: "#laboratory", label: "Laboratory Admin", icon: "beaker", tabId: "laboratory" },
-  { href: "/pages/laboratory-dashboard", label: "Laboratory Dashboard", icon: "beaker" },
   { href: "#appointments", label: "Manage bookings", icon: "calendar", tabId: "appointments" },
   { href: "#settings", label: "Settings", icon: "gear", tabId: "settings" },
 ];
@@ -53,14 +51,6 @@ function GearIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function BeakerIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3h6m-3 0v5l4.5 7.5A2 2 0 0114.78 19H9.22a2 2 0 01-1.72-3.5L12 8V3z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.5 14h7" />
-    </svg>
-  );
-}
 function LogoutIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -86,13 +76,12 @@ function ChevronRightIcon({ className }: { className?: string }) {
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   grid: GridIcon,
   people: PeopleIcon,
-  beaker: BeakerIcon,
   calendar: CalendarIcon,
   alert: AlertIcon,
   gear: GearIcon,
 };
 
-type TabId = "registration" | "vitals" | "queue" | "laboratory" | "appointments" | "alerts" | "settings";
+type TabId = "registration" | "vitals" | "queue" | "appointments" | "alerts" | "settings";
 
 type StaffSidebarProps = {
   activeTab?: string;

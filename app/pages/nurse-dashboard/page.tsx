@@ -14,13 +14,11 @@ import { AccessRestrictionsFooter } from "./components/AccessRestrictionsFooter"
 import { AuthGuard } from "../../components/AuthGuard";
 import { NurseQueueProvider } from "./context/NurseQueueContext";
 import { SettingsContent } from "./components/settings/SettingsContent";
-import { LaboratoryAdminContent } from "../laboratory-dashboard/components/LaboratoryAdminContent";
 
 const TABS = [
   { id: "registration", label: "Registration" },
   { id: "vitals", label: "Vitals & Triage" },
   { id: "queue", label: "Queue Management" },
-  { id: "laboratory", label: "Laboratory Admin" },
   { id: "alerts", label: "Alerts" },
 ] as const;
 
@@ -104,12 +102,6 @@ export default function NurseDashboardPage() {
                 {activeTab === "queue" && (
                   <div className="mt-4 sm:mt-6">
                     <QueueManagementContent onAddWalkIn={() => setActiveTab("registration")} />
-                  </div>
-                )}
-
-                {activeTab === "laboratory" && (
-                  <div className="mt-4 sm:mt-6">
-                    <LaboratoryAdminContent role="nurse" />
                   </div>
                 )}
 

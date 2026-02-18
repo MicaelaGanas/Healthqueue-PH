@@ -33,6 +33,7 @@ export type DbAdminUser = {
   role: string;
   status: string;
   employee_id: string;
+  department: string | null;
   created_at: string;
 };
 
