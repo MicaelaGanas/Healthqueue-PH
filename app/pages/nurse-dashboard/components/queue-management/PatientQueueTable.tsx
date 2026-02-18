@@ -22,9 +22,19 @@ const STATUS_STYLES: Record<string, string> = {
   scheduled: "bg-slate-100 text-slate-700",
   waiting: "bg-gray-100 text-gray-700",
   called: "bg-amber-100 text-amber-800",
-  "in progress": "bg-blue-100 text-blue-800",
+  "in progress": "bg-emerald-100 text-emerald-800",
   completed: "bg-green-100 text-green-800",
   "no show": "bg-red-100 text-red-800",
+};
+
+/** User-friendly status labels. */
+const STATUS_LABELS: Record<string, string> = {
+  scheduled: "Scheduled",
+  waiting: "Waiting",
+  called: "Called",
+  "in progress": "In progress",
+  completed: "Completed",
+  "no show": "No show",
 };
 
 const SOURCE_STYLES: Record<string, string> = {
@@ -77,11 +87,12 @@ function getEstimatedWait(sortedRows: QueueRow[], ticket: string, department: st
   return mins > 0 ? `~${mins} min` : "—";
 }
 
-function Badge({ value, styles }: { value: string; styles: Record<string, string> }) {
-  const label = value.replace(/_/g, " ");
-  const cls = styles[value] ?? "bg-gray-100 text-gray-700";
+function Badge({ value, styles, labels }: { value: string; styles: Record<string, string>; labels?: Record<string, string> }) {
+  const key = value.toLowerCase();
+  const label = (labels && (labels[value] ?? labels[key])) ?? value.replace(/_/g, " ");
+  const cls = styles[value] ?? styles[key] ?? "bg-gray-100 text-gray-700";
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${cls}`}>
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
       {label}
     </span>
   );
@@ -112,6 +123,10 @@ type PatientQueueTableProps = {
   managedDepartment?: string;
   /** When set with managedDepartment, only show this doctor's queue (no other doctors' patients). */
   doctorOnDuty?: string;
+  /** Called when user chooses to send guidance to this patient. */
+  onSelectForGuidance?: (row: QueueRow) => void;
+  /** Ticket of the patient currently selected for guidance (highlight row). */
+  selectedForGuidanceTicket?: string | null;
 };
 
 type SlotStatus = "available" | "open" | "taken";
@@ -150,13 +165,13 @@ function getSlotStatusForTimes(
   return result;
 }
 
-export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: PatientQueueTableProps) {
+export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty, onSelectForGuidance, selectedForGuidanceTicket }: PatientQueueTableProps) {
   const { queueRows, setPatientStatus, setPatientSlot, openSlots } = useNurseQueue();
   const [notifiedTicket, setNotifiedTicket] = useState<string | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<{ ticket: string; patientName: string } | null>(null);
   const [summaryForTicket, setSummaryForTicket] = useState<string | null>(null);
 
-  const { sortedAndFiltered, suggestedNextTicket, waitTimeByTicket } = useMemo(() => {
+  const { sortedAndFiltered, currentWithDoctor, suggestedNextTicket, suggestedNextPatientName, waitTimeByTicket } = useMemo(() => {
     let scope = managedDepartment
       ? queueRows.filter((r) => r.department === managedDepartment)
       : queueRows;
@@ -184,8 +199,10 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
         )
       : byStatus;
 
-    const firstWaiting = filtered.find((r) => r.status === "waiting");
+    const currentWithDoctor = filtered.find((r) => r.status === "in progress") ?? null;
+    const firstWaiting = filtered.find((r) => r.status === "waiting" || r.status === "scheduled" || r.status === "called");
     const suggestedNextTicket = firstWaiting?.ticket ?? null;
+    const suggestedNextPatientName = firstWaiting?.patientName ?? null;
 
     const waitTimeByTicket: Record<string, string> = {};
     filtered.forEach((r) => {
@@ -196,7 +213,9 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
 
     return {
       sortedAndFiltered: filtered,
+      currentWithDoctor,
       suggestedNextTicket,
+      suggestedNextPatientName,
       waitTimeByTicket,
     };
   }, [queueRows, filters, managedDepartment, doctorOnDuty]);
@@ -253,7 +272,7 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
             </div>
             <p className="mb-1 text-sm font-medium text-[#333333]">For: {todayLabel}</p>
             <p className="mb-3 text-xs text-[#6C757D]">
-              Slots for this day. Available = free; Open = freed (no-show/cancel); Taken = another patient.
+              Slots for this day. Available = free; Taken = another patient.
             </p>
             <div className="grid max-h-72 grid-cols-3 gap-2 overflow-auto sm:grid-cols-4">
               {TIME_OPTIONS.map((t) => {
@@ -296,23 +315,51 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
       )}
       <h3 className="border-b border-[#e9ecef] px-4 py-3 text-base font-bold text-[#333333]">
         Patient Queue
-        <span className="ml-2 text-sm font-normal text-[#6C757D]">(sorted by priority: urgent then normal, then by appointment/add time)</span>
+        <span className="ml-2 text-sm font-normal text-[#6C757D]">(sorted by priority, then appointment/add time)</span>
       </h3>
+      <p className="border-b border-[#e9ecef] px-4 py-2 text-xs text-[#6C757D]">
+        Who is with the doctor now, who is next, and call the next patient when the doctor is ready.
+      </p>
+      <div className="border-b border-[#e9ecef]">
+        {currentWithDoctor && (
+          <div className="flex flex-wrap items-center gap-3 bg-emerald-50 px-4 py-3">
+            <span className="text-sm font-medium text-emerald-800">Currently with doctor:</span>
+            <span className="text-sm font-semibold text-[#333333]">{currentWithDoctor.patientName}</span>
+            <span className="text-sm text-[#6C757D]">({currentWithDoctor.ticket})</span>
+          </div>
+        )}
+        {suggestedNextTicket && (
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-sky-50/80 px-4 py-3">
+            <p className="text-sm text-[#333333]">
+              <span className="font-medium text-sky-800">Next in line:</span>{" "}
+              <span className="font-semibold">{suggestedNextPatientName}</span> ({suggestedNextTicket})
+            </p>
+            <button
+              type="button"
+              onClick={() => setPatientStatus(suggestedNextTicket, "in progress")}
+              className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
+            >
+              <PlayIcon className="h-5 w-5" />
+              Call next patient
+            </button>
+          </div>
+        )}
+        {!currentWithDoctor && !suggestedNextTicket && sortedAndFiltered.length > 0 && (
+          <div className="px-4 py-3 text-sm text-[#6C757D]">
+            No one with the doctor right now. Everyone in the list below is completed or no-show — no one waiting to be called. Confirm or add patients to the queue to call them in.
+          </div>
+        )}
+        {!currentWithDoctor && !suggestedNextTicket && sortedAndFiltered.length === 0 && (
+          <div className="px-4 py-3 text-sm text-[#6C757D]">
+            Queue is empty. Add or confirm patients to call them in.
+          </div>
+        )}
+      </div>
       <div className="max-h-[400px] overflow-auto">
-        <table className="w-full table-fixed text-sm">
-          <colgroup>
-            <col className="w-[72px]" />
-            <col className="w-[120px]" />
-            <col className="w-[110px]" />
-            <col className="w-[140px]" />
-            <col className="w-[80px]" />
-            <col className="w-[72px]" />
-            <col className="w-[88px]" />
-            <col className="w-[64px]" />
-            <col className="w-[220px]" />
-          </colgroup>
+        <table className="w-full min-w-[800px] text-sm">
           <thead className="sticky top-0 z-10 border-b border-[#e9ecef] bg-[#f8f9fa]">
             <tr>
+              <th className="px-2 py-2.5 text-center font-medium text-[#333333]" title="Position in queue">#</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Ticket</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Patient</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Department</th>
@@ -325,35 +372,53 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
             </tr>
           </thead>
           <tbody>
-            {sortedAndFiltered.map((r) => {
+            {sortedAndFiltered.map((r, index) => {
               const isSuggestedNext = r.ticket === suggestedNextTicket;
+              const isInProgress = r.status.toLowerCase() === "in progress";
+              const isSelectedForGuidance = selectedForGuidanceTicket != null && r.ticket === selectedForGuidanceTicket;
               const estWait = r.status === "waiting" ? (waitTimeByTicket[r.ticket] ?? "—") : (r.waitTime || "—");
               return (
                 <tr
                   key={r.ticket}
-                  className={`border-b border-[#e9ecef] last:border-b-0 hover:bg-[#f8f9fa] ${
-                    isSuggestedNext ? "bg-sky-50 ring-inset ring-1 ring-sky-200" : ""
-                  }`}
+                  className={`border-b border-[#e9ecef] last:border-b-0 ${
+                    isInProgress
+                      ? "border-l-4 border-l-emerald-500 bg-emerald-50/80 hover:bg-emerald-50"
+                      : isSuggestedNext
+                        ? "bg-sky-50 ring-inset ring-1 ring-sky-200 hover:bg-sky-100/80"
+                        : "hover:bg-[#f8f9fa]"
+                  } ${isSelectedForGuidance ? "ring-inset ring-1 ring-blue-300" : ""}`}
                 >
-                  <td className="align-middle px-3 py-2.5 font-medium text-[#333333]">
-                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <td className="align-middle px-2 py-2.5 text-center text-[#6C757D] tabular-nums">
+                    {index + 1}
+                  </td>
+                  <td className="align-middle min-w-0 overflow-hidden px-3 py-2.5 font-medium text-[#333333]" title={r.ticket}>
+                    <span className="inline-block max-w-full truncate align-middle">
                       {r.ticket}
                       {isSuggestedNext && (
-                        <span className="rounded bg-sky-600 px-1.5 py-0.5 text-xs font-medium text-white">Next</span>
+                        <span className="ml-1.5 inline rounded bg-sky-600 px-1.5 py-0.5 text-xs font-medium text-white">Next</span>
+                      )}
+                      {isInProgress && (
+                        <span className="ml-1.5 inline rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-medium text-white">In progress</span>
                       )}
                     </span>
                   </td>
-                  <td className="align-middle px-3 py-2.5 text-[#333333] truncate" title={r.patientName}>{r.patientName}</td>
-                  <td className="align-middle px-3 py-2.5 text-[#333333] truncate" title={r.department}>{r.department}</td>
-                  <td className="align-middle px-3 py-2.5 whitespace-nowrap text-[#333333]">{formatDateAndTime(r)}</td>
+                  <td className="align-middle min-w-0 overflow-hidden px-3 py-2.5 text-[#333333]" title={r.patientName}>
+                    <span className="block truncate">{r.patientName}</span>
+                  </td>
+                  <td className="align-middle px-3 py-2.5 text-[#333333]" title={r.department}>
+                    <span className="block truncate max-w-[120px]">{r.department}</span>
+                  </td>
+                  <td className="align-middle px-3 py-2.5 text-[#333333]">
+                    <span className="whitespace-nowrap" title={formatDateAndTime(r)}>{formatDateAndTime(r)}</span>
+                  </td>
                   <td className="align-middle px-3 py-2.5">
-                    <Badge value={r.source === "booked" ? "Reserved" : "Walk-in"} styles={{ Reserved: SOURCE_STYLES.booked, "Walk-in": SOURCE_STYLES["walk-in"] }} />
+                    <Badge value={r.source === "booked" ? "Reserved" : "Walk-in"} styles={{ Reserved: SOURCE_STYLES.booked, "Walk-in": SOURCE_STYLES["walk-in"] } as Record<string, string>} />
                   </td>
                   <td className="align-middle px-3 py-2.5">
                     <Badge value={r.priority} styles={PRIORITY_STYLES} />
                   </td>
                   <td className="align-middle px-3 py-2.5">
-                    <Badge value={r.status} styles={STATUS_STYLES} />
+                    <Badge value={r.status} styles={STATUS_STYLES} labels={STATUS_LABELS} />
                   </td>
                   <td className="align-middle px-3 py-2.5 whitespace-nowrap text-[#333333]">{estWait}</td>
                   <td className="align-middle px-3 py-2.5">
@@ -365,6 +430,14 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
                         title="View and download patient summary"
                       >
                         Summary
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSelectForGuidance?.(r)}
+                        className="inline-flex items-center gap-1 rounded border border-[#007bff] bg-blue-50 px-2 py-1 text-xs font-medium text-[#007bff] hover:bg-blue-100"
+                        title="Send guidance / next step to this patient"
+                      >
+                        Guide
                       </button>
                       {(r.status === "waiting" || r.status === "called") && (
                         <>
@@ -400,14 +473,6 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
                             title="Change this patient's slot time (reschedule)"
                           >
                             Reschedule
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPatientSlot(r.ticket, "23:59")}
-                            className="inline-flex items-center gap-1 rounded border border-[#dee2e6] bg-white px-2 py-1 text-xs font-medium text-[#333333] hover:bg-[#f8f9fa]"
-                            title="Move this patient to end of queue"
-                          >
-                            Move to end
                           </button>
                         </>
                       )}

@@ -105,6 +105,8 @@ type NurseQueueContextValue = {
   confirmBooking: (ticket: string) => void;
   /** Remove a ticket from confirmed-for-triage list (e.g. after vitals recorded). */
   clearConfirmedForTriage: (ticket: string) => void;
+  /** Refetch queue from server (e.g. after confirming a booking request). */
+  refetchQueue: () => Promise<void>;
 };
 
 const NurseQueueContext = createContext<NurseQueueContextValue | null>(null);
@@ -133,39 +135,37 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
   const [confirmedForTriage, setConfirmedForTriage] = useState<string[]>([]);
   const skipNextSyncToApiRef = useRef(false);
 
-  // Fetch queue from Supabase on mount (nurse dashboard is behind AuthGuard, so session exists).
-  useEffect(() => {
-    let cancelled = false;
+  const refetchQueue = useCallback(async () => {
     const supabase = createSupabaseBrowser();
-    (async () => {
-      if (!supabase) {
-        setQueueRows(loadFallbackQueue());
-        return;
-      }
-      const { data: { session } } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (!session?.access_token) {
-        setQueueRows(loadFallbackQueue());
-        return;
-      }
-      const res = await fetch("/api/queue-rows", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (cancelled) return;
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          skipNextSyncToApiRef.current = true;
-          setQueueRows(data as QueueRow[]);
-        } else {
-          setQueueRows(loadFallbackQueue());
-        }
+    if (!supabase) {
+      setQueueRows(loadFallbackQueue());
+      return;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setQueueRows(loadFallbackQueue());
+      return;
+    }
+    const res = await fetch("/api/queue-rows", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        skipNextSyncToApiRef.current = true;
+        setQueueRows(data as QueueRow[]);
       } else {
         setQueueRows(loadFallbackQueue());
       }
-    })();
-    return () => { cancelled = true; };
+    } else {
+      setQueueRows(loadFallbackQueue());
+    }
   }, []);
+
+  // Fetch queue from Supabase on mount (nurse dashboard is behind AuthGuard, so session exists).
+  useEffect(() => {
+    refetchQueue();
+  }, [refetchQueue]);
 
   // Sync queue to localStorage and to Supabase when queue changes (skip right after we hydrated from API).
   useEffect(() => {
@@ -281,25 +281,9 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const setPatientStatus = useCallback((ticket: string, status: string) => {
-    setQueueRows((prev) => {
-      const row = prev.find((r) => r.ticket === ticket);
-      if (!row) return prev;
-      const next = prev.map((r) => (r.ticket === ticket ? { ...r, status } : r));
-      if (status === "no show" && row.source === "booked" && row.appointmentTime) {
-        const slotTime = row.appointmentTime as string;
-        setOpenSlots((slots) => [
-          ...slots,
-          {
-            id: nextOpenSlotId(),
-            department: row.department,
-            appointmentTime: slotTime,
-            freedFromTicket: ticket,
-            offeredToTickets: [],
-          },
-        ]);
-      }
-      return next;
-    });
+    setQueueRows((prev) =>
+      prev.map((r) => (r.ticket === ticket ? { ...r, status } : r))
+    );
   }, []);
 
   const acceptSlotForPatient = useCallback((openSlotId: string, ticket: string) => {
@@ -400,6 +384,7 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
       confirmedForTriage,
       confirmBooking,
       clearConfirmedForTriage,
+      refetchQueue,
     }),
     [
       queueRows,
@@ -419,6 +404,7 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
       confirmedForTriage,
       confirmBooking,
       clearConfirmedForTriage,
+      refetchQueue,
     ]
   );
 
