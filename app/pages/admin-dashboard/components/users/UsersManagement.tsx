@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 
-export type UserRole = "admin" | "nurse" | "doctor" | "receptionist";
+export type UserRole = "admin" | "nurse" | "doctor" | "receptionist" | "laboratory";
 
 export type AdminUser = {
   id: string;
@@ -230,6 +230,7 @@ export function UsersManagement() {
     nurse: "Nurse",
     doctor: "Doctor",
     receptionist: "Receptionist",
+    laboratory: "Laboratory",
   };
 
   return (
@@ -397,6 +398,7 @@ export function UsersManagement() {
                   <option value="nurse">Nurse</option>
                   <option value="doctor">Doctor</option>
                   <option value="receptionist">Receptionist</option>
+                  <option value="laboratory">Laboratory</option>
                 </select>
               </div>
               {modalOpen === "add" && (
