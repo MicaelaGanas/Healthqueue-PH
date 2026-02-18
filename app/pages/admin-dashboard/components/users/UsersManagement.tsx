@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
+import { DEPARTMENTS } from "../../../../lib/departments";
 
-export type UserRole = "admin" | "nurse" | "doctor" | "receptionist";
+export type UserRole = "admin" | "nurse" | "doctor" | "receptionist" | "laboratory";
 
 export type AdminUser = {
   id: string;
@@ -12,6 +13,7 @@ export type AdminUser = {
   role: UserRole;
   status: "active" | "inactive";
   employeeId: string;
+  department: string | null;
   createdAt: string;
 };
 
@@ -22,7 +24,7 @@ export function UsersManagement() {
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState<false | "add" | "edit">(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", role: "nurse" as UserRole, employeeId: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", role: "nurse" as UserRole, employeeId: "", department: "", password: "" });
 
   const loadUsers = async () => {
     try {
@@ -63,14 +65,14 @@ export function UsersManagement() {
   }, []);
 
   const openAdd = () => {
-    setForm({ name: "", email: "", role: "nurse", employeeId: "", password: "" });
+    setForm({ name: "", email: "", role: "nurse", employeeId: "", department: "", password: "" });
     setEditingUser(null);
     setError(null);
     setModalOpen("add");
   };
 
   const openEdit = (u: AdminUser) => {
-    setForm({ name: u.name, email: u.email, role: u.role, employeeId: u.employeeId, password: "" });
+    setForm({ name: u.name, email: u.email, role: u.role, employeeId: u.employeeId, department: u.department ?? "", password: "" });
     setEditingUser(u);
     setError(null);
     setModalOpen("edit");
@@ -80,11 +82,18 @@ export function UsersManagement() {
     setModalOpen(false);
     setEditingUser(null);
     setError(null);
-    setForm({ name: "", email: "", role: "nurse", employeeId: "", password: "" });
+    setForm({ name: "", email: "", role: "nurse", employeeId: "", department: "", password: "" });
   };
+
+  const rolesWithDepartment: UserRole[] = ["nurse", "doctor", "receptionist"];
+  const showDepartment = rolesWithDepartment.includes(form.role);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (showDepartment && !form.department.trim()) {
+      setError("Please select the department this staff member belongs to.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -111,6 +120,7 @@ export function UsersManagement() {
             name: form.name,
             email: form.email,
             role: form.role,
+            department: showDepartment ? (form.department.trim() || null) : null,
             // employeeId is intentionally omitted - it cannot be changed
           }),
         });
@@ -136,6 +146,7 @@ export function UsersManagement() {
             email: form.email,
             role: form.role,
             employeeId: modalOpen === "add" ? undefined : form.employeeId,
+            department: showDepartment ? (form.department.trim() || null) : null,
             password: form.password,
             status: "active",
           }),
@@ -230,6 +241,7 @@ export function UsersManagement() {
     nurse: "Nurse",
     doctor: "Doctor",
     receptionist: "Receptionist",
+    laboratory: "Laboratory",
   };
 
   return (
@@ -265,6 +277,7 @@ export function UsersManagement() {
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Name</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Email</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Role</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Department they belong to</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Employee ID</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Status</th>
                 <th className="px-4 py-3 text-right text-xs font-medium uppercase text-[#6C757D] sm:px-6">Actions</th>
@@ -273,7 +286,7 @@ export function UsersManagement() {
             <tbody className="divide-y divide-[#dee2e6] bg-white">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-[#6C757D] sm:px-6">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-[#6C757D] sm:px-6">
                     No users found
                   </td>
                 </tr>
@@ -283,6 +296,7 @@ export function UsersManagement() {
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{u.name}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{u.email}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{roleLabel[u.role]}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{u.department ?? "—"}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{u.employeeId}</td>
                     <td className="whitespace-nowrap px-4 py-3 sm:px-6">
                       <span
@@ -397,8 +411,27 @@ export function UsersManagement() {
                   <option value="nurse">Nurse</option>
                   <option value="doctor">Doctor</option>
                   <option value="receptionist">Receptionist</option>
+                  <option value="laboratory">Laboratory</option>
                 </select>
               </div>
+              {showDepartment && (
+                <div>
+                  <label className="block text-sm font-medium text-[#333333]">Department they belong to</label>
+                  <select
+                    value={form.department}
+                    onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+                    className="mt-1 w-full rounded border border-[#dee2e6] px-3 py-2 text-sm bg-white"
+                    disabled={submitting}
+                    required
+                  >
+                    <option value="">Select department...</option>
+                    {DEPARTMENTS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-[#6C757D]">Set which department this staff member belongs to. Their queue view will be scoped to this department.</p>
+                </div>
+              )}
               {modalOpen === "add" && (
                 <div>
                   <label className="block text-sm font-medium text-[#333333]">Password</label>

@@ -1,7 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../supabase/server";
 
-export type StaffRole = "admin" | "nurse" | "doctor" | "receptionist";
+export type StaffRole = "admin" | "nurse" | "doctor" | "receptionist" | "laboratory";
+
+/** Display label for navbar/title by role */
+export const ROLE_LABELS: Record<StaffRole, string> = {
+  admin: "Administrator",
+  nurse: "Nurse",
+  doctor: "Doctor",
+  receptionist: "Receptionist",
+  laboratory: "Laboratory",
+};
 
 export type Staff = {
   id: string;
@@ -36,7 +45,7 @@ export async function getStaffFromRequest(request: Request): Promise<Staff | nul
   const { data: staff } = await supabase
     .from("admin_users")
     .select("id, name, email, role, status, employee_id")
-    .eq("email", user.email)
+    .ilike("email", user.email)
     .maybeSingle();
 
   if (!staff || staff.status !== "active") return null;
@@ -54,16 +63,20 @@ export function requireRoles(allowedRoles: StaffRole[]) {
   return async (request: Request): Promise<{ staff: Staff } | Response> => {
     const staff = await getStaffFromRequest(request);
     if (!staff) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: "Unauthorized. Sign in again or ensure your staff account is active and has access.",
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
     }
     if (!allowedRoles.includes(staff.role)) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: "Forbidden. Only administrators can perform this action.",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
     }
     return { staff };
   };

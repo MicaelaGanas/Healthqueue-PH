@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { QueueSummaryCards } from "./QueueSummaryCards";
 import { QueueFilters, type QueueFiltersState } from "./QueueFilters";
 import { DEPARTMENTS } from "./QueueFilters";
@@ -21,9 +22,45 @@ type QueueManagementContentProps = {
 };
 
 export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentProps) {
+  const [staffDepartment, setStaffDepartment] = useState<string | null>(null);
+  const [staffLoading, setStaffLoading] = useState(true);
   const [managedDepartment, setManagedDepartment] = useState<string>("");
   const [doctorOnDuty, setDoctorOnDuty] = useState<string>("");
   const [filters, setFilters] = useState<QueueFiltersState>(DEFAULT_FILTERS);
+
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createSupabaseBrowser();
+    if (!supabase) {
+      setStaffLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled || !session?.access_token) {
+          setStaffLoading(false);
+          return;
+        }
+        const res = await fetch("/api/auth/me", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (cancelled || !res.ok) {
+          setStaffLoading(false);
+          return;
+        }
+        const body = await res.json().catch(() => ({}));
+        if (body.department && typeof body.department === "string") {
+          setStaffDepartment(body.department.trim());
+          setManagedDepartment(body.department.trim());
+          setDoctorOnDuty("");
+        }
+      } finally {
+        if (!cancelled) setStaffLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const doctorsForSpecialty = useMemo(
     () => (managedDepartment ? (DOCTORS_BY_DEPARTMENT[managedDepartment] ?? []) : []),
@@ -34,6 +71,9 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
     setManagedDepartment(value);
     setDoctorOnDuty("");
   };
+
+  const showSelectors = !staffDepartment;
+  const canShowQueue = managedDepartment && (showSelectors ? doctorOnDuty : true);
 
   return (
     <div className="space-y-6">
@@ -56,65 +96,78 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
         </button>
       </div>
 
-      <div className="rounded-lg border-2 border-[#007bff]/30 bg-white p-4 shadow-sm">
-        <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
-          <div>
-            <label htmlFor="managed-dept" className="mb-2 block text-sm font-semibold text-[#333333]">
-              Which specialty are you managing?
-            </label>
-            <select
-              id="managed-dept"
-              value={managedDepartment}
-              onChange={(e) => handleSpecialtyChange(e.target.value)}
-              className="w-full rounded-lg border border-[#dee2e6] bg-white px-3 py-2.5 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
-            >
-              <option value="">Select specialty...</option>
-              {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="doctor-on-duty" className="mb-2 block text-sm font-semibold text-[#333333]">
-              Doctor on duty
-            </label>
-            <select
-              id="doctor-on-duty"
-              value={doctorOnDuty}
-              onChange={(e) => setDoctorOnDuty(e.target.value)}
-              disabled={!managedDepartment}
-              className="w-full rounded-lg border border-[#dee2e6] bg-white px-3 py-2.5 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff] disabled:bg-[#f8f9fa] disabled:text-[#6C757D]"
-            >
-              <option value="">
-                {managedDepartment
-                  ? doctorsForSpecialty.length
-                    ? "Select doctor on duty..."
-                    : "No doctors listed for this specialty"
-                  : "Select specialty first"}
-              </option>
-              {doctorsForSpecialty.map((doc) => (
-                <option key={doc} value={doc}>{doc}</option>
-              ))}
-            </select>
-          </div>
+      {staffLoading ? (
+        <div className="rounded-lg border border-[#dee2e6] bg-[#f8f9fa] p-6 text-center text-[#6C757D]">
+          Loading your assignment…
         </div>
-        <p className="mt-3 text-xs text-[#6C757D]">
-          The queue and wait times below are for this specialty. Set the doctor on duty so patients and staff know who is seeing this queue.
-        </p>
-        {managedDepartment && doctorOnDuty && (
-          <p className="mt-1.5 text-sm font-medium text-[#333333]">
-            Managing: <span className="text-[#007bff]">{managedDepartment}</span> — <span className="text-[#007bff]">{doctorOnDuty}</span>
+      ) : staffDepartment ? (
+        <div className="rounded-lg border-2 border-[#007bff]/30 bg-white p-4 shadow-sm">
+          <p className="text-sm font-medium text-[#333333]">
+            Your department: <span className="text-[#007bff]">{staffDepartment}</span>
           </p>
-        )}
-      </div>
-
-      {!managedDepartment ? (
-        <div className="rounded-lg border border-[#dee2e6] bg-[#f8f9fa] p-8 text-center text-[#6C757D]">
-          Select a specialty above to view and manage its queue.
+          <p className="mt-1 text-xs text-[#6C757D]">
+            You only see the queue for your assigned department. Contact an administrator to change your department.
+          </p>
         </div>
-      ) : !doctorOnDuty ? (
+      ) : (
+        <div className="rounded-lg border-2 border-[#007bff]/30 bg-white p-4 shadow-sm">
+          <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+            <div>
+              <label htmlFor="managed-dept" className="mb-2 block text-sm font-semibold text-[#333333]">
+                Which specialty are you managing?
+              </label>
+              <select
+                id="managed-dept"
+                value={managedDepartment}
+                onChange={(e) => handleSpecialtyChange(e.target.value)}
+                className="w-full rounded-lg border border-[#dee2e6] bg-white px-3 py-2.5 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
+              >
+                <option value="">Select specialty...</option>
+                {DEPARTMENTS.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="doctor-on-duty" className="mb-2 block text-sm font-semibold text-[#333333]">
+                Doctor on duty
+              </label>
+              <select
+                id="doctor-on-duty"
+                value={doctorOnDuty}
+                onChange={(e) => setDoctorOnDuty(e.target.value)}
+                disabled={!managedDepartment}
+                className="w-full rounded-lg border border-[#dee2e6] bg-white px-3 py-2.5 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff] disabled:bg-[#f8f9fa] disabled:text-[#6C757D]"
+              >
+                <option value="">
+                  {managedDepartment
+                    ? doctorsForSpecialty.length
+                      ? "Select doctor on duty..."
+                      : "No doctors listed for this specialty"
+                    : "Select specialty first"}
+                </option>
+                {doctorsForSpecialty.map((doc) => (
+                  <option key={doc} value={doc}>{doc}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-[#6C757D]">
+            The queue and wait times below are for this specialty. Set the doctor on duty so patients and staff know who is seeing this queue.
+          </p>
+          {managedDepartment && doctorOnDuty && (
+            <p className="mt-1.5 text-sm font-medium text-[#333333]">
+              Managing: <span className="text-[#007bff]">{managedDepartment}</span> — <span className="text-[#007bff]">{doctorOnDuty}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {!canShowQueue ? (
         <div className="rounded-lg border border-[#dee2e6] bg-[#f8f9fa] p-8 text-center text-[#6C757D]">
-          Select a doctor on duty above to view and manage this queue. The queue will show only that doctor&apos;s patients.
+          {!managedDepartment
+            ? "Select a specialty above to view and manage its queue."
+            : "Select a doctor on duty above to view and manage this queue. The queue will show only that doctor's patients."}
         </div>
       ) : (
         <>

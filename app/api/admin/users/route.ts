@@ -12,6 +12,7 @@ function toAppUser(r: DbAdminUser) {
     role: r.role,
     status: r.status,
     employeeId: r.employee_id,
+    department: r.department ?? null,
     createdAt: r.created_at,
   };
 }
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { name, email, role, employeeId, password, status } = body;
+  const { name, email, role, employeeId, password, status, department } = body;
 
   // Validate required fields (employeeId is now optional and will be auto-generated)
   if (!name || !email || !role || !password) {
@@ -209,6 +210,7 @@ export async function POST(request: Request) {
       role: role,
       status: status ?? "active",
       employee_id: finalEmployeeId,
+      department: department && String(department).trim() ? String(department).trim() : null,
     })
     .select()
     .single();

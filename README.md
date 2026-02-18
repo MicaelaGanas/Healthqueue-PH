@@ -23,8 +23,9 @@ The app supports both **booked** and **walk-in** flows; queue and bookings stay 
 |------|----------|
 | **Public** | Book appointment (step 1–3), queue status lookup by ticket/reference |
 | **Staff login** | Email/password (Supabase Auth), role-based redirect (nurse, doctor, admin) |
-| **Nurse dashboard** | Registration (walk-in + IoT gadget assignment), Vitals & Triage, Queue Management, Appointments, Alerts, Settings |
-| **Doctor dashboard** | Consultation queue (filter by doctor), Start consult / Complete |
+| **Nurse dashboard** | Registration (walk-in + IoT gadget assignment), Vitals & Triage, Queue Management, Laboratory Admin, Appointments, Alerts, Settings |
+| **Doctor dashboard** | Consultation queue (filter by doctor), Laboratory (review/release results), Start consult / Complete |
+| **Laboratory dashboard** | Dedicated lab view: Specimens (search, filter, status workflow), Settings; shared data with nurse/doctor lab tabs |
 | **Admin dashboard** | User management (CRUD, activate/deactivate), Reports (date range, export), Records (consultations + bookings), Settings |
 
 ---
@@ -81,7 +82,7 @@ app/
   api/              # Next.js API routes (queue, booked, admin users, auth, alerts)
   components/       # Shared (Navbar, Footer, AuthGuard, etc.)
   lib/              # Supabase client, storage helpers, API auth, types
-  pages/            # Routes: landing, book, queue, employee-login, nurse/doctor/admin dashboards
+  pages/            # Routes: landing, book, queue, employee-login, nurse/doctor/admin/laboratory dashboards
 supabase/
   migrations/       # SQL schema (tables, RLS policies, auth link)
 docs/

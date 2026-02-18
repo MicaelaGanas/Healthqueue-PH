@@ -28,6 +28,7 @@ export async function PATCH(
   if (body.email !== undefined) update.email = body.email;
   if (body.role !== undefined) update.role = body.role;
   if (body.status !== undefined) update.status = body.status;
+  if (body.department !== undefined) update.department = body.department && String(body.department).trim() ? String(body.department).trim() : null;
   // employeeId is intentionally ignored - it cannot be changed after creation
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ ok: true });

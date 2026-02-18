@@ -35,8 +35,8 @@ export async function GET(request: Request) {
 
   const { data: staff, error } = await supabase
     .from("admin_users")
-    .select("id, name, email, role, status, employee_id")
-    .eq("email", user.email)
+    .select("id, name, email, role, status, employee_id, department")
+    .ilike("email", user.email)
     .maybeSingle();
 
   if (error) {
@@ -52,5 +52,6 @@ export async function GET(request: Request) {
     name: staff.name,
     employeeId: staff.employee_id,
     id: staff.id,
+    department: staff.department ?? null,
   });
 }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "../lib/supabase/client";
 import { Footer } from "./Footer";
 
-type Role = "admin" | "nurse" | "doctor" | "receptionist";
+type Role = "admin" | "nurse" | "doctor" | "receptionist" | "laboratory";
 
 type AuthGuardProps = {
   children: React.ReactNode;
@@ -25,16 +25,13 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
       return;
     }
     let cancelled = false;
-    const roles = rolesKey.split(",");
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (cancelled) return;
       if (!session?.access_token) {
         setStatus("denied");
         setTimeout(() => {
-          if (!cancelled) {
-            router.replace("/pages/employee-login");
-          }
+          if (!cancelled) router.replace("/pages/employee-login");
         }, 500);
         return;
       }
@@ -45,20 +42,16 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
       if (!res.ok) {
         setStatus("denied");
         setTimeout(() => {
-          if (!cancelled) {
-            router.replace("/pages/employee-login");
-          }
+          if (!cancelled) router.replace("/pages/employee-login");
         }, 500);
         return;
       }
       const body = await res.json().catch(() => ({}));
       const role = body.role as Role | undefined;
-      if (!role || !roles.includes(role)) {
+      if (!role || !allowedRoles.includes(role)) {
         setStatus("denied");
         setTimeout(() => {
-          if (!cancelled) {
-            router.replace("/pages/employee-login");
-          }
+          if (!cancelled) router.replace("/pages/employee-login");
         }, 500);
         return;
       }
@@ -73,7 +66,7 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
         <div className="min-h-screen flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
-              <div className="w-12 h-12 border-4 border-[#007bff] border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-12 h-12 border-4 border-[#007bff] border-t-transparent rounded-full animate-spin" />
             </div>
             <p className="text-[#6C757D]">Loading…</p>
           </div>
