@@ -1,5 +1,4 @@
 import React from "react";
-import { Navbar } from "../../components/Navbar";
 import { Footer } from "../../components/Footer";
 import { BackToHome } from "./components/BackToHome";
 import { FindYourQueue } from "./components/FindYourQueue";
@@ -8,8 +7,6 @@ import { LiveQueueStatusSection } from "./components/LiveQueueStatusSection";
 export default function CheckQueueStatusPage() {
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
-      <Navbar />
-
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <BackToHome />
 
@@ -24,5 +21,6 @@ export default function CheckQueueStatusPage() {
 
       <Footer />
     </div>
+
   );
 }

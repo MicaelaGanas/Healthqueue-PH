@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { Navbar } from "../../../components/Navbar";
 import { Footer } from "../../../components/Footer";
 import { PatientAuthGuard } from "../../../components/PatientAuthGuard";
 import { BackToHome } from "../components/BackToHome";
@@ -93,8 +92,6 @@ export default function BookStep3Page() {
   return (
     <PatientAuthGuard>
       <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
-        <Navbar />
-
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <BackToHome />
 

@@ -14,19 +14,10 @@ const USER_TYPE_CACHE_KEY = "user_type_cache"; // Cache to avoid repeated staff 
 export function Navbar() {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // Initialize from cache immediately to prevent login button flash
-  const [profile, setProfile] = useState<PatientProfile | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
-        return cached ? JSON.parse(cached) : null;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
-  const [isLoading, setIsLoading] = useState(true); // Start as loading to prevent flash
+  // Always start as null so server and client match (avoids hydration mismatch).
+  // Cache is restored in useEffect so login/profile doesn't "pop in" after hydration.
+  const [profile, setProfile] = useState<PatientProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
@@ -53,6 +44,21 @@ export function Navbar() {
       updateProfile(profileFromGuard);
       setIsLoading(false);
       return;
+    }
+
+    // Restore from cache synchronously so login/profile shows on first client paint
+    // (avoids flash of empty placeholder then button appearing after async auth)
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached) as PatientProfile;
+          setProfile(parsed);
+          setIsLoading(false);
+        }
+      } catch {
+        // Ignore cache errors, fall through to session check
+      }
     }
 
     // Only fetch if not inside PatientAuthGuard (e.g., on landing page)
@@ -83,18 +89,22 @@ export function Navbar() {
           return;
         }
 
-        // Check cached user type first to avoid unnecessary API calls
+        // Check cached user type first to avoid unnecessary API calls on every page visit
         let cachedUserType: "patient" | "staff" | null = null;
+        let cachedProfile: PatientProfile | null = null;
         if (typeof window !== "undefined") {
           try {
             cachedUserType = sessionStorage.getItem(USER_TYPE_CACHE_KEY) as "patient" | "staff" | null;
+            const raw = sessionStorage.getItem(PROFILE_CACHE_KEY);
+            if (raw) cachedProfile = JSON.parse(raw) as PatientProfile;
           } catch {
             // Ignore cache errors
           }
         }
 
-        // If we have cached profile, use it immediately (no API calls needed!)
-        if (cachedUserType === "patient" && profile) {
+        // If we have valid session + cached patient profile, trust cache (no API calls)
+        if (cachedUserType === "patient" && cachedProfile) {
+          updateProfile(cachedProfile);
           setIsLoading(false);
           return;
         }
@@ -272,7 +282,8 @@ export function Navbar() {
           </nav>
           <div className="absolute right-4 sm:right-6 flex items-center gap-3">
             {isLoading ? (
-              // Show profile placeholder while loading to prevent login button flash
+              // While loading: show profile if we have it (e.g. from cache), otherwise show Login
+              // so the navbar never flashes empty (avoids "button disappears then appears")
               profile ? (
                 <div className="flex items-center gap-2 px-2 py-1">
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-semibold shadow-sm">
@@ -283,8 +294,12 @@ export function Navbar() {
                   </span>
                 </div>
               ) : (
-                // Show invisible placeholder to prevent layout shift
-                <div className="w-20 h-9" />
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="rounded-lg border border-[#CCCCCC] bg-white px-4 py-2 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5]"
+                >
+                  Login
+                </button>
               )
             ) : profile ? (
               <div className="relative" ref={dropdownRef}>

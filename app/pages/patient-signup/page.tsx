@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Navbar } from '../../components/Navbar';
 import { Footer } from '../../components/Footer';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
 
@@ -89,7 +88,6 @@ export default function PatientSignUpPage() {
 
   return (
     <>
-      <Navbar />
       <div className="min-h-[80vh] bg-gray-100 relative overflow-hidden">
         <div className="max-w-7xl mx-auto relative">
           <div className="pt-8 px-4 sm:px-6">

@@ -53,12 +53,12 @@ export function LoginModal({isOpen, onClose}: LoginModalProps) {
             </div>
             <p className="pt-2 font-small text-lg">Choose what user are you</p>
             <div className="grid grid-cols-2 gap-3 mt-3">
-                <Link href="/pages/patient-login">
+                <Link href="/pages/patient-login" onClick={onClose}>
                     <div className="bg-gray-50 p-2 rounded-md border border-gray-400 cursor-pointer hover:bg-white">
                         <p className="text-center text-md">Patient</p>
                     </div>
                 </Link>
-                <Link href="/pages/employee-login">
+                <Link href="/pages/employee-login" onClick={onClose}>
                     <div className="bg-gray-50 p-2 rounded-md border border-gray-400 cursor-pointer hover:bg-white ">
                         <p className="text-center text-md">Medical Staff</p>
                     </div>
