@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Navbar } from "../../components/Navbar";
 import { Footer } from "../../components/Footer";
 import { PatientAuthGuard } from "../../components/PatientAuthGuard";
 import { QueueStatus } from "./components/QueueStatus";
@@ -14,7 +13,6 @@ export default function PatientDashboardPage() {
 
   return (
     <PatientAuthGuard>
-      <Navbar />
       <div className="min-h-[80vh] bg-gray-100 relative overflow-hidden">
         <div className="max-w-7xl mx-auto relative">
           {/* Back to Home */}

@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import { Navbar } from "../../../components/Navbar";
 import { Footer } from "../../../components/Footer";
 import { BackToHome } from "../components/BackToHome";
 import { QueueInfoCards } from "../components/QueueInfoCards";
@@ -18,7 +17,6 @@ export default async function QueueResultPage({ searchParams }: Props) {
   if (!queueNumber) {
     return (
       <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
-        <Navbar />
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
           <BackToHome />
           <div className="mt-8 rounded-lg border border-[#dee2e6] bg-white p-8 text-center shadow-sm">
@@ -35,8 +33,6 @@ export default async function QueueResultPage({ searchParams }: Props) {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
-      <Navbar />
-
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <BackToHome />
 

@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Navbar } from '../../components/Navbar';
 import { Footer } from '../../components/Footer';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
 
@@ -74,7 +73,6 @@ export default function PatientLoginPage() {
 
   return (
     <>
-      <Navbar />
       <div className="min-h-[80vh] bg-gray-100 relative overflow-hidden">
         {/* Decorative diagonal lines */}
 

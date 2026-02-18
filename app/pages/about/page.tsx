@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Navbar } from "../../components/Navbar";
 import { Footer } from "../../components/Footer";
 
 export default function AboutPage() {
@@ -83,7 +82,6 @@ export default function AboutPage() {
 
   return (
     <>
-      <Navbar />
       <div className="bg-white">
         {/* Hero Section */}
         <div className="bg-gray-50 py-16 shadow-sm">
@@ -178,5 +176,3 @@ export default function AboutPage() {
     </>
   );
 }
-
-import React from "react";
