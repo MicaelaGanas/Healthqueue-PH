@@ -2,10 +2,13 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toYYYYMMDD } from "../../../lib/schedule";
+import { Navbar } from "../../../components/Navbar";
 import { Footer } from "../../../components/Footer";
 import { PatientAuthGuard } from "../../../components/PatientAuthGuard";
 import { BackToHome } from "../components/BackToHome";
 import { StepIndicator } from "../components/StepIndicator";
+import { BookingTypeCard, type BookingType, type RelationshipChoice } from "./components/BookingTypeCard";
 import { SelectDateCard } from "./components/SelectDateCard";
 import { PreferDoctorCard } from "./components/PreferDoctorCard";
 import { SelectDepartmentCard } from "./components/SelectDepartmentCard";
@@ -21,6 +24,8 @@ function formatDateForSummary(d: Date): string {
 
 export default function BookStep1Page() {
   const router = useRouter();
+  const [bookingType, setBookingType] = useState<BookingType>("self");
+  const [relationship, setRelationship] = useState<RelationshipChoice | "">("");
   const [department, setDepartment] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
@@ -28,20 +33,30 @@ export default function BookStep1Page() {
 
   const handleContinue = () => {
     if (!selectedDate || !selectedTime) return;
+    if (bookingType === "dependent" && !relationship) return;
     const dateStr = formatDateForSummary(selectedDate);
-    const payload = {
+    const requestedDate = toYYYYMMDD(selectedDate);
+    const payload: Record<string, string> = {
+      bookingType,
       department: department || "—",
       date: dateStr,
+      requestedDate: requestedDate ?? "",
       time: selectedTime,
       preferredDoctor: preferredDoctor || "—",
     };
+    if (bookingType === "dependent" && relationship) {
+      payload.relationship = relationship;
+    }
     if (typeof window !== "undefined") {
       sessionStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(payload));
     }
     router.push("/pages/book/step-2");
   };
 
-  const canContinue = selectedDate != null && selectedTime !== "";
+  const canContinue =
+    selectedDate != null &&
+    selectedTime !== "" &&
+    (bookingType !== "dependent" || !!relationship);
 
   return (
     <PatientAuthGuard>
@@ -54,7 +69,14 @@ export default function BookStep1Page() {
 
         <StepIndicator currentStep={1} />
 
-        <div className="mt-8 rounded-xl border border-[#e9ecef] bg-white p-6 shadow-sm sm:p-8">
+        <div className="mt-8 space-y-6">
+          <BookingTypeCard
+            value={bookingType}
+            onChange={setBookingType}
+            relationship={relationship}
+            onRelationshipChange={setRelationship}
+          />
+        <div className="rounded-xl border border-[#e9ecef] bg-white p-6 shadow-sm sm:p-8">
           <div className="flex flex-col gap-8 md:flex-row md:items-stretch md:gap-10">
             <div className="md:w-1/2 md:min-w-0">
               <SelectDateCard value={selectedDate} onChange={setSelectedDate} />
@@ -83,6 +105,7 @@ export default function BookStep1Page() {
               </button>
             </div>
           </div>
+        </div>
         </div>
       </main>
 

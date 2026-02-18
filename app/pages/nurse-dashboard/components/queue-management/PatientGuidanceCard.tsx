@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 
+export type GuidancePatient = {
+  patientName: string;
+  ticket: string;
+  gadgetId?: string | null;
+};
+
 function PaperPlaneIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -10,7 +16,11 @@ function PaperPlaneIcon({ className }: { className?: string }) {
   );
 }
 
-export function PatientGuidanceCard() {
+type PatientGuidanceCardProps = {
+  selectedPatient?: GuidancePatient | null;
+};
+
+export function PatientGuidanceCard({ selectedPatient = null }: PatientGuidanceCardProps) {
   const [destination, setDestination] = useState("");
   const [message, setMessage] = useState("");
   const [vibration, setVibration] = useState(true);
@@ -23,11 +33,18 @@ export function PatientGuidanceCard() {
         <PaperPlaneIcon className="h-5 w-5 text-[#007bff]" />
         <h2 className="text-lg font-bold text-[#333333]">Patient Guidance & Status Update</h2>
       </div>
-      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[#333333]">
-        <span><span className="text-[#6C757D]">Patient:</span> <span className="font-medium">Maria Santos</span></span>
-        <span><span className="text-[#6C757D]">Gadget:</span> <span className="font-medium">GDG-001</span></span>
-      </div>
-      <div className="mb-4">
+      {!selectedPatient ? (
+        <p className="text-sm text-[#6C757D]">
+          Select a patient from the queue above to send guidance.
+        </p>
+      ) : (
+        <>
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[#333333]">
+            <span><span className="text-[#6C757D]">Patient:</span> <span className="font-medium">{selectedPatient.patientName}</span></span>
+            <span><span className="text-[#6C757D]">Ticket:</span> <span className="font-medium">{selectedPatient.ticket}</span></span>
+            <span><span className="text-[#6C757D]">Gadget:</span> <span className="font-medium">{selectedPatient.gadgetId ?? "—"}</span></span>
+          </div>
+          <div className="mb-4">
         <label className="block text-sm font-medium text-[#333333]">Next Location / Step</label>
         <select
           value={destination}
@@ -77,13 +94,15 @@ export function PatientGuidanceCard() {
           </label>
         </div>
       </div>
-      <button
-        type="button"
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#007bff] py-3 font-medium text-white hover:bg-[#0069d9]"
-      >
-        <PaperPlaneIcon className="h-5 w-5" />
-        Send Guidance to Patient
-      </button>
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#007bff] py-3 font-medium text-white hover:bg-[#0069d9]"
+          >
+            <PaperPlaneIcon className="h-5 w-5" />
+            Send Guidance to Patient
+          </button>
+        </>
+      )}
     </div>
   );
 }

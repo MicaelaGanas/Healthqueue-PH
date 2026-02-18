@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { createSupabaseBrowser } from "../../../../../lib/supabase/client";
 import { useNurseQueue } from "../../../context/NurseQueueContext";
 
 const SEVERITY_OPTIONS = ["Select severity", "Mild", "Moderate", "Severe", "Critical"];
@@ -8,8 +9,8 @@ const SEVERITY_OPTIONS = ["Select severity", "Mild", "Moderate", "Severe", "Crit
 type QueuePatient = { ticket: string; patientName: string; department: string };
 type VitalsRecord = { ticket: string; patientName: string; department: string; recordedAt: string };
 
-function formatRecordedAt() {
-  const d = new Date();
+function formatRecordedAt(iso?: string) {
+  const d = iso ? new Date(iso) : new Date();
   return d.toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) +
     " " + d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 }
@@ -35,6 +36,9 @@ export function VitalSignsForm() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<string>("");
   const [vitalsCompleted, setVitalsCompleted] = useState<VitalsRecord[]>([]);
+  const [vitalsLoading, setVitalsLoading] = useState(true);
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
   const [heartRate, setHeartRate] = useState("72");
@@ -43,6 +47,54 @@ export function VitalSignsForm() {
   const [respRate, setRespRate] = useState("16");
   const [severity, setSeverity] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
+
+  const fetchRecordedVitals = useCallback(async () => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase) {
+      setVitalsLoading(false);
+      return;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setVitalsLoading(false);
+      return;
+    }
+    setVitalsLoading(true);
+    try {
+      const res = await fetch("/api/vitals", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : [];
+        const byTicket = new Map<string, { patientName: string; department: string; recordedAt: string }>();
+        list.forEach((v: { ticket: string; patientName: string; department: string; recordedAt: string }) => {
+          const existing = byTicket.get(v.ticket);
+          if (!existing || new Date(v.recordedAt) > new Date(existing.recordedAt)) {
+            byTicket.set(v.ticket, {
+              patientName: v.patientName,
+              department: v.department,
+              recordedAt: formatRecordedAt(v.recordedAt),
+            });
+          }
+        });
+        setVitalsCompleted(
+          Array.from(byTicket.entries()).map(([ticket, v]) => ({
+            ticket,
+            patientName: v.patientName,
+            department: v.department,
+            recordedAt: v.recordedAt,
+          }))
+        );
+      }
+    } finally {
+      setVitalsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRecordedVitals();
+  }, [fetchRecordedVitals]);
 
   const selectedPatient = queuePatients.find((p) => p.ticket === selectedTicket);
   const filteredPatients = queuePatients.filter((p) => matchPatient(searchQuery, p));
@@ -68,19 +120,58 @@ export function VitalSignsForm() {
     setSearchFocused(false);
   };
 
-  const handleSaveVitals = () => {
+  const handleSaveVitals = async () => {
     if (!selectedPatient) return;
-    if (severity === "Severe" || severity === "Critical") setPatientPriority(selectedTicket, "urgent");
-    setVitalsCompleted((prev) => [
-      ...prev,
-      { ...selectedPatient, recordedAt: formatRecordedAt() },
-    ]);
-    clearConfirmedForTriage(selectedTicket);
-    setSelectedTicket("");
-    setSearchQuery("");
-    setSystolic("");
-    setDiastolic("");
-    setSeverity("");
+    setSaveError("");
+    setSaving(true);
+    const supabase = createSupabaseBrowser();
+    if (!supabase) {
+      setSaveError("Not signed in.");
+      setSaving(false);
+      return;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setSaveError("Not signed in.");
+      setSaving(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/vitals", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          ticket: selectedPatient.ticket,
+          patientName: selectedPatient.patientName,
+          department: selectedPatient.department,
+          systolic: systolic.trim() || undefined,
+          diastolic: diastolic.trim() || undefined,
+          heartRate: heartRate.trim() || undefined,
+          temperature: temperature.trim() || undefined,
+          o2Sat: o2Sat.trim() || undefined,
+          respRate: respRate.trim() || undefined,
+          severity: severity && severity !== "Select severity" ? severity : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSaveError(data.error || "Failed to save vitals.");
+        return;
+      }
+      if (severity === "Severe" || severity === "Critical") setPatientPriority(selectedTicket, "urgent");
+      clearConfirmedForTriage(selectedTicket);
+      await fetchRecordedVitals();
+      setSelectedTicket("");
+      setSearchQuery("");
+      setSystolic("");
+      setDiastolic("");
+      setSeverity("");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -127,7 +218,8 @@ export function VitalSignsForm() {
           </svg>
           Patients checked for vitals
         </h3>
-        <p className="mb-4 text-sm text-[#6C757D]">Checked = vitals recorded this session. Unchecked = still need vitals.</p>
+        <p className="mb-4 text-sm text-[#6C757D]">Checked = vitals recorded (saved). Unchecked = still need vitals.</p>
+        {vitalsLoading && <p className="mb-2 text-xs text-[#6C757D]">Loading recorded vitals…</p>}
         <div className="grid gap-4 sm:grid-cols-2">
           {/* Unchecked — left */}
           <div>
@@ -339,13 +431,14 @@ export function VitalSignsForm() {
           </select>
         </div>
       </div>
+      {saveError && <p className="mt-4 text-sm text-[#dc3545]" role="alert">{saveError}</p>}
       <button
         type="button"
-        disabled={!selectedPatient}
-        onClick={handleSaveVitals}
+        disabled={!selectedPatient || saving}
+        onClick={() => handleSaveVitals()}
         className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-[#007bff] py-3 font-medium text-white hover:bg-[#0069d9] disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Save Vitals & Calculate Risk
+        {saving ? "Saving…" : "Save Vitals & Calculate Risk"}
       </button>
     </div>
     </div>

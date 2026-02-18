@@ -1,37 +1,79 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
-import { getQueueRowsFromStorage, updateQueueRowStatusInStorage } from "../../../../lib/queueSyncStorage";
+import { getQueueRowsFromStorage, setQueueRowsInStorage } from "../../../../lib/queueSyncStorage";
 import type { QueueRowSync } from "../../../../lib/queueSyncStorage";
 import { DOCTORS_BY_DEPARTMENT } from "../../../../lib/departments";
 
 const ALL_DOCTORS = Object.values(DOCTORS_BY_DEPARTMENT).flat();
-
-function loadQueue(): QueueRowSync[] {
-  return getQueueRowsFromStorage();
-}
 
 /** Resolve staff name (and optional department) to full doctor string used in queue (e.g. "Dr. Ana Reyes - OB-GYN"). */
 function resolveDoctorFromStaff(name: string | null | undefined, department: string | null | undefined): string {
   if (!name || typeof name !== "string") return "";
   const n = name.trim();
   if (!n) return "";
-  const candidates = department
-    ? (DOCTORS_BY_DEPARTMENT[department] ?? []).filter((d) => d.includes(n) || n.includes(d))
-    : ALL_DOCTORS.filter((d) => d.includes(n) || n.includes(d));
-  return candidates.length === 1 ? candidates[0] : candidates.find((d) => d.startsWith(n) || d.includes(` ${n} `)) ?? candidates[0] ?? "";
+  const pool = department
+    ? (DOCTORS_BY_DEPARTMENT[department] ?? [])
+    : ALL_DOCTORS;
+  let candidates = pool.filter((d) => d.includes(n) || n.includes(d));
+  if (candidates.length === 0 && n.length > 1) {
+    const words = n.replace(/\s+/g, " ").split(" ").filter(Boolean);
+    candidates = pool.filter((d) => words.every((w) => d.toLowerCase().includes(w.toLowerCase())));
+  }
+  const picked =
+    candidates.length === 1
+      ? candidates[0]
+      : candidates.find((d) => d.startsWith(n) || d.includes(` ${n} `)) ?? candidates[0] ?? "";
+  return picked;
+}
+
+/** Build doctor display string from name + department when not in hardcoded list (so we still hide "I am" and filter queue). */
+function syntheticDoctorString(name: string, department: string): string {
+  const n = name.replace(/^Dr\.\s*/i, "").trim();
+  return n ? `Dr. ${n} - ${department}` : "";
 }
 
 export function DoctorConsultationContent() {
   const [rows, setRows] = useState<QueueRowSync[]>([]);
-  const [selectedDoctor, setSelectedDoctor] = useState("");
+  const [queueLoading, setQueueLoading] = useState(true);
   const [staffDoctor, setStaffDoctor] = useState<string | null>(null);
+  const [staffDepartment, setStaffDepartment] = useState<string | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
 
-  useEffect(() => {
-    setRows(loadQueue());
+  const fetchQueue = useCallback(async () => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase) {
+      setRows(getQueueRowsFromStorage());
+      setQueueLoading(false);
+      return;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setRows(getQueueRowsFromStorage());
+      setQueueLoading(false);
+      return;
+    }
+    const res = await fetch("/api/queue-rows", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setRows(data as QueueRowSync[]);
+        setQueueRowsInStorage(data);
+      } else {
+        setRows(getQueueRowsFromStorage());
+      }
+    } else {
+      setRows(getQueueRowsFromStorage());
+    }
+    setQueueLoading(false);
   }, []);
+
+  useEffect(() => {
+    fetchQueue();
+  }, [fetchQueue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,11 +99,13 @@ export function DoctorConsultationContent() {
         const body = await res.json().catch(() => ({}));
         const name = body.name ?? null;
         const department = body.department ?? null;
+        const deptStr = department && typeof department === "string" ? department.trim() : null;
+        if (deptStr) setStaffDepartment(deptStr);
         const resolved = resolveDoctorFromStaff(name, department);
-        if (resolved) {
-          setStaffDoctor(resolved);
-          setSelectedDoctor(resolved);
-        }
+        const doctorToUse =
+          resolved ||
+          (name && deptStr ? syntheticDoctorString(String(name).trim(), deptStr) : "");
+        if (doctorToUse) setStaffDoctor(doctorToUse);
       } finally {
         if (!cancelled) setStaffLoading(false);
       }
@@ -69,40 +113,74 @@ export function DoctorConsultationContent() {
     return () => { cancelled = true; };
   }, []);
 
-  const effectiveDoctor = selectedDoctor || staffDoctor || "";
+  const effectiveDoctor = staffDoctor || "";
+  const departmentOnly = !effectiveDoctor && !!staffDepartment;
+  /** Only show patients who have been called in (or in progress / completed). Scheduled and waiting stay hidden until staff clicks "Call in". */
+  const VISIBLE_STATUSES = ["called", "in progress", "completed"];
   const myQueue = useMemo(() => {
-    if (!effectiveDoctor) return [];
-    return rows.filter((r) => r.assignedDoctor === effectiveDoctor);
-  }, [rows, effectiveDoctor]);
+    let scope = rows.filter((r) => VISIBLE_STATUSES.includes((r.status || "").toLowerCase()));
+    if (effectiveDoctor) {
+      scope = scope.filter((r) => {
+        if (r.assignedDoctor !== effectiveDoctor) return false;
+        if (staffDepartment) return (r.department || "").trim() === staffDepartment;
+        return true;
+      });
+    } else if (staffDepartment) {
+      scope = scope.filter((r) => (r.department || "").trim() === staffDepartment);
+    }
+    return scope;
+  }, [rows, effectiveDoctor, staffDepartment]);
 
-  const refresh = () => setRows(loadQueue());
+  const startConsult = useCallback(async (ticket: string) => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const res = await fetch("/api/queue-rows/status", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ ticket, status: "in progress" }),
+    });
+    if (res.ok) await fetchQueue();
+  }, [fetchQueue]);
 
-  const startConsult = (ticket: string) => {
-    updateQueueRowStatusInStorage(ticket, "in progress");
-    refresh();
+  const completeConsult = useCallback(async (ticket: string) => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const res = await fetch("/api/queue-rows/status", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ ticket, status: "completed" }),
+    });
+    if (res.ok) await fetchQueue();
+  }, [fetchQueue]);
+
+  const canStartConsult = (status: string) => {
+    const s = status.toLowerCase();
+    return s === "scheduled" || s === "waiting" || s === "called";
   };
-
-  const completeConsult = (ticket: string) => {
-    updateQueueRowStatusInStorage(ticket, "completed");
-    refresh();
-  };
-
-  const waitingOrCalled = myQueue.filter(
-    (r) => r.status.toLowerCase() === "waiting" || r.status.toLowerCase() === "called"
-  );
+  const waitingOrCalled = myQueue.filter((r) => canStartConsult(r.status));
   const inProgress = myQueue.filter((r) => r.status.toLowerCase() === "in progress");
   const completed = myQueue.filter((r) => r.status.toLowerCase() === "completed");
 
-  const showDoctorSelector = !staffDoctor;
+  type QueueFilter = "waiting" | "completed";
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>("waiting");
+  const filteredQueue = useMemo(() => {
+    if (queueFilter === "completed") return myQueue.filter((r) => r.status.toLowerCase() === "completed");
+    return myQueue.filter((r) => r.status.toLowerCase() !== "completed");
+  }, [myQueue, queueFilter]);
+
+  const canShowQueue = effectiveDoctor || departmentOnly;
+  const needsAdmin = !staffLoading && !staffDepartment && !staffDoctor;
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-[#333333]">Consultation</h2>
         <p className="mt-0.5 text-sm text-[#6C757D]">
-          {showDoctorSelector
-            ? "Select yourself to see your queue and manage consultations."
-            : "You only see your assigned queue. Contact an administrator to change your assignment."}
+          Consultations for your assigned department.
         </p>
       </div>
 
@@ -110,58 +188,87 @@ export function DoctorConsultationContent() {
         <div className="rounded-lg border border-[#dee2e6] bg-[#f8f9fa] p-6 text-center text-[#6C757D]">
           Loading your assignment…
         </div>
-      ) : staffDoctor ? (
-        <div className="rounded-lg border border-[#dee2e6] bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-[#333333]">
-            Your queue: <span className="text-[#1e3a5f]">{staffDoctor}</span>
+      ) : needsAdmin ? (
+        <div className="rounded-lg border border-[#dee2e6] bg-amber-50 p-4 text-amber-800">
+          <p className="text-sm font-medium">
+            Your account has no name or department set. Contact an administrator to set your name and department so we can show your consultation queue.
           </p>
         </div>
       ) : (
         <div className="rounded-lg border border-[#dee2e6] bg-white p-4 shadow-sm">
-          <label htmlFor="doctor-select" className="mb-2 block text-sm font-semibold text-[#333333]">
-            I am
-          </label>
-          <select
-            id="doctor-select"
-            value={selectedDoctor}
-            onChange={(e) => setSelectedDoctor(e.target.value)}
-            className="w-full max-w-md rounded-lg border border-[#dee2e6] bg-white px-3 py-2.5 text-[#333333] focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
-          >
-            <option value="">Select doctor...</option>
-            {ALL_DOCTORS.map((doc) => (
-              <option key={doc} value={doc}>
-                {doc}
-              </option>
-            ))}
-          </select>
+          <p className="text-sm font-medium text-[#333333]">
+            {effectiveDoctor ? (
+              <span className="text-[#1e3a5f]">{effectiveDoctor}</span>
+            ) : (
+              <>
+                <span className="text-[#1e3a5f]">{staffDepartment}</span>
+                <span className="text-[#6C757D]"> — Ask an administrator to set your name to filter by your profile.</span>
+              </>
+            )}
+          </p>
         </div>
       )}
 
-      {!effectiveDoctor ? (
+      {!canShowQueue ? (
         <div className="rounded-lg border border-[#dee2e6] bg-[#f8f9fa] p-8 text-center text-[#6C757D]">
-          {staffLoading
-            ? "Loading your assignment…"
-            : "Select a doctor above to view your consultation queue. If you have an assigned department, ask an administrator to set your name so you see only your queue."}
+          {staffLoading ? "Loading your assignment…" : "We need your name and department to show your queue. Contact an administrator."}
+        </div>
+      ) : queueLoading ? (
+        <div className="rounded-lg border border-[#dee2e6] bg-[#f8f9fa] p-8 text-center text-[#6C757D]">
+          Loading queue…
         </div>
       ) : myQueue.length === 0 ? (
         <div className="rounded-lg border border-[#dee2e6] bg-[#f8f9fa] p-8 text-center text-[#6C757D]">
-          No patients in your queue right now.
+          No patients sent to you yet. Staff will call in the next patient when you’re ready; they’ll appear here then.
         </div>
       ) : (
         <div className="rounded-lg border border-[#dee2e6] bg-white shadow-sm">
           <div className="border-b border-[#dee2e6] px-4 py-3 sm:px-6">
-            <div className="flex flex-wrap gap-4 text-sm">
-              <span className="font-medium text-[#333333]">
-                Waiting: <span className="text-[#1e3a5f]">{waitingOrCalled.length}</span>
-              </span>
-              <span className="font-medium text-[#333333]">
-                In progress: <span className="text-[#1e3a5f]">{inProgress.length}</span>
-              </span>
-              <span className="font-medium text-[#333333]">
-                Completed: <span className="text-[#1e3a5f]">{completed.length}</span>
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-4 text-sm">
+              <div className="flex flex-wrap items-center gap-4">
+                <span className="font-medium text-[#6C757D]">Show:</span>
+                <div className="flex rounded-lg border border-[#dee2e6] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setQueueFilter("waiting")}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+                      queueFilter === "waiting"
+                        ? "bg-[#1e3a5f] text-white"
+                        : "bg-transparent text-[#333333] hover:bg-[#f8f9fa]"
+                    }`}
+                  >
+                    Waiting ({waitingOrCalled.length + inProgress.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQueueFilter("completed")}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+                      queueFilter === "completed"
+                        ? "bg-[#1e3a5f] text-white"
+                        : "bg-transparent text-[#333333] hover:bg-[#f8f9fa]"
+                    }`}
+                  >
+                    Completed ({completed.length})
+                  </button>
+                </div>
+                <span className="text-[#6C757D]">
+                  {queueFilter === "waiting" ? "Waiting" : "Completed"}: <span className="font-medium text-[#333333]">{filteredQueue.length}</span>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setQueueLoading(true); fetchQueue(); }}
+                className="rounded border border-[#dee2e6] bg-white px-3 py-1.5 text-xs font-medium text-[#333333] hover:bg-[#f8f9fa]"
+              >
+                Refresh queue
+              </button>
             </div>
           </div>
+          {filteredQueue.length === 0 ? (
+            <div className="p-8 text-center text-sm text-[#6C757D]">
+              {queueFilter === "completed" ? "No completed consultations yet." : "No patients waiting."}
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-[#dee2e6]">
               <thead className="bg-[#f8f9fa]">
@@ -175,7 +282,7 @@ export function DoctorConsultationContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#dee2e6] bg-white">
-                {myQueue.map((r) => (
+                {filteredQueue.map((r) => (
                   <tr key={r.ticket} className="hover:bg-[#f8f9fa]">
                     <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-[#333333] sm:px-6">
                       {r.ticket}
@@ -199,7 +306,7 @@ export function DoctorConsultationContent() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right text-sm sm:px-6">
-                      {(r.status.toLowerCase() === "waiting" || r.status.toLowerCase() === "called") && (
+                      {canStartConsult(r.status) && (
                         <button
                           type="button"
                           onClick={() => startConsult(r.ticket)}
@@ -223,6 +330,7 @@ export function DoctorConsultationContent() {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       )}
     </div>

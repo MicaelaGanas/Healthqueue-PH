@@ -1,10 +1,32 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { useNurseQueue } from "../../context/NurseQueueContext";
 
-export function AppointmentsSummaryCards() {
+type AppointmentsSummaryCardsProps = {
+  pendingRefreshKey?: number;
+};
+
+export function AppointmentsSummaryCards({ pendingRefreshKey = 0 }: AppointmentsSummaryCardsProps) {
   const { queueRows } = useNurseQueue();
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch("/api/booking-requests?status=pending", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingCount(Array.isArray(data) ? data.length : 0);
+      }
+    })();
+  }, [pendingRefreshKey]);
 
   const stats = useMemo(() => {
     const booked = queueRows.filter((r) => r.source === "booked");
@@ -26,7 +48,18 @@ export function AppointmentsSummaryCards() {
   }, [queueRows]);
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+      <div className="flex items-center gap-4 rounded-lg border border-[#e9ecef] bg-white p-4 shadow-sm">
+        <div className="text-amber-600">
+          <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <p className="text-2xl font-bold text-[#333333]">{pendingCount !== null ? String(pendingCount) : "—"}</p>
+          <p className="text-sm text-[#6C757D]">Pending requests</p>
+        </div>
+      </div>
       <div className="flex items-center gap-4 rounded-lg border border-[#e9ecef] bg-white p-4 shadow-sm">
         <div className="text-[#007bff]">
           <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">

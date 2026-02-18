@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { QueueSummaryCards } from "./QueueSummaryCards";
 import { QueueFilters, type QueueFiltersState } from "./QueueFilters";
 import { DEPARTMENTS } from "./QueueFilters";
 import { DOCTORS_BY_DEPARTMENT } from "../../../../lib/departments";
 import { PatientQueueTable } from "./PatientQueueTable";
-import { OpenSlotsPanel } from "./OpenSlotsPanel";
-import { PatientGuidanceCard } from "./PatientGuidanceCard";
+import { PatientGuidanceCard, type GuidancePatient } from "./PatientGuidanceCard";
 import { AlertsNotifications } from "../dashboard/alerts/AlertsNotifications";
+import { useNurseQueue } from "../../context/NurseQueueContext";
 
 const DEFAULT_FILTERS: QueueFiltersState = {
   search: "",
@@ -21,12 +21,18 @@ type QueueManagementContentProps = {
   onAddWalkIn?: () => void;
 };
 
+const POLL_INTERVAL_MS = 20000;
+
 export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentProps) {
+  const { queueRows, refetchQueue } = useNurseQueue();
   const [staffDepartment, setStaffDepartment] = useState<string | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
   const [managedDepartment, setManagedDepartment] = useState<string>("");
   const [doctorOnDuty, setDoctorOnDuty] = useState<string>("");
   const [filters, setFilters] = useState<QueueFiltersState>(DEFAULT_FILTERS);
+  const [guidancePatient, setGuidancePatient] = useState<GuidancePatient | null>(null);
+  const [completionNotification, setCompletionNotification] = useState<{ patientName: string; ticket: string } | null>(null);
+  const previousQueueRef = useRef<typeof queueRows>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +80,27 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
 
   const showSelectors = !staffDepartment;
   const canShowQueue = managedDepartment && (showSelectors ? doctorOnDuty : true);
+
+  // Poll queue so we detect when doctor marks a patient complete
+  useEffect(() => {
+    if (!canShowQueue) return;
+    const id = setInterval(() => refetchQueue(), POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [canShowQueue, refetchQueue]);
+
+  // When queue updates, detect new completions (in progress → completed) and notify nurse
+  useEffect(() => {
+    const prev = previousQueueRef.current;
+    for (const row of queueRows) {
+      if ((row.status || "").toLowerCase() !== "completed") continue;
+      const was = prev.find((r) => r.ticket === row.ticket);
+      if (was && (was.status || "").toLowerCase() === "in progress") {
+        setCompletionNotification({ patientName: row.patientName, ticket: row.ticket });
+        break;
+      }
+    }
+    previousQueueRef.current = queueRows;
+  }, [queueRows]);
 
   return (
     <div className="space-y-6">
@@ -171,6 +198,24 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
         </div>
       ) : (
         <>
+          {completionNotification && (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800"
+            >
+              <p className="text-sm font-medium">
+                Consultation complete for <span className="font-semibold">{completionNotification.patientName}</span> ({completionNotification.ticket}). Call in the next patient.
+              </p>
+              <button
+                type="button"
+                onClick={() => setCompletionNotification(null)}
+                className="rounded border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <QueueSummaryCards managedDepartment={managedDepartment} doctorOnDuty={doctorOnDuty} />
 
           <QueueFilters
@@ -180,12 +225,16 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
             doctorOnDuty={doctorOnDuty}
           />
 
-          <OpenSlotsPanel managedDepartment={managedDepartment} doctorOnDuty={doctorOnDuty} />
-
-          <PatientQueueTable filters={filters} managedDepartment={managedDepartment} doctorOnDuty={doctorOnDuty} />
+          <PatientQueueTable
+            filters={filters}
+            managedDepartment={managedDepartment}
+            doctorOnDuty={doctorOnDuty}
+            onSelectForGuidance={(r) => setGuidancePatient({ patientName: r.patientName, ticket: r.ticket })}
+            selectedForGuidanceTicket={guidancePatient?.ticket ?? null}
+          />
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <PatientGuidanceCard />
+            <PatientGuidanceCard selectedPatient={guidancePatient} />
             <AlertsNotifications />
           </div>
         </>

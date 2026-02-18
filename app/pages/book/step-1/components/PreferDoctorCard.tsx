@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { DOCTORS_BY_DEPARTMENT } from "../../../../lib/departments";
+import React, { useState, useEffect } from "react";
 
 const NO_PREFERENCE = "No preference";
 
@@ -13,6 +12,13 @@ function UserIcon({ className }: { className?: string }) {
   );
 }
 
+type DoctorOption = {
+  id: string;
+  name: string;
+  department: string | null;
+  displayLabel: string;
+};
+
 type Props = {
   department: string;
   value?: string;
@@ -20,48 +26,75 @@ type Props = {
 };
 
 export function PreferDoctorCard({ department, value = "", onChange }: Props) {
-  const [internal, setInternal] = useState("");
+  const [doctors, setDoctors] = useState<DoctorOption[]>([]);
+  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const selected = onChange && value !== undefined ? value : internal;
+
+  useEffect(() => {
+    if (!department || department === "—") {
+      setDoctors([]);
+      return;
+    }
+    setLoading(true);
+    fetch(`/api/doctors?department=${encodeURIComponent(department)}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => (Array.isArray(data) ? data : []))
+      .then(setDoctors)
+      .catch(() => setDoctors([]))
+      .finally(() => setLoading(false));
+  }, [department]);
+
+  const selected = value && value !== NO_PREFERENCE ? value : "";
   const setSelected = (d: string) => {
-    if (onChange) onChange(d);
-    else setInternal(d);
+    onChange?.(d === NO_PREFERENCE ? "" : d);
+    setOpen(false);
   };
 
-  const options = department
-    ? [NO_PREFERENCE, ...(DOCTORS_BY_DEPARTMENT[department] ?? [])]
-    : [NO_PREFERENCE];
-
-  // When department changes, clear selection if current doctor is not in the new list
+  // When department or doctors list changes, clear preferred doctor if selection is not in the new list
   useEffect(() => {
-    if (selected && selected !== NO_PREFERENCE && department) {
-      const allowed = DOCTORS_BY_DEPARTMENT[department] ?? [];
-      if (!allowed.includes(selected)) setSelected("");
+    if (!selected) return;
+    if (doctors.length === 0) {
+      onChange?.("");
+      return;
     }
-  }, [department, selected]);
+    const labels = doctors.map((d) => d.displayLabel);
+    if (!labels.includes(selected)) onChange?.("");
+  }, [department, doctors, selected]);
 
-  const displayValue = selected || (department ? "Choose a doctor (optional)" : "Select a department first");
+  const options = [NO_PREFERENCE, ...doctors.map((d) => d.displayLabel)];
+  const displayText = selected
+    ? selected
+    : loading
+      ? "Loading…"
+      : !department || department === "—"
+        ? "Select a department first"
+        : doctors.length === 0
+          ? "No preference (no doctors in this department yet)"
+          : "Choose a doctor (optional)";
 
   return (
     <div>
       <div className="flex items-center gap-2">
         <UserIcon className="h-5 w-5 text-[#007bff]" />
-        <h2 className="text-lg font-bold text-[#333333]">Prefer Doctor</h2>
+        <h2 className="text-lg font-bold text-[#333333]">Preferred doctor (optional)</h2>
       </div>
+      <p className="mt-1 text-sm text-[#6C757D]">
+        Doctors shown are from the system for the selected department.
+      </p>
       <div className="relative mt-3">
         <button
           type="button"
-          onClick={() => department && setOpen(!open)}
-          disabled={!department}
+          onClick={() => department && department !== "—" && !loading && setOpen(!open)}
+          disabled={!department || department === "—" || loading}
           className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left text-[#333333] ${
-            department
+            department && department !== "—" && !loading
               ? "border-[#dee2e6] bg-white hover:border-[#adb5bd]"
               : "cursor-not-allowed border-[#dee2e6] bg-[#f8f9fa] text-[#6C757D]"
           }`}
         >
-          <span className={selected ? "" : "text-[#6C757D]"}>{displayValue}</span>
+          <span className={selected ? "" : "text-[#6C757D]"}>{displayText}</span>
           <svg
-            className={`h-5 w-5 text-[#6C757D] transition-transform ${open ? "rotate-180" : ""}`}
+            className={`h-5 w-5 shrink-0 text-[#6C757D] transition-transform ${open ? "rotate-180" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -69,26 +102,19 @@ export function PreferDoctorCard({ department, value = "", onChange }: Props) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
-        {open && department && (
+        {open && department && department !== "—" && (
           <>
             <div className="absolute z-10 mt-1 w-full rounded-lg border border-[#e9ecef] bg-white py-1 shadow-lg">
-              {options.length === 1 ? (
-                <div className="px-4 py-2 text-sm text-[#6C757D]">No doctors listed for this department.</div>
-              ) : (
-                options.map((doctor) => (
-                  <button
-                    key={doctor}
-                    type="button"
-                    onClick={() => {
-                      setSelected(doctor);
-                      setOpen(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-[#333333] hover:bg-[#f8f9fa]"
-                  >
-                    {doctor}
-                  </button>
-                ))
-              )}
+              {options.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setSelected(opt)}
+                  className="w-full px-4 py-2 text-left text-sm text-[#333333] hover:bg-[#f8f9fa]"
+                >
+                  {opt}
+                </button>
+              ))}
             </div>
             <div className="fixed inset-0 z-0" aria-hidden onClick={() => setOpen(false)} />
           </>

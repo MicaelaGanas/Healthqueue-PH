@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { AppointmentsSummaryCards } from "./AppointmentsSummaryCards";
+import { PendingBookingRequests } from "./PendingBookingRequests";
 import { BookingsList } from "./BookingsList";
 
 type AppointmentsContentProps = {
@@ -8,18 +10,27 @@ type AppointmentsContentProps = {
 };
 
 export function AppointmentsContent({ onGoToVitals }: AppointmentsContentProps) {
+  const [pendingRefreshKey, setPendingRefreshKey] = useState(0);
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-[#333333]">Manage bookings</h2>
         <p className="mt-0.5 text-sm text-[#6C757D]">
-          Review and manage patient booking requests. Confirm a booking to send the patient to Vitals & Triage. These patients booked online and are already in the queue. Manage them by department and doctor in Queue Management. To add a patient (e.g. walk-in), use Registration and Queue Management.
+          Pending requests need your confirmation before they are added to the queue. Confirm to add the patient to the booked queue; they will appear in Queue Management. To add a walk-in, use Registration and Queue Management.
         </p>
       </div>
 
-      <AppointmentsSummaryCards />
+      <AppointmentsSummaryCards pendingRefreshKey={pendingRefreshKey} />
 
-      <BookingsList onGoToVitals={onGoToVitals} />
+      <div>
+        <h3 className="mb-3 text-lg font-semibold text-[#333333]">Pending booking requests</h3>
+        <PendingBookingRequests onPendingChange={() => setPendingRefreshKey((k) => k + 1)} />
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-lg font-semibold text-[#333333]">Booked queue (confirmed)</h3>
+        <BookingsList onGoToVitals={onGoToVitals} />
+      </div>
     </div>
   );
 }
