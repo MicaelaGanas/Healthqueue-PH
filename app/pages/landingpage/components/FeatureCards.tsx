@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 function SearchIcon({ className }: { className?: string }) {
@@ -34,54 +36,81 @@ function MapPinIcon({ className }: { className?: string }) {
   );
 }
 
-const cardShadow = "shadow-[0_2px_8px_rgba(0,0,0,0.08)]";
+const cards = [
+  {
+    title: "Check Queue",
+    description: "View your current queue position and wait time.",
+    href: "/pages/queue",
+    cta: "Check Now",
+    primary: true,
+    icon: SearchIcon,
+  },
+  {
+    title: "Book Appointment",
+    description: "Schedule a visit to reduce wait time.",
+    href: "/pages/book",
+    cta: "Book Now",
+    primary: false,
+    icon: CalendarPlusIcon,
+  },
+  {
+    title: "Wait Times",
+    description: "Estimated wait times by department.",
+    href: "#live-queue",
+    cta: "View Times",
+    primary: false,
+    icon: ClockIcon,
+  },
+  {
+    title: "Directory",
+    description: "Departments and service locations.",
+    href: "#directory",
+    cta: "View Map",
+    primary: false,
+    icon: MapPinIcon,
+  },
+];
 
 export function FeatureCards() {
   return (
-    <section className="py-12 sm:py-16" aria-labelledby="actions-heading">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <article className={`flex flex-col items-center rounded-xl border border-[#e9ecef] bg-white p-6 text-center ${cardShadow}`}>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#007bff] bg-[#E0EDFF]">
-              <SearchIcon className="h-6 w-6 text-[#007bff]" />
-            </div>
-            <h2 className="mt-4 text-lg font-bold text-[#212529]">Check Queue</h2>
-            <p className="mt-2 max-w-[200px] text-sm leading-snug text-[#6c757d]">View your current queue position and wait time.</p>
-<Link href="/pages/queue" className="mt-4 inline-block rounded-lg bg-[#007bff] px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#0069d9]">
-                  Check Now
-                </Link>
-          </article>
-          <article className={`flex flex-col items-center rounded-xl border border-[#e9ecef] bg-white p-6 text-center ${cardShadow}`}>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#2e7d32] bg-[#E8F5E9]">
-              <CalendarPlusIcon className="h-6 w-6 text-[#2e7d32]" />
-            </div>
-            <h2 className="mt-4 text-lg font-bold text-[#212529]">Book Appointment</h2>
-            <p className="mt-2 max-w-[200px] text-sm leading-snug text-[#6c757d]">Schedule a visit to reduce wait time.</p>
-<Link href="/pages/book" className="mt-4 inline-block rounded-lg border border-[#dee2e6] bg-[#f8f9fa] px-4 py-2.5 text-sm font-medium text-[#212529] hover:bg-[#e9ecef]">
-                  Book Now
-                </Link>
-          </article>
-          <article className={`flex flex-col items-center rounded-xl border border-[#e9ecef] bg-white p-6 text-center ${cardShadow}`}>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#e65100] bg-[#FFF3E0]">
-              <ClockIcon className="h-6 w-6 text-[#e65100]" />
-            </div>
-            <h2 className="mt-4 text-lg font-bold text-[#212529]">Wait Times</h2>
-            <p className="mt-2 max-w-[200px] text-sm leading-snug text-[#6c757d]">View estimated wait times by department.</p>
-            <Link href="#live-queue" className="mt-4 inline-block rounded-lg border border-[#dee2e6] bg-[#f8f9fa] px-4 py-2.5 text-sm font-medium text-[#212529] hover:bg-[#e9ecef]">
-              View Times
-            </Link>
-          </article>
-          <article className={`flex flex-col items-center rounded-xl border border-[#e9ecef] bg-white p-6 text-center ${cardShadow}`}>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#007bff] bg-[#E0EDFF]">
-              <MapPinIcon className="h-6 w-6 text-[#007bff]" />
-            </div>
-            <h2 className="mt-4 text-lg font-bold text-[#212529]">Directory</h2>
-            <p className="mt-2 max-w-[200px] text-sm leading-snug text-[#6c757d]">Find departments and service locations.</p>
-            <Link href="#directory" className="mt-4 inline-block rounded-lg border border-[#dee2e6] bg-[#f8f9fa] px-4 py-2.5 text-sm font-medium text-[#212529] hover:bg-[#e9ecef]">
-              View Map
-            </Link>
-          </article>
-        </div>
+    <section
+      className="relative z-10 mx-auto -mt-8 max-w-7xl px-4 pb-14 sm:px-6"
+      aria-labelledby="actions-heading"
+    >
+      <h2 id="actions-heading" className="sr-only">
+        Get started
+      </h2>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <article
+              key={card.title}
+              className="group flex flex-col items-center text-center rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-shadow hover:shadow-[0_8px_32px_rgba(0,0,0,0.1)]"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#f1f5f9] text-[#007bff]">
+                <Icon className="h-6 w-6" />
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-[#0f172a]">
+                {card.title}
+              </h3>
+              <p className="mt-1.5 text-sm text-[#64748b] leading-snug">
+                {card.description}
+              </p>
+              <div className="mt-5 flex-1" />
+              <Link
+                href={card.href}
+                className={`mt-4 w-full rounded-lg px-4 py-2.5 text-center text-sm font-medium transition ${
+                  card.primary
+                    ? "bg-[#007bff] text-white hover:bg-[#0069d9]"
+                    : "border border-[#e2e8f0] text-[#334155] hover:border-[#cbd5e1] hover:bg-[#f8fafc]"
+                }`}
+              >
+                {card.cta}
+              </Link>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

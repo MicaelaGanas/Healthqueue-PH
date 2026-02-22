@@ -8,6 +8,10 @@ type BookingRequest = {
   id: string;
   referenceNo: string;
   bookingType: string;
+  patientFirstName?: string;
+  patientLastName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
   beneficiaryFirstName?: string;
   beneficiaryLastName?: string;
   beneficiaryDateOfBirth?: string;
@@ -73,7 +77,30 @@ function BookingRequestSummaryModal({
             <dt className="text-[#6C757D]">Booking for</dt>
             <dd className="text-[#333333]">{isSelf ? "Self" : "Someone else (dependent)"}</dd>
 
-            {!isSelf && (
+            {isSelf ? (
+              <>
+                <dt className="text-[#6C757D]">Patient name</dt>
+                <dd className="text-[#333333]">
+                  {[request.patientFirstName, request.patientLastName].filter(Boolean).join(" ") || "—"}
+                </dd>
+                {(request.contactPhone || request.contactEmail) && (
+                  <>
+                    {request.contactPhone && (
+                      <>
+                        <dt className="text-[#6C757D]">Contact phone</dt>
+                        <dd className="text-[#333333]">{request.contactPhone}</dd>
+                      </>
+                    )}
+                    {request.contactEmail && (
+                      <>
+                        <dt className="text-[#6C757D]">Contact email</dt>
+                        <dd className="text-[#333333]">{request.contactEmail}</dd>
+                      </>
+                    )}
+                  </>
+                )}
+              </>
+            ) : (
               <>
                 <dt className="text-[#6C757D]">Patient name</dt>
                 <dd className="text-[#333333]">{[request.beneficiaryFirstName, request.beneficiaryLastName].filter(Boolean).join(" ")}</dd>
@@ -260,7 +287,7 @@ export function PendingBookingRequests({ onPendingChange }: PendingBookingReques
                 <td className="px-3 py-2 text-[#333333]">
                   {r.bookingType === "dependent"
                     ? `Dependent: ${[r.beneficiaryFirstName, r.beneficiaryLastName].filter(Boolean).join(" ")}`
-                    : "Self"}
+                    : [r.patientFirstName, r.patientLastName].filter(Boolean).join(" ") || "Self"}
                 </td>
                 <td className="px-3 py-2 text-[#333333]">{r.department}</td>
                 <td className="px-3 py-2 text-[#333333]">{r.requestedDate}</td>

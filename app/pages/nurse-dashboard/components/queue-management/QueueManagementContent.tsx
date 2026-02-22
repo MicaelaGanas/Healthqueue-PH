@@ -7,7 +7,6 @@ import { QueueFilters, type QueueFiltersState } from "./QueueFilters";
 import { DEPARTMENTS } from "./QueueFilters";
 import { DOCTORS_BY_DEPARTMENT } from "../../../../lib/departments";
 import { PatientQueueTable } from "./PatientQueueTable";
-import { PatientGuidanceCard, type GuidancePatient } from "./PatientGuidanceCard";
 import { AlertsNotifications } from "../dashboard/alerts/AlertsNotifications";
 import { useNurseQueue } from "../../context/NurseQueueContext";
 
@@ -30,7 +29,6 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
   const [managedDepartment, setManagedDepartment] = useState<string>("");
   const [doctorOnDuty, setDoctorOnDuty] = useState<string>("");
   const [filters, setFilters] = useState<QueueFiltersState>(DEFAULT_FILTERS);
-  const [guidancePatient, setGuidancePatient] = useState<GuidancePatient | null>(null);
   const [completionNotification, setCompletionNotification] = useState<{ patientName: string; ticket: string } | null>(null);
   const previousQueueRef = useRef<typeof queueRows>([]);
 
@@ -229,14 +227,9 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
             filters={filters}
             managedDepartment={managedDepartment}
             doctorOnDuty={doctorOnDuty}
-            onSelectForGuidance={(r) => setGuidancePatient({ patientName: r.patientName, ticket: r.ticket })}
-            selectedForGuidanceTicket={guidancePatient?.ticket ?? null}
           />
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <PatientGuidanceCard selectedPatient={guidancePatient} />
-            <AlertsNotifications />
-          </div>
+          <AlertsNotifications />
         </>
       )}
     </div>

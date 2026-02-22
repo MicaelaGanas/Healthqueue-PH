@@ -8,7 +8,6 @@ const HIDE_NAVBAR_PATHS = [
   "/pages/admin-dashboard",
   "/pages/nurse-dashboard",
   "/pages/doctor-dashboard",
-  "/pages/laboratory-dashboard",
 ];
 
 export function ConditionalNavbar() {

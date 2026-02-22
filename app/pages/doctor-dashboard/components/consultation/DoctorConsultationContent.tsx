@@ -131,19 +131,6 @@ export function DoctorConsultationContent() {
     return scope;
   }, [rows, effectiveDoctor, staffDepartment]);
 
-  const startConsult = useCallback(async (ticket: string) => {
-    const supabase = createSupabaseBrowser();
-    if (!supabase) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) return;
-    const res = await fetch("/api/queue-rows/status", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ ticket, status: "in progress" }),
-    });
-    if (res.ok) await fetchQueue();
-  }, [fetchQueue]);
-
   const completeConsult = useCallback(async (ticket: string) => {
     const supabase = createSupabaseBrowser();
     if (!supabase) return;
@@ -157,13 +144,9 @@ export function DoctorConsultationContent() {
     if (res.ok) await fetchQueue();
   }, [fetchQueue]);
 
-  const canStartConsult = (status: string) => {
-    const s = status.toLowerCase();
-    return s === "scheduled" || s === "waiting" || s === "called";
-  };
-  const waitingOrCalled = myQueue.filter((r) => canStartConsult(r.status));
   const inProgress = myQueue.filter((r) => r.status.toLowerCase() === "in progress");
   const completed = myQueue.filter((r) => r.status.toLowerCase() === "completed");
+  const waitingCount = myQueue.filter((r) => r.status.toLowerCase() !== "completed").length;
 
   type QueueFilter = "waiting" | "completed";
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("waiting");
@@ -237,7 +220,7 @@ export function DoctorConsultationContent() {
                         : "bg-transparent text-[#333333] hover:bg-[#f8f9fa]"
                     }`}
                   >
-                    Waiting ({waitingOrCalled.length + inProgress.length})
+                    Waiting ({waitingCount})
                   </button>
                   <button
                     type="button"
@@ -294,7 +277,7 @@ export function DoctorConsultationContent() {
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 sm:px-6">
                       <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
                           r.status.toLowerCase() === "completed"
                             ? "bg-green-100 text-green-800"
                             : r.status.toLowerCase() === "in progress"
@@ -302,19 +285,14 @@ export function DoctorConsultationContent() {
                               : "bg-gray-100 text-gray-700"
                         }`}
                       >
-                        {r.status}
+                        {r.status.toLowerCase() === "completed"
+                          ? "Done"
+                          : r.status.toLowerCase() === "in progress"
+                            ? "With doctor"
+                            : "Waiting"}
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right text-sm sm:px-6">
-                      {canStartConsult(r.status) && (
-                        <button
-                          type="button"
-                          onClick={() => startConsult(r.ticket)}
-                          className="rounded bg-[#1e3a5f] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2a4a7a]"
-                        >
-                          Start consult
-                        </button>
-                      )}
                       {r.status.toLowerCase() === "in progress" && (
                         <button
                           type="button"

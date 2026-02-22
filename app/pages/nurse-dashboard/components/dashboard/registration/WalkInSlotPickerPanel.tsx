@@ -72,12 +72,12 @@ export function WalkInSlotPickerPanel({
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" aria-hidden onClick={onClose} />
       <div
-        className="relative z-10 w-full max-w-md rounded-xl border border-[#e9ecef] bg-white p-6 shadow-xl"
+        className="relative z-10 w-full max-w-3xl rounded-xl border border-[#e9ecef] bg-white px-8 py-6 shadow-xl sm:px-10 sm:py-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-bold text-[#333333]">Pick time slot</h3>
+            <h3 className="text-lg font-bold text-[#333333] sm:text-xl">Pick time slot</h3>
             <p className="mt-0.5 text-sm text-[#6C757D]">{patientName}</p>
             <p className="mt-0.5 text-xs text-[#6C757D]">{department} · {doctor}</p>
           </div>
@@ -93,10 +93,10 @@ export function WalkInSlotPickerPanel({
           </button>
         </div>
         <p className="mb-1 text-sm font-medium text-[#333333]">For: {dateLabel}</p>
-        <p className="mb-3 text-xs text-[#6C757D]">
+        <p className="mb-4 text-xs text-[#6C757D]">
           Green = available. Teal = open (freed). Grey = taken (another patient). Pick an available or open slot.
         </p>
-        <div className="grid max-h-72 grid-cols-3 gap-2 overflow-auto sm:grid-cols-4">
+        <div className="grid max-h-[20rem] grid-cols-3 gap-3 overflow-auto sm:max-h-[26rem] sm:grid-cols-4 md:grid-cols-5">
           {SLOT_TIMES_24.map((t) => {
             const info = slotStatus[t] ?? { status: "available" as SlotStatus };
             const canSelect = info.status === "available" || info.status === "open";
@@ -110,7 +110,7 @@ export function WalkInSlotPickerPanel({
                   onSelect(t);
                   onClose();
                 }}
-                className={`rounded-lg border py-2.5 text-left text-sm font-medium ${
+                className={`rounded-lg border px-3 py-2.5 text-left text-sm font-medium ${
                   !canSelect
                     ? "cursor-not-allowed border-amber-200 bg-amber-50/50 text-amber-800"
                     : info.status === "open"
@@ -118,7 +118,7 @@ export function WalkInSlotPickerPanel({
                       : "border-[#dee2e6] bg-white text-[#333333] hover:border-[#007bff] hover:bg-[#f0f7ff] hover:text-[#007bff]"
                 }`}
               >
-                <span className="block">{formatSlotDisplay(t)}</span>
+                <span className="block whitespace-nowrap">{formatSlotDisplay(t)}</span>
                 {info.status === "taken" && info.patientName && (
                   <span className="mt-0.5 block text-xs font-medium text-amber-900">— {info.patientName}</span>
                 )}

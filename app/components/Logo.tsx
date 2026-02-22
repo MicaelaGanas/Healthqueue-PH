@@ -1,20 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 
-/** Blue square with white ECG / heartbeat line */
-function LogoIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <rect width="32" height="32" rx="6" fill="currentColor" />
-      <path
-        d="M6 16h3l1.5-3 1.5 6 3-9 3 4.5 3-4.5 3 3"
-        stroke="white"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+const DARK_BLUE = "#183172";
 
 type LogoProps = {
   variant?: "default" | "footer";
@@ -23,12 +10,32 @@ type LogoProps = {
 
 export function Logo({ variant = "default", className = "" }: LogoProps) {
   const isFooter = variant === "footer";
+  const size = isFooter ? 40 : 48;
   return (
-    <Link href="/" className={`inline-flex items-center gap-3 ${className}`}>
-      <LogoIcon className={`shrink-0 text-[#007bff] ${isFooter ? "h-8 w-8" : "h-9 w-9"}`} />
-      <span className="flex flex-col leading-tight">
-        <span className="font-semibold text-black">HealthQueue</span>
-        <span className={`font-semibold text-[#007bff] ${isFooter ? "text-xs" : "text-sm"}`}>PH</span>
+    <Link href="/" className={`inline-flex items-center gap-2 ${className}`}>
+      <Image
+        src="/hqlogo.svg"
+        alt=""
+        width={size}
+        height={size}
+        className={`shrink-0 object-contain ${isFooter ? "h-10 w-10" : "h-12 w-12"}`}
+        aria-hidden
+      />
+      <span className="flex flex-col items-start leading-tight">
+        <span
+          className="font-semibold uppercase tracking-tight"
+          style={{ fontFamily: "var(--font-rosario), sans-serif", color: DARK_BLUE }}
+        >
+          Health Queue PH
+        </span>
+        {!isFooter && (
+          <span
+            className="text-sm font-normal"
+            style={{ fontFamily: "Helvetica, Arial, sans-serif", color: DARK_BLUE }}
+          >
+            Queue smarter, wait less.
+          </span>
+        )}
       </span>
     </Link>
   );

@@ -37,6 +37,8 @@ export type PendingWalkIn = {
   symptoms: string[];
   otherSymptoms: string;
   registeredAt: string;
+  /** Full timestamp from DB (ISO string); use for sorting/filtering by date. Not limited to one day. */
+  createdAt?: string | null;
 };
 
 /** Slot freed when a booked patient is marked no-show. Offered to next booked, then walk-ins. */
@@ -127,6 +129,20 @@ function nextOpenSlotId(): string {
   return "slot-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
 
+function logStaffActivity(payload: { action: string; entityType?: string; entityId?: string; details?: Record<string, unknown> }) {
+  const supabase = createSupabaseBrowser();
+  if (!supabase?.auth) return;
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.access_token) {
+      fetch("/api/staff-activity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    }
+  });
+}
+
 export function NurseQueueProvider({ children }: { children: React.ReactNode }) {
   const [queueRows, setQueueRows] = useState<QueueRow[]>([]);
   const [pendingWalkIns, setPendingWalkIns] = useState<PendingWalkIn[]>([]);
@@ -162,10 +178,25 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
-  // Fetch queue from Supabase on mount (nurse dashboard is behind AuthGuard, so session exists).
+  const refetchPendingWalkIns = useCallback(async () => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const res = await fetch("/api/pending-walk-ins", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setPendingWalkIns(Array.isArray(data) ? data : []);
+    }
+  }, []);
+
+  // Fetch queue and pending walk-ins from API on mount (nurse dashboard is behind AuthGuard).
   useEffect(() => {
     refetchQueue();
-  }, [refetchQueue]);
+    refetchPendingWalkIns();
+  }, [refetchQueue, refetchPendingWalkIns]);
 
   // Sync queue to localStorage and to Supabase when queue changes (skip right after we hydrated from API).
   useEffect(() => {
@@ -208,25 +239,54 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const registerWalkIn = useCallback((data: RegisterWalkInInput) => {
+  const registerWalkIn = useCallback(async (data: RegisterWalkInInput) => {
     const symptomsList = Object.entries(data.symptoms)
       .filter(([, v]) => v)
       .map(([k]) => (k === "Others" ? data.otherSymptoms || "Others" : k));
-    const id = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    const newPending: PendingWalkIn = {
-      id,
-      firstName: data.firstName.trim(),
-      lastName: data.lastName.trim(),
-      age: data.age.trim(),
-      sex: data.sex,
-      phone: data.phone.trim(),
-      email: data.email.trim(),
-      bookingReference: data.bookingReference.trim(),
-      symptoms: symptomsList,
-      otherSymptoms: data.otherSymptoms.trim(),
-      registeredAt: formatRegisteredAt(),
-    };
-    setPendingWalkIns((prev) => [...prev, newPending]);
+    const registeredAt = formatRegisteredAt();
+    const supabase = createSupabaseBrowser();
+    if (!supabase) {
+      const id = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      setPendingWalkIns((prev) => [...prev, {
+        id,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        age: data.age.trim(),
+        sex: data.sex,
+        phone: data.phone.trim(),
+        email: data.email.trim(),
+        bookingReference: data.bookingReference.trim(),
+        symptoms: symptomsList,
+        otherSymptoms: data.otherSymptoms.trim(),
+        registeredAt,
+      }]);
+      return;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const res = await fetch("/api/pending-walk-ins", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        age: data.age.trim(),
+        sex: data.sex,
+        phone: data.phone.trim(),
+        email: data.email.trim(),
+        bookingReference: data.bookingReference.trim(),
+        symptoms: symptomsList,
+        otherSymptoms: data.otherSymptoms.trim(),
+        registeredAt,
+      }),
+    });
+    if (res.ok) {
+      const created = await res.json();
+      setPendingWalkIns((prev) => [...prev, created]);
+    }
   }, []);
 
   const addWalkInToQueue = useCallback((pendingId: string, priority: Priority, department: string, slotTime?: string, assignedDoctor?: string, appointmentDate?: string) => {
@@ -260,6 +320,23 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
     };
     setQueueRows((prev) => [...prev, newRow]);
     setPendingWalkIns((prev) => prev.filter((p) => p.id !== pendingId));
+    logStaffActivity({
+      action: "walk_in_added_to_queue",
+      entityType: "pending_walk_in",
+      entityId: pendingId,
+      details: { patientName, department, ticket, priority },
+    });
+    const supabase = createSupabaseBrowser();
+    if (supabase?.auth) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.access_token) {
+          fetch(`/api/pending-walk-ins/${pendingId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }).catch(() => {});
+        }
+      });
+    }
   }, [pendingWalkIns]);
 
   const scheduleWalkInForLater = useCallback((pendingId: string, scheduledTime: string) => {
@@ -272,6 +349,18 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
 
   const cancelPendingWalkIn = useCallback((pendingId: string) => {
     setPendingWalkIns((prev) => prev.filter((p) => p.id !== pendingId));
+    logStaffActivity({ action: "pending_walk_in_cancelled", entityType: "pending_walk_in", entityId: pendingId });
+    const supabase = createSupabaseBrowser();
+    if (supabase?.auth) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.access_token) {
+          fetch(`/api/pending-walk-ins/${pendingId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }).catch(() => {});
+        }
+      });
+    }
   }, []);
 
   const setPatientPriority = useCallback((ticket: string, priority: Priority) => {

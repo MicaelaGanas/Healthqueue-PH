@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../lib/supabase/server";
-import type { DbBookedEntry } from "../../lib/supabase/types";
+import type { DbQueueRow } from "../../lib/supabase/types";
 import { requireRoles } from "../../lib/api/auth";
 
-function toAppEntry(r: DbBookedEntry) {
+/** Map queue_rows (source=booked) to the same shape as legacy booked_queue API. */
+function queueRowToBookedEntry(r: DbQueueRow) {
   return {
-    referenceNo: r.reference_no,
+    referenceNo: r.ticket,
     patientName: r.patient_name,
     department: r.department,
-    appointmentTime: r.appointment_time,
-    addedAt: r.added_at,
-    preferredDoctor: r.preferred_doctor ?? undefined,
+    appointmentTime: r.appointment_time ?? "",
+    addedAt: r.added_at ?? "",
+    preferredDoctor: r.assigned_doctor ?? undefined,
     appointmentDate: r.appointment_date ?? undefined,
   };
 }
@@ -28,16 +29,17 @@ export async function GET(request: Request) {
     );
   }
   const { data, error } = await supabase
-    .from("booked_queue")
+    .from("queue_rows")
     .select("*")
+    .eq("source", "booked")
     .order("added_at", { ascending: true });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json((data ?? []).map(toAppEntry));
+  return NextResponse.json((data ?? []).map(queueRowToBookedEntry));
 }
 
-/** POST: create/upsert booking. Public (no auth) so the booking form can submit. */
+/** POST: create/upsert booked entry into queue (source=booked). Public (no auth) so the booking form can submit. */
 export async function POST(request: Request) {
   const supabase = getSupabaseServer();
   if (!supabase) {
@@ -47,17 +49,21 @@ export async function POST(request: Request) {
     );
   }
   const body = await request.json();
-  const entry = {
-    reference_no: body.referenceNo,
+  const queueRow = {
+    ticket: body.referenceNo,
     patient_name: body.patientName,
     department: body.department,
-    appointment_time: body.appointmentTime,
+    priority: "normal",
+    status: "scheduled",
+    wait_time: "",
+    source: "booked",
     added_at: body.addedAt,
-    preferred_doctor: body.preferredDoctor ?? null,
+    appointment_time: body.appointmentTime,
+    assigned_doctor: body.preferredDoctor ?? null,
     appointment_date: body.appointmentDate ?? null,
   };
-  const { error } = await supabase.from("booked_queue").upsert(entry, {
-    onConflict: "reference_no",
+  const { error } = await supabase.from("queue_rows").upsert(queueRow, {
+    onConflict: "ticket",
   });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

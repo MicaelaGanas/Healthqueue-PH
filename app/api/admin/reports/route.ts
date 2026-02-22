@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase/server";
-import type { DbQueueRow, DbBookedEntry } from "../../../lib/supabase/types";
+import type { DbQueueRow } from "../../../lib/supabase/types";
 import { requireRoles } from "../../../lib/api/auth";
 
 function toAppRow(r: DbQueueRow) {
@@ -19,14 +19,15 @@ function toAppRow(r: DbQueueRow) {
   };
 }
 
-function toAppEntry(r: DbBookedEntry) {
+/** Same shape as legacy booked API: derived from queue_rows where source=booked. */
+function queueRowToBookedEntry(r: DbQueueRow) {
   return {
-    referenceNo: r.reference_no,
+    referenceNo: r.ticket,
     patientName: r.patient_name,
     department: r.department,
-    appointmentTime: r.appointment_time,
-    addedAt: r.added_at,
-    preferredDoctor: r.preferred_doctor ?? undefined,
+    appointmentTime: r.appointment_time ?? "",
+    addedAt: r.added_at ?? "",
+    preferredDoctor: r.assigned_doctor ?? undefined,
     appointmentDate: r.appointment_date ?? undefined,
   };
 }
@@ -45,34 +46,25 @@ export async function GET(request: Request) {
     );
   }
 
-  // Fetch queue_rows and booked_queue in parallel
-  const [queueRowsResult, bookedQueueResult] = await Promise.all([
-    supabase
-      .from("queue_rows")
-      .select("*")
-      .order("added_at", { ascending: true }),
-    supabase
-      .from("booked_queue")
-      .select("*")
-      .order("added_at", { ascending: true }),
-  ]);
+  const { data: queueRows, error } = await supabase
+    .from("queue_rows")
+    .select("*")
+    .order("added_at", { ascending: true });
 
-  if (queueRowsResult.error) {
+  if (error) {
     return NextResponse.json(
-      { error: `Failed to fetch queue rows: ${queueRowsResult.error.message}` },
+      { error: `Failed to fetch queue rows: ${error.message}` },
       { status: 500 }
     );
   }
 
-  if (bookedQueueResult.error) {
-    return NextResponse.json(
-      { error: `Failed to fetch booked queue: ${bookedQueueResult.error.message}` },
-      { status: 500 }
-    );
-  }
+  const rows = queueRows ?? [];
+  const bookedQueue = rows
+    .filter((r) => r.source === "booked")
+    .map(queueRowToBookedEntry);
 
   return NextResponse.json({
-    queueRows: (queueRowsResult.data ?? []).map(toAppRow),
-    bookedQueue: (bookedQueueResult.data ?? []).map(toAppEntry),
+    queueRows: rows.map(toAppRow),
+    bookedQueue,
   });
 }

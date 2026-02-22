@@ -12,11 +12,10 @@ This guide describes the booking flow and the tables you need so that:
 | Table | Purpose |
 |-------|--------|
 | **booking_requests** (new) | All requests from patients. Status: `pending` → wait for confirmation; `confirmed` / `rejected` / `cancelled`. Supports "for self" vs "for another" (dependent). |
-| **booked_queue** (existing) | Confirmed bookings that are in the system for the nurse (ready for queue). You can keep using it when a request is **confirmed** by inserting a row here (or into queue). |
-| **queue_rows** (existing) | Live queue (in progress, completed, etc.). Nurse/doctor dashboards use this (and/or sync from booked_queue). |
+| **queue_rows** (existing) | **Single source of truth** for the live queue. Nurse/doctor dashboards use this. Confirmed bookings are added here with `source = 'booked'` and `ticket = reference_no`. Walk-ins use `source = 'walk-in'`. |
 | **patient_users** (existing) | Patient accounts. For "booking for self", the patient’s details come from here. |
 
-You do **not** need to change `booked_queue` or `queue_rows` for the new flow. When a **booking_request** is set to `confirmed`, your app can build one row (patient name, department, time, etc.) and insert it into `booked_queue` (and/or whatever you use to feed the queue).
+**Note:** The app no longer writes to `booked_queue`. When a **booking_request** is set to `confirmed`, the app inserts one row into **queue_rows** only (with `source = 'booked'`). The `booked_queue` table is legacy and can be deprecated or dropped in a future migration if desired.
 
 ---
 
@@ -41,7 +40,7 @@ Created by migration: `supabase/migrations/20260219000000_add_booking_requests.s
   - notes (optional)
 - **Status**  
   - `pending` – default; waiting for staff/doctor.  
-  - `confirmed` – approved; app can then add to `booked_queue` / queue.  
+  - `confirmed` – approved; app adds one row to `queue_rows` with `source = 'booked'`.  
   - `rejected` – declined (optional: set rejection_reason).  
   - `cancelled` – cancelled by patient or staff.
 - **Confirmation**  
@@ -64,11 +63,11 @@ Constraints and indexes are in the migration (e.g. unique `reference_no`, indexe
 
 3. **Confirm**  
    - Set `status = 'confirmed'`, set `confirmed_at`, `confirmed_by`.  
-   - Then in your app: build one row (patient name = from patient_users for self, or beneficiary name for dependent; department, requested_date, requested_time, preferred_doctor) and insert into `booked_queue` (and/or your queue table). So the nurse can see it and add to the live queue as you do today.
+   - The app inserts one row into `queue_rows` (patient name, department, requested_date/time, preferred_doctor as `assigned_doctor`, `source = 'booked'`, `ticket = reference_no`). The nurse sees it in the live queue.
 
 4. **Reject**  
    - Set `status = 'rejected'`, optionally set `rejection_reason`.  
-   - No row is added to `booked_queue` or queue.
+   - No row is added to the queue.
 
 5. **Patient sees their bookings**  
    - Query `booking_requests` where `patient_user_id = current_user_id` (and optionally filter by status).  
@@ -80,22 +79,7 @@ Constraints and indexes are in the migration (e.g. unique `reference_no`, indexe
 
 1. Run the new migration in the Supabase SQL Editor (or via CLI):
    - File: `supabase/migrations/20260219000000_add_booking_requests.sql`
-2. No need to **alter** `booked_queue` or `queue_rows` unless you want an optional FK from `booked_queue` back to `booking_requests` (e.g. `booking_request_id uuid references booking_requests(id)`). That’s optional for traceability.
-
----
-
-## Optional: link `booked_queue` to a request
-
-If you want each confirmed booking to point back to the request:
-
-```sql
-alter table public.booked_queue
-  add column if not exists booking_request_id uuid references public.booking_requests(id) on delete set null;
-create index if not exists idx_booked_queue_booking_request_id on public.booked_queue (booking_request_id);
-```
-
-Then when you insert into `booked_queue` after confirming, set `booking_request_id` to the `booking_requests.id`. This is optional; the flow above works without it.
-
+2. The app uses **queue_rows** only for the queue; no changes to that table are required for the booking flow. That’s 
 ---
 
 ## Next steps in the app
@@ -108,10 +92,9 @@ Then when you insert into `booked_queue` after confirming, set `booking_request_
 - **API**  
   - `POST /api/booking-requests` – create request (patient_user_id from auth, body: booking_type, beneficiary_* if dependent, department, preferred_doctor, requested_date, requested_time, notes).  
   - `GET /api/booking-requests` – list for current patient (by patient_user_id) or for staff (all or by status).  
-  - `PATCH /api/booking-requests/[id]` – staff only: set status to confirmed/rejected/cancelled, set confirmed_at, confirmed_by, rejection_reason.  
-  - On confirm: in the same handler or a small service, insert the corresponding row into `booked_queue` (and optionally set `booking_request_id` if you added that column).
+  - `PATCH /api/booking-requests/[id]` – staff only: set status to confirmed/rejected/cancelled, set confirmed_at, confirmed_by, rejection_reason. On confirm, the handler inserts one row into `queue_rows` with `source = 'booked'`.
 
 - **Booking management (staff)**  
-  - Page or section that lists `booking_requests` with `status = 'pending'`, shows full details (self vs dependent), and has Confirm / Reject actions that call the PATCH API and, on confirm, add to `booked_queue`.
+  - Page or section that lists `booking_requests` with `status = 'pending'`, shows full details (self vs dependent), and has Confirm / Reject actions that call the PATCH API and, on confirm, add the patient to the queue (`queue_rows`).
 
 Once this is in place, you have “revived” booking information in `booking_requests` and can show it to both patient and staff, and only add to the queue after doctor confirmation.
