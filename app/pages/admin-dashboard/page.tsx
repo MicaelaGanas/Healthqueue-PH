@@ -4,13 +4,14 @@ import { useState } from "react";
 import { AuthGuard } from "../../components/AuthGuard";
 import { AdminSidebar, type AdminTabId } from "./components/layout/AdminSidebar";
 import { AdminHeader } from "./components/layout/AdminHeader";
+import { AdminOverviewContent } from "./components/overview/AdminOverviewContent";
 import { UsersManagement } from "./components/users/UsersManagement";
 import { ReportsContent } from "./components/reports/ReportsContent";
 import { RecordsContent } from "./components/records/RecordsContent";
 import { AdminSettingsContent } from "./components/settings/AdminSettingsContent";
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<AdminTabId>("users");
+  const [activeTab, setActiveTab] = useState<AdminTabId>("overview");
 
   return (
     <AuthGuard allowedRoles={["admin"]}>
@@ -22,8 +23,14 @@ export default function AdminDashboardPage() {
           <div className="w-full min-w-0 max-w-[1920px]">
             <h2 className="text-lg font-bold text-[#333333] sm:text-xl">Admin Dashboard</h2>
             <p className="mt-0.5 text-xs text-[#6C757D] sm:mt-1 sm:text-sm">
-              Manage users, view reports, and browse records
+              {activeTab === "overview" ? "Overview of queue, staff, and pending items" : "Manage users, view reports, and browse records"}
             </p>
+
+            {activeTab === "overview" && (
+              <div className="mt-4 sm:mt-6">
+                <AdminOverviewContent onNavigateToTab={(tab) => setActiveTab(tab)} />
+              </div>
+            )}
 
             {activeTab === "users" && (
               <div className="mt-4 sm:mt-6">

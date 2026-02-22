@@ -201,41 +201,6 @@ export function UsersManagement() {
     }
   };
 
-  const handleDelete = async (u: AdminUser) => {
-    if (!confirm(`Are you sure you want to delete ${u.name}? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      setError(null);
-      const supabase = createSupabaseBrowser();
-      if (!supabase) {
-        throw new Error("Supabase not configured");
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error("Not authenticated");
-      }
-
-      const res = await fetch(`/api/admin/users/${u.id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to delete user");
-      }
-
-      await loadUsers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete user");
-    }
-  };
-
   const roleLabel: Record<UserRole, string> = {
     admin: "Administrator",
     nurse: "Nurse",
@@ -318,16 +283,9 @@ export function UsersManagement() {
                       <button
                         type="button"
                         onClick={() => handleToggleStatus(u)}
-                        className={u.status === "active" ? "text-amber-600 hover:underline mr-2" : "text-green-600 hover:underline mr-2"}
+                        className={u.status === "active" ? "text-amber-600 hover:underline" : "text-green-600 hover:underline"}
                       >
                         {u.status === "active" ? "Deactivate" : "Activate"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(u)}
-                        className="text-red-600 hover:underline"
-                      >
-                        Delete
                       </button>
                     </td>
                   </tr>

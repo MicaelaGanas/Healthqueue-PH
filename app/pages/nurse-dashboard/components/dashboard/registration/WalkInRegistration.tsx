@@ -17,7 +17,6 @@ const SYMPTOMS = [
   "Body Weakness",
 ];
 
-import { DEPARTMENTS, DOCTORS_BY_DEPARTMENT } from "../../../../../lib/departments";
 import { formatSlotDisplay, getDefaultSlotNow } from "../../../../../lib/slotTimes";
 import { getDateOptions, getTodayYYYYMMDD } from "../../../../../lib/schedule";
 import { WalkInSlotPickerPanel } from "./WalkInSlotPickerPanel";
@@ -29,7 +28,7 @@ const PRIORITIES: { value: Priority; label: string }[] = [
 ];
 
 export function WalkInRegistration() {
-  const { pendingWalkIns, registerWalkIn, addWalkInToQueue, scheduleWalkInForLater } = useNurseQueue();
+  const { pendingWalkIns, registerWalkIn, addWalkInToQueue } = useNurseQueue();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [age, setAge] = useState("");
@@ -230,9 +229,10 @@ type AddToQueueOverlayProps = {
   setDepartmentByRow: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   selectedTime: string;
   onAddToQueue: (priority: Priority, department: string, slotTime: string, doctor: string, appointmentDate: string) => void;
-  onScheduleForLater: (scheduledTime: string) => void;
   onOpenSlotPicker: (department: string, doctor: string, dateStr: string) => void;
 };
+
+type DoctorOption = { id: string; name: string; department: string | null; displayLabel: string };
 
 function AddToQueueOverlay({
   open,
@@ -243,32 +243,61 @@ function AddToQueueOverlay({
   setDepartmentByRow,
   selectedTime,
   onAddToQueue,
-  onScheduleForLater,
   onOpenSlotPicker,
 }: AddToQueueOverlayProps) {
   const [department, setDepartment] = useState(initialDepartment);
   const [doctor, setDoctor] = useState("");
   const [date, setDate] = useState(getTodayYYYYMMDD());
   const [priority, setPriority] = useState<Priority>("normal");
-  const [showScheduleInput, setShowScheduleInput] = useState(false);
-  const [scheduleTime, setScheduleTime] = useState("");
+  const [departmentsList, setDepartmentsList] = useState<string[]>([]);
+  const [doctorsByDept, setDoctorsByDept] = useState<Record<string, string[]>>({});
+  const [doctorsLoading, setDoctorsLoading] = useState(false);
 
-  const doctors = DOCTORS_BY_DEPARTMENT[department] ?? [];
+  useEffect(() => {
+    if (!open) return;
+    setDoctorsLoading(true);
+    fetch("/api/doctors")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: DoctorOption[]) => {
+        if (!Array.isArray(list)) {
+          setDepartmentsList([]);
+          setDoctorsByDept({});
+          return;
+        }
+        const byDept: Record<string, string[]> = {};
+        const deptSet = new Set<string>();
+        for (const d of list) {
+          const dept = (d.department ?? "").trim() || "General Medicine";
+          deptSet.add(dept);
+          if (!byDept[dept]) byDept[dept] = [];
+          byDept[dept].push(d.displayLabel ?? `Dr. ${d.name}`);
+        }
+        const depts = Array.from(deptSet).sort();
+        if (depts.length === 0) depts.push("General Medicine");
+        setDepartmentsList(depts);
+        setDoctorsByDept(byDept);
+      })
+      .catch(() => {
+        setDepartmentsList(["General Medicine"]);
+        setDoctorsByDept({});
+      })
+      .finally(() => setDoctorsLoading(false));
+  }, [open]);
+
+  const doctors = doctorsByDept[department] ?? [];
   const effectiveDoctor = doctor || (doctors[0] ?? "");
 
   useEffect(() => {
     if (!open) return;
-    setDepartment(initialDepartment);
-    setDoctor(DOCTORS_BY_DEPARTMENT[initialDepartment]?.[0] ?? "");
+    setDepartment(initialDepartment && departmentsList.includes(initialDepartment) ? initialDepartment : departmentsList[0] ?? "General Medicine");
+    setDoctor("");
     setDate(getTodayYYYYMMDD());
     setPriority("normal");
-    setShowScheduleInput(false);
-    setScheduleTime("");
-  }, [open, initialDepartment]);
+  }, [open, initialDepartment, departmentsList]);
 
   useEffect(() => {
-    if (!doctors.includes(doctor)) setDoctor(doctors[0] ?? "");
-  }, [department, doctors]);
+    if (department && (!doctor || !doctors.includes(doctor))) setDoctor(doctors[0] ?? "");
+  }, [department, doctors, doctor]);
 
   const handleDepartmentChange = (dept: string) => {
     setDepartment(dept);
@@ -277,11 +306,6 @@ function AddToQueueOverlay({
 
   const handleAdd = () => {
     onAddToQueue(priority, department, selectedTime, effectiveDoctor, date);
-    onClose();
-  };
-
-  const handleSchedule = () => {
-    onScheduleForLater(scheduleTime || "—");
     onClose();
   };
 
@@ -307,9 +331,14 @@ function AddToQueueOverlay({
             <select
               value={department}
               onChange={(e) => handleDepartmentChange(e.target.value)}
-              className="w-full rounded border border-[#dee2e6] px-3 py-2 text-sm focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
+              disabled={doctorsLoading}
+              className="w-full rounded border border-[#dee2e6] px-3 py-2 text-sm focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff] disabled:bg-[#f8f9fa]"
             >
-              {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+              {doctorsLoading ? (
+                <option value="">Loading…</option>
+              ) : (
+                departmentsList.map((d) => <option key={d} value={d}>{d}</option>)
+              )}
             </select>
           </div>
           <div>
@@ -317,9 +346,14 @@ function AddToQueueOverlay({
             <select
               value={effectiveDoctor}
               onChange={(e) => setDoctor(e.target.value)}
-              className="w-full rounded border border-[#dee2e6] px-3 py-2 text-sm focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
+              disabled={doctorsLoading || doctors.length === 0}
+              className="w-full rounded border border-[#dee2e6] px-3 py-2 text-sm focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff] disabled:bg-[#f8f9fa]"
             >
-              {doctors.map((doc) => <option key={doc} value={doc}>{doc}</option>)}
+              {doctors.length === 0 ? (
+                <option value="">No doctors in this department</option>
+              ) : (
+                doctors.map((doc) => <option key={doc} value={doc}>{doc}</option>)
+              )}
             </select>
           </div>
           <div>
@@ -339,7 +373,7 @@ function AddToQueueOverlay({
               onClick={() => onOpenSlotPicker(department, effectiveDoctor, date)}
               className="w-full rounded border border-[#dee2e6] bg-white px-3 py-2 text-left text-sm text-[#333333] hover:bg-[#f8f9fa]"
             >
-              {formatSlotDisplay(selectedTime)} — tap to pick (see availability)
+              {formatSlotDisplay(selectedTime)} — pick slot
             </button>
           </div>
           <div>
@@ -354,25 +388,14 @@ function AddToQueueOverlay({
           </div>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
-          <button type="button" onClick={handleAdd} className="rounded-lg bg-[#28a745] px-4 py-2 text-sm font-medium text-white hover:bg-[#218838]">
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={doctorsLoading || doctors.length === 0 || !effectiveDoctor}
+            className="rounded-lg bg-[#28a745] px-4 py-2 text-sm font-medium text-white hover:bg-[#218838] disabled:opacity-60 disabled:pointer-events-none"
+          >
             Add to queue
           </button>
-          {!showScheduleInput ? (
-            <button type="button" onClick={() => setShowScheduleInput(true)} className="rounded-lg border border-[#dee2e6] bg-white px-4 py-2 text-sm font-medium text-[#333333] hover:bg-[#f8f9fa]">
-              Schedule for later
-            </button>
-          ) : (
-            <div className="flex flex-1 flex-wrap items-center gap-2">
-              <input
-                type="time"
-                value={scheduleTime}
-                onChange={(e) => setScheduleTime(e.target.value)}
-                className="rounded border border-[#dee2e6] px-2 py-1.5 text-sm"
-              />
-              <button type="button" onClick={handleSchedule} className="rounded bg-[#6c757d] px-3 py-1.5 text-sm text-white hover:bg-[#5a6268]">Set</button>
-              <button type="button" onClick={() => { setShowScheduleInput(false); setScheduleTime(""); }} className="rounded border border-[#dee2e6] px-3 py-1.5 text-sm text-[#6C757D] hover:bg-[#f8f9fa]">Cancel</button>
-            </div>
-          )}
           <button type="button" onClick={onClose} className="rounded-lg border border-[#dee2e6] px-4 py-2 text-sm text-[#6C757D] hover:bg-[#f8f9fa]">
             Close
           </button>
@@ -383,7 +406,7 @@ function AddToQueueOverlay({
 }
 
 export function WalkInPendingQueue() {
-  const { pendingWalkIns, addWalkInToQueue, scheduleWalkInForLater, cancelPendingWalkIn } = useNurseQueue();
+  const { pendingWalkIns, addWalkInToQueue, cancelPendingWalkIn } = useNurseQueue();
   const [departmentByRow, setDepartmentByRow] = useState<Record<string, string>>({});
   const [slotPanelFor, setSlotPanelFor] = useState<SlotPanelFor | null>(null);
   const [selectedSlotByPendingId, setSelectedSlotByPendingId] = useState<Record<string, string>>({});
@@ -438,7 +461,17 @@ export function WalkInPendingQueue() {
                     <td className="align-middle px-3 py-2.5">
                       <span className="block min-w-0 truncate text-[#333333]" title={symptomsText}>{symptomsText}</span>
                     </td>
-                    <td className="align-middle whitespace-nowrap px-3 py-2.5 text-[#6C757D]">{p.registeredAt}</td>
+                    <td className="align-middle whitespace-nowrap px-3 py-2.5 text-[#6C757D]" title={p.registeredAt}>
+                      {p.createdAt
+                        ? (() => {
+                            try {
+                              return new Date(p.createdAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" });
+                            } catch {
+                              return p.registeredAt;
+                            }
+                          })()
+                        : p.registeredAt}
+                    </td>
                     <td className="align-middle px-3 py-2.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <button
@@ -506,10 +539,6 @@ export function WalkInPendingQueue() {
                 delete next[p.id];
                 return next;
               });
-              setAddToQueueOverlayFor(null);
-            }}
-            onScheduleForLater={(scheduledTime) => {
-              scheduleWalkInForLater(p.id, scheduledTime);
               setAddToQueueOverlayFor(null);
             }}
             onOpenSlotPicker={(department, doctor, dateStr) => {

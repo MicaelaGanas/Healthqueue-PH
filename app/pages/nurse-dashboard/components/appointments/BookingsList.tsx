@@ -45,7 +45,7 @@ type BookingsListProps = {
 };
 
 export function BookingsList({ onGoToVitals }: BookingsListProps) {
-  const { queueRows, removeBookedPatient, confirmBooking } = useNurseQueue();
+  const { queueRows, removeBookedPatient, confirmBooking, confirmedForTriage } = useNurseQueue();
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [search, setSearch] = useState("");
   const [justConfirmedRef, setJustConfirmedRef] = useState<string | null>(null);
@@ -182,22 +182,26 @@ export function BookingsList({ onGoToVitals }: BookingsListProps) {
                     <td className="px-4 py-3 text-[#333333]">{formatTime(r.appointmentTime)}</td>
                     <td className="px-4 py-3 text-[#333333]">{dateStr}</td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleConfirm(r.ticket)}
-                          className="rounded border border-green-200 bg-green-50 px-2 py-1 text-xs font-medium text-green-800 hover:bg-green-100"
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCancel(r.ticket)}
-                          className="rounded border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
-                        >
-                          Cancel booking
-                        </button>
-                      </div>
+                      {confirmedForTriage.includes(r.ticket) ? (
+                        <span className="text-xs font-medium text-[#6C757D]">Confirmed</span>
+                      ) : (
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleConfirm(r.ticket)}
+                            className="rounded border border-green-200 bg-green-50 px-2 py-1 text-xs font-medium text-green-800 hover:bg-green-100"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCancel(r.ticket)}
+                            className="rounded border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                          >
+                            Cancel booking
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );

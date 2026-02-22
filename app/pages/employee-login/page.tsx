@@ -49,7 +49,7 @@ export default function EmployeeLoginPage() {
       else if (userRole === 'doctor') router.push('/pages/doctor-dashboard');
       else if (userRole === 'admin') router.push('/pages/admin-dashboard');
       else if (userRole === 'receptionist') router.push('/pages/nurse-dashboard');
-      else if (userRole === 'laboratory') router.push('/pages/laboratory-dashboard');
+      else if (userRole === 'laboratory') router.push('/pages/nurse-dashboard');
       else {
         setError('No dashboard assigned for your role');
         await supabase.auth.signOut();
@@ -64,7 +64,7 @@ export default function EmployeeLoginPage() {
     if (role === 'nurse') router.push('/pages/nurse-dashboard');
     else if (role === 'doctor') router.push('/pages/doctor-dashboard');
     else if (role === 'admin') router.push('/pages/admin-dashboard');
-    else if (role === 'laboratory') router.push('/pages/laboratory-dashboard');
+    else if (role === 'laboratory') router.push('/pages/nurse-dashboard');
     else if (role === 'receptionist') router.push('/pages/nurse-dashboard');
     else setError('Select a role');
   };
@@ -149,7 +149,6 @@ export default function EmployeeLoginPage() {
                         <option value="nurse">Nurse</option>
                         <option value="admin">Administrator</option>
                         <option value="receptionist">Receptionist</option>
-                        <option value="laboratory">Laboratory</option>
                       </select>
                     </div>
                   </>

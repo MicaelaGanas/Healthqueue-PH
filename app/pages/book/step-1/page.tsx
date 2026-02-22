@@ -1,20 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toYYYYMMDD } from "../../../lib/schedule";
-import { Navbar } from "../../../components/Navbar";
+import { parseTimeTo24 } from "../../../lib/queueBookedStorage";
 import { Footer } from "../../../components/Footer";
 import { PatientAuthGuard } from "../../../components/PatientAuthGuard";
 import { BackToHome } from "../components/BackToHome";
 import { StepIndicator } from "../components/StepIndicator";
-import { BookingTypeCard, type BookingType, type RelationshipChoice } from "./components/BookingTypeCard";
+import { BookingTypeCard, type BookingType } from "./components/BookingTypeCard";
 import { SelectDateCard } from "./components/SelectDateCard";
-import { PreferDoctorCard } from "./components/PreferDoctorCard";
 import { SelectDepartmentCard } from "./components/SelectDepartmentCard";
-import { SelectTimeCard } from "./components/SelectTimeCard";
+import { PreferDoctorCard } from "./components/PreferDoctorCard";
+import { SelectTimeCard, TIME_SLOTS } from "./components/SelectTimeCard";
 
 const BOOKING_STORAGE_KEY = "healthqueue_booking";
+const BOOKING_SUBMITTED_KEY = "healthqueue_booking_submitted";
 const WEEKDAYS = "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday".split(",");
 const MONTHS = "January,February,March,April,May,June,July,August,September,October,November,December".split(",");
 
@@ -25,11 +26,47 @@ function formatDateForSummary(d: Date): string {
 export default function BookStep1Page() {
   const router = useRouter();
   const [bookingType, setBookingType] = useState<BookingType>("self");
-  const [relationship, setRelationship] = useState<RelationshipChoice | "">("");
+  const [relationship, setRelationship] = useState<string>("");
   const [department, setDepartment] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
   const [preferredDoctor, setPreferredDoctor] = useState("");
+  const [takenTimes, setTakenTimes] = useState<string[]>([]);
+
+  const dateStr = selectedDate ? toYYYYMMDD(selectedDate) : null;
+  const disabledSlots =
+    dateStr == null
+      ? []
+      : TIME_SLOTS.filter((display) => takenTimes.includes(parseTimeTo24(display)));
+
+  useEffect(() => {
+    if (!dateStr) {
+      setTakenTimes([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/availability/slots?date=${encodeURIComponent(dateStr)}`)
+      .then((res) => (res.ok ? res.json() : { takenTimes: [] }))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data.takenTimes)) setTakenTimes(data.takenTimes);
+      })
+      .catch(() => {
+        if (!cancelled) setTakenTimes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dateStr]);
+
+  // Clear selected time if it becomes disabled after date or availability change
+  useEffect(() => {
+    if (selectedTime && disabledSlots.includes(selectedTime)) setSelectedTime("");
+  }, [disabledSlots, selectedTime]);
+
+  // Clear selected time when department is cleared (must select department before time)
+  useEffect(() => {
+    if ((!department || department === "—") && selectedTime) setSelectedTime("");
+  }, [department, selectedTime]);
 
   const handleContinue = () => {
     if (!selectedDate || !selectedTime) return;
@@ -42,12 +79,11 @@ export default function BookStep1Page() {
       date: dateStr,
       requestedDate: requestedDate ?? "",
       time: selectedTime,
-      preferredDoctor: preferredDoctor || "—",
+      preferredDoctor: preferredDoctor.trim() || "—",
     };
-    if (bookingType === "dependent" && relationship) {
-      payload.relationship = relationship;
-    }
+    if (bookingType === "dependent" && relationship) payload.relationship = relationship;
     if (typeof window !== "undefined") {
+      sessionStorage.removeItem(BOOKING_SUBMITTED_KEY);
       sessionStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(payload));
     }
     router.push("/pages/book/step-2");
@@ -56,7 +92,7 @@ export default function BookStep1Page() {
   const canContinue =
     selectedDate != null &&
     selectedTime !== "" &&
-    (bookingType !== "dependent" || !!relationship);
+    (bookingType === "self" || (bookingType === "dependent" && relationship !== ""));
 
   return (
     <PatientAuthGuard>
@@ -69,28 +105,35 @@ export default function BookStep1Page() {
 
         <StepIndicator currentStep={1} />
 
-        <div className="mt-8 space-y-6">
+        <div className="mt-8">
           <BookingTypeCard
             value={bookingType}
             onChange={setBookingType}
-            relationship={relationship}
-            onRelationshipChange={setRelationship}
+            relationship={relationship as "child" | "parent" | "spouse" | "elder" | "other" | ""}
+            onRelationshipChange={(v) => setRelationship(v)}
           />
-        <div className="rounded-xl border border-[#e9ecef] bg-white p-6 shadow-sm sm:p-8">
+        </div>
+
+        <div className="mt-8 rounded-xl border border-[#e9ecef] bg-white p-6 shadow-sm sm:p-8">
           <div className="flex flex-col gap-8 md:flex-row md:items-stretch md:gap-10">
             <div className="md:w-1/2 md:min-w-0">
-              <SelectDateCard value={selectedDate} onChange={setSelectedDate} />
+              <SelectDepartmentCard value={department} onChange={setDepartment} />
               <div className="mt-8">
-                <SelectDepartmentCard value={department} onChange={setDepartment} />
+                <SelectDateCard value={selectedDate} onChange={setSelectedDate} />
               </div>
             </div>
             <div className="flex flex-1 flex-col gap-6 md:w-1/2 md:min-w-0">
               <PreferDoctorCard
-                department={department}
+                department={department || "—"}
                 value={preferredDoctor}
                 onChange={setPreferredDoctor}
               />
-              <SelectTimeCard value={selectedTime} onChange={setSelectedTime} />
+              <SelectTimeCard
+                value={selectedTime}
+                onChange={setSelectedTime}
+                disabledSlots={disabledSlots}
+                selectionDisabled={!department || department === "—"}
+              />
               <button
                 type="button"
                 onClick={handleContinue}
@@ -105,7 +148,6 @@ export default function BookStep1Page() {
               </button>
             </div>
           </div>
-        </div>
         </div>
       </main>
 

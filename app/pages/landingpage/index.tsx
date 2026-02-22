@@ -5,7 +5,6 @@ import { HeroBanner } from "./components/HeroBanner";
 import { FeatureCards } from "./components/FeatureCards";
 import { LiveQueue } from "./components/LiveQueue";
 import { Announcements } from "./components/Announcements";
-import { QuickHelp } from "./components/QuickHelp";
 
 export default function LandingPage() {
   return (
@@ -15,7 +14,6 @@ export default function LandingPage() {
         <FeatureCards />
         <LiveQueue />
         <Announcements />
-        <QuickHelp />
       </main>
 
       <Footer />

@@ -4,7 +4,7 @@ import { requireRoles } from "../../../lib/api/auth";
 
 const requireStaff = requireRoles(["admin", "nurse", "receptionist"]);
 
-/** DELETE /api/booked/ref?referenceNo=APT-xxx */
+/** DELETE /api/booked/ref?referenceNo=APT-xxx — removes the booked entry from the queue (queue_rows by ticket). */
 export async function DELETE(request: Request) {
   const auth = await requireStaff(request);
   if (auth instanceof Response) return auth;
@@ -21,9 +21,9 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Missing referenceNo" }, { status: 400 });
   }
   const { error } = await supabase
-    .from("booked_queue")
+    .from("queue_rows")
     .delete()
-    .eq("reference_no", referenceNo);
+    .eq("ticket", referenceNo);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -16,6 +16,10 @@ function toAppRequest(r: DbBookingRequest) {
     referenceNo: r.reference_no,
     patientUserId: r.patient_user_id,
     bookingType: r.booking_type,
+    patientFirstName: r.patient_first_name ?? undefined,
+    patientLastName: r.patient_last_name ?? undefined,
+    contactPhone: r.contact_phone ?? undefined,
+    contactEmail: r.contact_email ?? undefined,
     beneficiaryFirstName: r.beneficiary_first_name ?? undefined,
     beneficiaryLastName: r.beneficiary_last_name ?? undefined,
     beneficiaryDateOfBirth: r.beneficiary_date_of_birth ?? undefined,
@@ -139,6 +143,30 @@ export async function POST(request: Request) {
     status: "pending",
   };
 
+  const contactFirst = (body.firstName ?? "").trim();
+  const contactLast = (body.lastName ?? "").trim();
+  const contactPhone = (body.phone ?? "").trim();
+  const contactEmail = (body.email ?? "").trim();
+
+  if (bookingType === "self") {
+    if (contactFirst || contactLast) {
+      row.patient_first_name = contactFirst || null;
+      row.patient_last_name = contactLast || null;
+    } else {
+      const { data: profile } = await supabase
+        .from("patient_users")
+        .select("first_name, last_name, number, email")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile) {
+        row.patient_first_name = (profile.first_name ?? "").trim() || null;
+        row.patient_last_name = (profile.last_name ?? "").trim() || null;
+      }
+    }
+    row.contact_phone = contactPhone || null;
+    row.contact_email = contactEmail || null;
+  }
+
   if (bookingType === "dependent") {
     const bFirst = (body.beneficiaryFirstName ?? "").trim();
     const bLast = (body.beneficiaryLastName ?? "").trim();
@@ -159,6 +187,10 @@ export async function POST(request: Request) {
     row.beneficiary_date_of_birth = null;
     row.beneficiary_gender = null;
     row.relationship = null;
+    row.patient_first_name = contactFirst || null;
+    row.patient_last_name = contactLast || null;
+    row.contact_phone = contactPhone || null;
+    row.contact_email = contactEmail || null;
   }
 
   const { data, error } = await supabase.from("booking_requests").insert(row).select("*").single();

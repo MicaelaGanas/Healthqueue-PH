@@ -13,6 +13,7 @@ import { ConfirmationDisclaimer } from "./components/ConfirmationDisclaimer";
 import { ConfirmationActions } from "./components/ConfirmationActions";
 
 const BOOKING_STORAGE_KEY = "healthqueue_booking";
+const BOOKING_SUBMITTED_KEY = "healthqueue_booking_submitted";
 
 type BookingData = {
   bookingType?: "self" | "dependent";
@@ -66,12 +67,34 @@ export default function BookStep3Page() {
   }, []);
 
   useEffect(() => {
-    if (!booking || hasSubmitted.current || typeof window === "undefined") return;
-    const supabase = createSupabaseBrowser();
-    if (!supabase) return;
+    if (!booking || typeof window === "undefined") return;
+    const requestedDate = (booking.requestedDate ?? "").trim();
+    const timeStr = (booking.time ?? "").trim();
+    const dept = (booking.department ?? "").trim();
+    const submitFingerprint = `${requestedDate}|${timeStr}|${dept}`;
+    if (!requestedDate || !timeStr) return;
 
+    if (hasSubmitted.current) return;
+    try {
+      const already = sessionStorage.getItem(BOOKING_SUBMITTED_KEY);
+      if (already === submitFingerprint) return;
+    } catch {
+      /* ignore */
+    }
     hasSubmitted.current = true;
+    try {
+      sessionStorage.setItem(BOOKING_SUBMITTED_KEY, submitFingerprint);
+    } catch {
+      /* ignore */
+    }
     setSubmitting(true);
+
+    const supabase = createSupabaseBrowser();
+    if (!supabase) {
+      setSubmitting(false);
+      return;
+    }
+
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -82,6 +105,7 @@ export default function BookStep3Page() {
       const department = (booking.department ?? "").trim() || "General Medicine";
       const requestedDate = (booking.requestedDate ?? "").trim();
       const timeStr = (booking.time ?? "").trim();
+      const fingerprint = `${requestedDate}|${timeStr}|${department}`;
       if (!requestedDate || !timeStr) {
         setSubmitError("Missing date or time.");
         setSubmitting(false);
@@ -94,6 +118,10 @@ export default function BookStep3Page() {
         requestedDate,
         requestedTime: parseTimeTo24(timeStr),
         preferredDoctor: preferredDoc && preferredDoc !== "—" ? preferredDoc : undefined,
+        firstName: (booking.firstName ?? "").trim() || undefined,
+        lastName: (booking.lastName ?? "").trim() || undefined,
+        phone: (booking.phone ?? "").trim() || undefined,
+        email: (booking.email ?? "").trim() || undefined,
       };
       if (booking.bookingType === "dependent") {
         body.beneficiaryFirstName = (booking.beneficiaryFirstName ?? "").trim();
@@ -112,7 +140,18 @@ export default function BookStep3Page() {
       setSubmitting(false);
       if (!res.ok) {
         setSubmitError(data.error || "Failed to submit request.");
+        try {
+          sessionStorage.removeItem(BOOKING_SUBMITTED_KEY);
+        } catch {
+          /* ignore */
+        }
+        hasSubmitted.current = false;
         return;
+      }
+      try {
+        sessionStorage.setItem(BOOKING_SUBMITTED_KEY, fingerprint);
+      } catch {
+        /* ignore */
       }
       setReferenceNo(data.referenceNo ?? data.reference_no ?? "");
     })();

@@ -81,12 +81,16 @@ export type DbBookingRequest = {
   reference_no: string;
   patient_user_id: string;
   booking_type: "self" | "dependent";
-  beneficiary_first_name: string | null; 
+  patient_first_name: string | null;
+  patient_last_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  beneficiary_first_name: string | null;
   beneficiary_last_name: string | null;
   beneficiary_date_of_birth: string | null;
   beneficiary_gender: string | null;
   relationship: "child" | "parent" | "spouse" | "other" | null;
-  department: string;  
+  department: string;
   preferred_doctor: string | null;
   requested_date: string;
   requested_time: string;

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createSupabaseBrowser } from "../../../../../lib/supabase/client";
 
 export type AlertItem = {
   id: string;
@@ -11,8 +12,73 @@ export type AlertItem = {
   unread: boolean;
 };
 
+function formatAlertTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+  } catch {
+    return iso;
+  }
+}
+
 export function AlertsNotifications() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createSupabaseBrowser();
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled || !session?.access_token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch("/api/booking-requests?status=pending", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (cancelled || !res.ok) {
+          setAlerts([]);
+          return;
+        }
+        const list = await res.json().catch(() => []);
+        if (!Array.isArray(list)) {
+          setAlerts([]);
+          return;
+        }
+        const mapped: AlertItem[] = list.map((r: {
+          id: string;
+          referenceNo: string;
+          patientFirstName?: string;
+          patientLastName?: string;
+          beneficiaryFirstName?: string;
+          beneficiaryLastName?: string;
+          department: string;
+          createdAt: string;
+        }) => {
+          const patientName = r.patientFirstName != null || r.patientLastName != null
+            ? [r.patientFirstName, r.patientLastName].filter(Boolean).join(" ").trim() || "—"
+            : [r.beneficiaryFirstName, r.beneficiaryLastName].filter(Boolean).join(" ").trim() || "—";
+          return {
+            id: r.id,
+            type: "Pending booking",
+            icon: "clock",
+            detail: `${r.referenceNo ?? "—"} — ${patientName} (${r.department ?? "—"})`,
+            time: formatAlertTime(r.createdAt ?? ""),
+            unread: true,
+          };
+        });
+        setAlerts(mapped);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const markRead = (id: string) => {
     setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, unread: false } : a)));
@@ -42,12 +108,17 @@ export function AlertsNotifications() {
         )}
       </div>
       <div className="space-y-3">
-        {alerts.length === 0 && (
+        {loading && (
           <p className="rounded-lg border border-[#e9ecef] bg-[#f8f9fa] p-4 text-center text-sm text-[#6C757D]">
-            No alerts. Alerts will load from the server when connected.
+            Loading notifications…
           </p>
         )}
-        {alerts.map((a) => (
+        {!loading && alerts.length === 0 && (
+          <p className="rounded-lg border border-[#e9ecef] bg-[#f8f9fa] p-4 text-center text-sm text-[#6C757D]">
+            No pending booking requests. New requests will appear here.
+          </p>
+        )}
+        {!loading && alerts.map((a) => (
           <div
             key={a.id}
             className={`flex items-start gap-4 rounded-lg border p-4 ${a.unread ? "border-[#007bff]/30 bg-blue-50/50" : "border-[#e9ecef] bg-[#f8f9fa]"}`}

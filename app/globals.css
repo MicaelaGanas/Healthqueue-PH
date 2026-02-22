@@ -30,6 +30,7 @@
   --color-page-bg: var(--page-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-rosario: var(--font-rosario);
 }
 
 body {
