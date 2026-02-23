@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 type FadeInSectionProps = {
   children: React.ReactNode;
@@ -9,6 +9,8 @@ type FadeInSectionProps = {
   delay?: number;
   /** Root margin for IntersectionObserver (e.g. "0px 0px -40px 0px" to trigger when 40px from bottom). */
   rootMargin?: string;
+  /** If true, only animate once and stop observing after first reveal. */
+  once?: boolean;
 };
 
 export function FadeInSection({
@@ -16,44 +18,26 @@ export function FadeInSection({
   className = "",
   delay = 0,
   rootMargin = "0px 0px -50px 0px",
+  once = true,
 }: FadeInSectionProps) {
-  const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
-  const [hasAnimated, setHasAnimated] = useState(false);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (!entry?.isIntersecting || hasAnimated) return;
-        if (delay > 0) {
-          timeoutId = setTimeout(() => {
-            setIsVisible(true);
-            setHasAnimated(true);
-          }, delay);
-        } else {
-          setIsVisible(true);
-          setHasAnimated(true);
-        }
-      },
-      { threshold: 0.1, rootMargin }
-    );
-
-    observer.observe(el);
+    if (delay > 0) {
+      timeoutId = setTimeout(() => {
+        setIsVisible(true);
+      }, delay);
+    } else {
+      setIsVisible(true);
+    }
     return () => {
-      observer.disconnect();
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [delay, rootMargin, hasAnimated]);
+  }, [delay]);
 
   return (
     <div
-      ref={ref}
       className={`${isVisible ? "animate-fade-in-up" : "opacity-0 translate-y-6"} ${className}`}
     >
       {children}

@@ -60,7 +60,7 @@ type LiveQueueStatusGridProps = {
 };
 
 export function LiveQueueStatusGrid({ variant = "page", sectionId = "live-queue" }: LiveQueueStatusGridProps) {
-  const [selectedDate, setSelectedDate] = useState(getTodayIso);
+  const today = getTodayIso();
   const [departments, setDepartments] = useState<LiveQueueDept[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,7 +70,7 @@ export function LiveQueueStatusGrid({ variant = "page", sectionId = "live-queue"
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/landing/live-queue?date=${encodeURIComponent(selectedDate)}`)
+    fetch(`/api/landing/live-queue?date=${encodeURIComponent(today)}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load queue status");
         return res.json();
@@ -87,7 +87,7 @@ export function LiveQueueStatusGrid({ variant = "page", sectionId = "live-queue"
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [selectedDate]);
+  }, [today]);
 
   const isLanding = variant === "landing";
 
@@ -102,31 +102,8 @@ export function LiveQueueStatusGrid({ variant = "page", sectionId = "live-queue"
             Live Queue Status
           </h2>
           <p className="mt-1 text-sm text-[#6C757D]">
-            Estimated wait times by department for {formatReadableDate(selectedDate)}
+            Estimated wait times by department as of {formatReadableDate(today)}
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="live-queue-date" className="sr-only">
-            Date
-          </label>
-          <div className="relative flex items-center">
-            <CalendarIcon className="absolute left-3 h-4 w-4 text-[#6C757D]" />
-            <input
-              id="live-queue-date"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="rounded-lg border border-[#dee2e6] bg-white py-2 pl-9 pr-3 text-sm text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
-            />
-          </div>
-          <button
-            type="button"
-            className="rounded-lg p-2 text-[#6C757D] hover:bg-[#e9ecef]"
-            aria-label="Refresh queue status"
-            onClick={() => setSelectedDate(getTodayIso())}
-          >
-            <SearchIcon className="h-5 w-5" />
-          </button>
         </div>
       </div>
 

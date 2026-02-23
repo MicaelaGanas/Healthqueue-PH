@@ -65,7 +65,7 @@ const cards = [
   {
     title: "Directory",
     description: "Departments and service locations.",
-    href: "#directory",
+    href: "directory",
     cta: "View Map",
     primary: false,
     icon: MapPinIcon,
@@ -82,6 +82,7 @@ export function FeatureCards() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {cards.map((card, index) => {
             const Icon = card.icon;
+            const isHash = card.href.startsWith("#");
             return (
               <FadeInSection key={card.title} delay={index * 80}>
                 <article
@@ -93,10 +94,22 @@ export function FeatureCards() {
               <h3 className="mt-4 text-lg font-semibold text-[#0f172a]">
                 {card.title}
               </h3>
-              <p className="mt-1.5 text-sm text-[#64748b] leading-snug">
+              <p className="mt-1.5 text-sm text-[#64748b] leading-snug line-clamp-2 min-h-[2.75rem]">
                 {card.description}
               </p>
               <div className="mt-5 flex-1" />
+              {isHash ? ( 
+                <a
+                  href={card.href}
+                  className={`mt-4 w-full rounded-lg px-4 py-2.5 text-center text-sm font-medium transition ${
+                    card.primary
+                      ? "bg-[#007bff] text-white hover:bg-[#0069d9]"
+                      : "border border-[#e2e8f0] text-[#334155] hover:border-[#cbd5e1] hover:bg-[#f8fafc]"
+                  }`}
+                >
+                  {card.cta}
+                </a>
+              ) : (
               <Link
                 href={card.href}
                 className={`mt-4 w-full rounded-lg px-4 py-2.5 text-center text-sm font-medium transition ${
@@ -107,6 +120,7 @@ export function FeatureCards() {
               >
                 {card.cta}
               </Link>
+              )}
                 </article>
               </FadeInSection>
             );
