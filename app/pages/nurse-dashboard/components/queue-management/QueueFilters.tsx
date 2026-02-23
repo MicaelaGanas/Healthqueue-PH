@@ -19,12 +19,12 @@ type QueueFiltersProps = {
 
 const STATUSES = [
   { value: "all", label: "All Status" },
-  { value: "scheduled", label: "Scheduled" },
-  { value: "waiting", label: "Waiting" },
+  { value: "scheduled", label: "Waiting for doctor" },
+  { value: "waiting", label: "Waiting for doctor" },
   { value: "called", label: "Called" },
-  { value: "in progress", label: "In Progress" },
-  { value: "completed", label: "Completed" },
-  { value: "no show", label: "No Show" },
+  { value: "in progress", label: "Meeting with doctor" },
+  { value: "completed", label: "Done" },
+  { value: "no show", label: "No show" },
 ];
 
 export function QueueFilters({ filters, onFiltersChange, departmentNames, managedDepartment, doctorOnDuty }: QueueFiltersProps) {

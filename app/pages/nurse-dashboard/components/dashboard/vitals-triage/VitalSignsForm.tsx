@@ -3,8 +3,23 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createSupabaseBrowser } from "../../../../../lib/supabase/client";
 import { useNurseQueue } from "../../../context/NurseQueueContext";
+import type { QueueRow } from "../../../context/NurseQueueContext";
 
 const SEVERITY_OPTIONS = ["Select severity", "Mild", "Moderate", "Severe", "Critical"];
+
+/** Today as YYYY-MM-DD for schedule filtering. */
+function getTodayDateStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** True if this queue row is scheduled for today (appointment date or added date). */
+function isScheduledForToday(r: QueueRow): boolean {
+  const today = getTodayDateStr();
+  const aptDate = (r.appointmentDate ?? "").trim().slice(0, 10);
+  const addedDate = (r.addedAt ?? "").slice(0, 10);
+  if (aptDate && /^\d{4}-\d{2}-\d{2}$/.test(aptDate)) return aptDate === today;
+  return addedDate === today;
+}
 
 type QueuePatient = { ticket: string; patientName: string; department: string };
 type VitalsRecord = { ticket: string; patientName: string; department: string; recordedAt: string };
@@ -27,10 +42,10 @@ function matchPatient(q: string, p: QueuePatient) {
 
 export function VitalSignsForm() {
   const { queueRows, setPatientPriority, confirmedForTriage, clearConfirmedForTriage } = useNurseQueue();
-  const queuePatients = useMemo<QueuePatient[]>(
-    () => queueRows.map((r) => ({ ticket: r.ticket, patientName: r.patientName, department: r.department })),
-    [queueRows]
-  );
+  const queuePatients = useMemo<QueuePatient[]>(() => {
+    const scheduledToday = queueRows.filter(isScheduledForToday);
+    return scheduledToday.map((r) => ({ ticket: r.ticket, patientName: r.patientName, department: r.department }));
+  }, [queueRows]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);

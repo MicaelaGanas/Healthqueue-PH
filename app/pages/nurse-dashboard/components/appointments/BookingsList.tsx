@@ -40,6 +40,12 @@ function isInWeek(bookingDate: Date, ref: Date): boolean {
   return t >= start.getTime() && t < end.getTime();
 }
 
+/** True if this booking is scheduled for today (so nurse can confirm for vitals/triage). */
+function isScheduledForToday(r: QueueRow): boolean {
+  const d = getBookingDate(r);
+  return d ? sameDay(d, new Date()) : false;
+}
+
 type BookingsListProps = {
   onGoToVitals?: () => void;
 };
@@ -94,7 +100,7 @@ export function BookingsList({ onGoToVitals }: BookingsListProps) {
       {justConfirmedRef && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-green-200 bg-green-50 px-4 py-3">
           <p className="text-sm font-medium text-green-800">
-            Booking <strong>{justConfirmedRef}</strong> confirmed. Go to Vitals & Triage to record vitals for this patient.
+            Arrival confirmed for <strong>{justConfirmedRef}</strong>. Go to Vitals &amp; Triage to record vitals; then they will appear in Queue Management.
           </p>
           <div className="flex items-center gap-2">
             {onGoToVitals && (
@@ -119,9 +125,6 @@ export function BookingsList({ onGoToVitals }: BookingsListProps) {
       <h3 className="border-b border-[#e9ecef] px-4 py-3 text-base font-bold text-[#333333]">
         Patient booking requests
       </h3>
-      <p className="border-b border-[#e9ecef] px-4 py-2 text-sm text-[#6C757D]">
-        These are patients who booked online. Confirm to send them to Vitals & Triage. They appear in Queue Management by department and doctor. Cancel here to remove from the queue.
-      </p>
       <div className="flex flex-wrap gap-2 border-b border-[#e9ecef] p-4 sm:gap-3">
         <div className="relative flex-1 min-w-[140px]">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6C757D]">
@@ -184,6 +187,8 @@ export function BookingsList({ onGoToVitals }: BookingsListProps) {
                     <td className="px-4 py-3 text-right">
                       {confirmedForTriage.includes(r.ticket) ? (
                         <span className="text-xs font-medium text-[#6C757D]">Confirmed</span>
+                      ) : !isScheduledForToday(r) ? (
+                        <span className="text-xs text-[#6C757D]">Confirm on appointment date</span>
                       ) : (
                         <div className="flex flex-wrap items-center justify-end gap-2">
                           <button

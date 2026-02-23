@@ -73,6 +73,9 @@ export async function GET(request: Request) {
   if (staffAuth) {
     let q = supabase.from("booking_requests").select("*").order("created_at", { ascending: false });
     if (statusFilter) q = q.eq("status", statusFilter);
+    if (["nurse", "receptionist"].includes(staffAuth.role) && staffAuth.department?.trim()) {
+      q = q.eq("department", staffAuth.department.trim());
+    }
     const { data, error } = await q;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json((data ?? []).map((r: DbBookingRequest) => toAppRequest(r)));

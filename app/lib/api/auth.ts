@@ -18,6 +18,8 @@ export type Staff = {
   role: StaffRole;
   name: string;
   employeeId: string;
+  /** Staff's assigned department (nurse/receptionist see only this department's data). */
+  department: string | null;
 };
 
 /**
@@ -44,7 +46,7 @@ export async function getStaffFromRequest(request: Request): Promise<Staff | nul
 
   const { data: staff } = await supabase
     .from("admin_users")
-    .select("id, name, email, role, status, employee_id")
+    .select("id, name, email, role, status, employee_id, department")
     .ilike("email", user.email)
     .maybeSingle();
 
@@ -55,6 +57,7 @@ export async function getStaffFromRequest(request: Request): Promise<Staff | nul
     role: staff.role as StaffRole,
     name: staff.name,
     employeeId: staff.employee_id,
+    department: staff.department ?? null,
   };
 }
 

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppointmentsSummaryCards } from "./AppointmentsSummaryCards";
 import { PendingBookingRequests } from "./PendingBookingRequests";
 import { BookingsList } from "./BookingsList";
+
+const APPOINTMENTS_POLL_INTERVAL_MS = 15000;
 
 type AppointmentsContentProps = {
   onGoToVitals?: () => void;
@@ -11,12 +13,19 @@ type AppointmentsContentProps = {
 
 export function AppointmentsContent({ onGoToVitals }: AppointmentsContentProps) {
   const [pendingRefreshKey, setPendingRefreshKey] = useState(0);
+
+  // Poll so new booking requests and queue updates appear without manual refresh.
+  useEffect(() => {
+    const id = setInterval(() => setPendingRefreshKey((k) => k + 1), APPOINTMENTS_POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-[#333333]">Manage bookings</h2>
         <p className="mt-0.5 text-sm text-[#6C757D]">
-          Pending requests need your confirmation before they are added to the queue. Confirm to add the patient to the booked queue; they will appear in Queue Management. To add a walk-in, use Registration and Queue Management.
+          Confirm pending requests to add to the queue. On the appointment day, confirm arrival here, then record vitals in Vitals &amp; Triage; patients then appear in Queue Management.
         </p>
       </div>
 
@@ -24,7 +33,10 @@ export function AppointmentsContent({ onGoToVitals }: AppointmentsContentProps) 
 
       <div>
         <h3 className="mb-3 text-lg font-semibold text-[#333333]">Pending booking requests</h3>
-        <PendingBookingRequests onPendingChange={() => setPendingRefreshKey((k) => k + 1)} />
+        <PendingBookingRequests
+          refreshTrigger={pendingRefreshKey}
+          onPendingChange={() => setPendingRefreshKey((k) => k + 1)}
+        />
       </div>
 
       <div>

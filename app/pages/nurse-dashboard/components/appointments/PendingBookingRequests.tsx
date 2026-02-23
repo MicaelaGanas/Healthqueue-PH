@@ -176,10 +176,11 @@ function BookingRequestSummaryModal({
 }
 
 type PendingBookingRequestsProps = {
+  refreshTrigger?: number;
   onPendingChange?: () => void;
 };
 
-export function PendingBookingRequests({ onPendingChange }: PendingBookingRequestsProps) {
+export function PendingBookingRequests({ refreshTrigger, onPendingChange }: PendingBookingRequestsProps) {
   const { refetchQueue } = useNurseQueue();
   const [list, setList] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,25 +189,27 @@ export function PendingBookingRequests({ onPendingChange }: PendingBookingReques
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
   const [summaryRequest, setSummaryRequest] = useState<BookingRequest | null>(null);
 
-  const loadPending = async () => {
+  const loadPending = async (silent = false) => {
     const supabase = createSupabaseBrowser();
     if (!supabase) {
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
-    setLoading(true);
-    setError("");
+    if (!silent) {
+      setLoading(true);
+      setError("");
+    }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
     const res = await fetch("/api/booking-requests?status=pending", {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    setLoading(false);
+    if (!silent) setLoading(false);
     if (!res.ok) {
-      setError("Failed to load pending requests.");
+      if (!silent) setError("Failed to load pending requests.");
       return;
     }
     const data = await res.json();
@@ -216,6 +219,12 @@ export function PendingBookingRequests({ onPendingChange }: PendingBookingReques
   useEffect(() => {
     loadPending();
   }, []);
+
+  // Refetch when parent triggers (polling or after confirm elsewhere) so new bookings appear without refresh.
+  useEffect(() => {
+    if (refreshTrigger === undefined || refreshTrigger === 0) return;
+    loadPending(true);
+  }, [refreshTrigger]);
 
   const handleConfirm = async (id: string) => {
     const supabase = createSupabaseBrowser();
@@ -234,6 +243,7 @@ export function PendingBookingRequests({ onPendingChange }: PendingBookingReques
       setSummaryRequest((prev) => (prev?.id === id ? null : prev));
       onPendingChange?.();
       await refetchQueue();
+      setTimeout(() => refetchQueue(), 800);
     }
   };
 
