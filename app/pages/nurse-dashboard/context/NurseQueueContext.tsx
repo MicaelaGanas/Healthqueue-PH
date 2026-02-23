@@ -162,8 +162,9 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
       setQueueRows(loadFallbackQueue());
       return;
     }
-    const res = await fetch("/api/queue-rows", {
+    const res = await fetch("/api/queue-rows?t=" + Date.now(), {
       headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
     });
     if (res.ok) {
       const data = await res.json();
@@ -196,6 +197,16 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     refetchQueue();
     refetchPendingWalkIns();
+  }, [refetchQueue, refetchPendingWalkIns]);
+
+  // Poll queue and pending walk-ins so new bookings and queue changes appear without manual refresh.
+  const POLL_INTERVAL_MS = 15000;
+  useEffect(() => {
+    const id = setInterval(() => {
+      refetchQueue();
+      refetchPendingWalkIns();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
   }, [refetchQueue, refetchPendingWalkIns]);
 
   // Sync queue to localStorage and to Supabase when queue changes (skip right after we hydrated from API).

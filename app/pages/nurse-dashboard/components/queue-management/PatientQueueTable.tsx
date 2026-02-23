@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { useNurseQueue } from "../../context/NurseQueueContext";
 import type { QueueRow } from "../../context/NurseQueueContext";
 import type { QueueFiltersState } from "./QueueFilters";
@@ -23,16 +24,18 @@ const STATUS_STYLES: Record<string, string> = {
   "in progress": "bg-emerald-100 text-emerald-800",
   completed: "bg-green-100 text-green-800",
   "no show": "bg-red-100 text-red-800",
+  "needs_vitals": "bg-amber-50 text-amber-900 border border-amber-200",
 };
 
-/** Collapsed status labels: Waiting / With doctor / Done / No show */
+/** Status labels aligned with patient flow: Confirmed date → Arrived → Vitals & triage → Waiting for doctor → Meeting with doctor → Done */
 const STATUS_LABELS: Record<string, string> = {
-  scheduled: "Waiting",
-  waiting: "Waiting",
-  called: "Waiting",
-  "in progress": "With doctor",
+  scheduled: "Waiting for doctor",
+  waiting: "Waiting for doctor",
+  called: "Waiting for doctor",
+  "in progress": "Meeting with doctor",
   completed: "Done",
   "no show": "No show",
+  "needs_vitals": "Needs vitals",
 };
 
 const SOURCE_STYLES: Record<string, string> = {
@@ -111,8 +114,45 @@ type PatientQueueTableProps = {
   doctorOnDuty?: string;
 };
 
+/** Booked patients need vitals before they can be "waiting for doctor". Walk-ins are ready once in queue. */
+function isReadyForDoctor(r: QueueRow, ticketsWithVitals: Set<string>): boolean {
+  return r.source === "walk-in" || ticketsWithVitals.has(r.ticket);
+}
+
+/** Display status: show "Needs vitals" for booked patients without vitals who are scheduled/waiting. */
+function displayStatus(r: QueueRow, ticketsWithVitals: Set<string>): string {
+  if (
+    r.source === "booked" &&
+    !ticketsWithVitals.has(r.ticket) &&
+    (r.status === "scheduled" || r.status === "waiting")
+  ) {
+    return "needs_vitals";
+  }
+  return r.status;
+}
+
 export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: PatientQueueTableProps) {
   const { queueRows, setPatientStatus } = useNurseQueue();
+  const [ticketsWithVitals, setTicketsWithVitals] = useState<Set<string>>(new Set());
+
+  const fetchVitals = useCallback(async () => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const res = await fetch("/api/vitals", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : [];
+    const tickets = new Set<string>(list.map((v: { ticket: string }) => v.ticket));
+    setTicketsWithVitals(tickets);
+  }, []);
+
+  useEffect(() => {
+    fetchVitals();
+  }, [fetchVitals, queueRows.length]);
 
   const { sortedAndFiltered, currentWithDoctor, suggestedNextTicket, suggestedNextPatientName, waitTimeByTicket } = useMemo(() => {
     let scope = managedDepartment
@@ -121,6 +161,8 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
     if (doctorOnDuty) {
       scope = scope.filter((r) => r.assignedDoctor === doctorOnDuty);
     }
+    // Do not show booked patients in queue until vitals are recorded (they belong in Vitals & Triage first).
+    scope = scope.filter((r) => r.source === "walk-in" || ticketsWithVitals.has(r.ticket));
     const sorted = [...scope].sort((a, b) => {
       const ka = sortKey(a);
       const kb = sortKey(b);
@@ -143,14 +185,19 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
       : byStatus;
 
     const currentWithDoctor = filtered.find((r) => r.status === "in progress") ?? null;
-    const firstWaiting = filtered.find((r) => r.status === "waiting" || r.status === "scheduled" || r.status === "called");
+    const firstWaiting = filtered.find(
+      (r) =>
+        (r.status === "waiting" || r.status === "scheduled" || r.status === "called") &&
+        isReadyForDoctor(r, ticketsWithVitals)
+    );
     const suggestedNextTicket = firstWaiting?.ticket ?? null;
     const suggestedNextPatientName = firstWaiting?.patientName ?? null;
 
+    const waitingForDoctor = sorted.filter((r) => r.status === "waiting" && isReadyForDoctor(r, ticketsWithVitals));
     const waitTimeByTicket: Record<string, string> = {};
     filtered.forEach((r) => {
-      if (r.status === "waiting") {
-        waitTimeByTicket[r.ticket] = getEstimatedWait(sorted, r.ticket, r.department);
+      if (r.status === "waiting" && isReadyForDoctor(r, ticketsWithVitals)) {
+        waitTimeByTicket[r.ticket] = getEstimatedWait(waitingForDoctor, r.ticket, r.department);
       }
     });
 
@@ -161,7 +208,12 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
       suggestedNextPatientName,
       waitTimeByTicket,
     };
-  }, [queueRows, filters, managedDepartment, doctorOnDuty]);
+  }, [queueRows, filters, managedDepartment, doctorOnDuty, ticketsWithVitals]);
+
+  const getDisplayStatus = useCallback(
+    (r: QueueRow) => displayStatus(r, ticketsWithVitals),
+    [ticketsWithVitals]
+  );
 
   return (
     <div className="rounded-lg border border-[#e9ecef] bg-white shadow-sm">
@@ -169,13 +221,10 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
         Patient Queue
         <span className="ml-2 text-sm font-normal text-[#6C757D]">(sorted by priority, then appointment/add time)</span>
       </h3>
-      <p className="border-b border-[#e9ecef] px-4 py-2 text-xs text-[#6C757D]">
-        Who is with the doctor now, who is next, and call the next patient when the doctor is ready.
-      </p>
       <div className="border-b border-[#e9ecef]">
         {currentWithDoctor && (
           <div className="flex flex-wrap items-center gap-3 bg-emerald-50 px-4 py-3">
-            <span className="text-sm font-medium text-emerald-800">Currently with doctor:</span>
+            <span className="text-sm font-medium text-emerald-800">Meeting with doctor:</span>
             <span className="text-sm font-semibold text-[#333333]">{currentWithDoctor.patientName}</span>
             <span className="text-sm text-[#6C757D]">({currentWithDoctor.ticket})</span>
           </div>
@@ -183,7 +232,7 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
         {suggestedNextTicket && (
           <div className="flex flex-wrap items-center justify-between gap-3 bg-sky-50/80 px-4 py-3">
             <p className="text-sm text-[#333333]">
-              <span className="font-medium text-sky-800">Next in line:</span>{" "}
+              <span className="font-medium text-sky-800">Next (waiting for doctor):</span>{" "}
               <span className="font-semibold">{suggestedNextPatientName}</span> ({suggestedNextTicket})
             </p>
             <button
@@ -192,18 +241,18 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
               className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
             >
               <PlayIcon className="h-5 w-5" />
-              Call next patient
+              Send to doctor
             </button>
           </div>
         )}
         {!currentWithDoctor && !suggestedNextTicket && sortedAndFiltered.length > 0 && (
           <div className="px-4 py-3 text-sm text-[#6C757D]">
-            No one with the doctor right now. Everyone in the list below is completed or no-show — no one waiting to be called. Confirm or add patients to the queue to call them in.
+            No one meeting with the doctor. Everyone below is done or no-show — no one waiting for doctor. Record vitals in Vitals &amp; Triage, then they will appear here to send to doctor.
           </div>
         )}
         {!currentWithDoctor && !suggestedNextTicket && sortedAndFiltered.length === 0 && (
           <div className="px-4 py-3 text-sm text-[#6C757D]">
-            Queue is empty. Add or confirm patients to call them in.
+            Queue is empty. Confirm arrivals in Manage Bookings, record vitals in Vitals &amp; Triage, or add walk-ins in Registration.
           </div>
         )}
       </div>
@@ -249,7 +298,7 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
                         <span className="ml-1.5 inline rounded bg-sky-600 px-1.5 py-0.5 text-xs font-medium text-white">Next</span>
                       )}
                       {isInProgress && (
-                        <span className="ml-1.5 inline rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-medium text-white">With doctor</span>
+                        <span className="ml-1.5 inline rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-medium text-white">Meeting with doctor</span>
                       )}
                     </span>
                   </td>
@@ -269,11 +318,11 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
                     <Badge value={r.priority} styles={PRIORITY_STYLES} />
                   </td>
                   <td className="align-middle px-3 py-2.5">
-                    <Badge value={r.status} styles={STATUS_STYLES} labels={STATUS_LABELS} />
+                    <Badge value={getDisplayStatus(r)} styles={STATUS_STYLES} labels={STATUS_LABELS} />
                   </td>
                   <td className="align-middle px-3 py-2.5 whitespace-nowrap text-[#333333]">{estWait}</td>
                   <td className="align-middle px-3 py-2.5 text-right">
-                    {(r.status === "scheduled" || r.status === "waiting") && r.source === "booked" && (
+                    {(getDisplayStatus(r) === "scheduled" || getDisplayStatus(r) === "waiting" || getDisplayStatus(r) === "needs_vitals") && r.source === "booked" && (
                       <button
                         type="button"
                         onClick={() => setPatientStatus(r.ticket, "no show")}

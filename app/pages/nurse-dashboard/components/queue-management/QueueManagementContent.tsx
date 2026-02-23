@@ -20,8 +20,6 @@ type QueueManagementContentProps = {
   onAddWalkIn?: () => void;
 };
 
-const POLL_INTERVAL_MS = 20000;
-
 export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentProps) {
   const { queueRows, refetchQueue } = useNurseQueue();
   const { departments } = useDepartments();
@@ -81,14 +79,7 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
   const showSelectors = !staffDepartment;
   const canShowQueue = managedDepartment && (showSelectors ? doctorOnDuty : true);
 
-  // Poll queue so we detect when doctor marks a patient complete
-  useEffect(() => {
-    if (!canShowQueue) return;
-    const id = setInterval(() => refetchQueue(), POLL_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [canShowQueue, refetchQueue]);
-
-  // When queue updates, detect new completions (in progress → completed) and notify nurse
+  // Queue is polled globally in NurseQueueContext; when queue updates, detect new completions (in progress → completed) and notify nurse
   useEffect(() => {
     const prev = previousQueueRef.current;
     for (const row of queueRows) {
@@ -108,7 +99,7 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
         <div>
           <h2 className="text-xl font-bold text-[#333333]">Queue Management</h2>
           <p className="mt-0.5 text-sm text-[#6C757D]">
-            Booked patients are already in the queue after confirmation. Use Registration to add walk-ins. Queue is sorted by priority (urgent then normal), then appointment/add time.
+            Booked patients appear here after vitals are recorded. Use Registration to add walk-ins.
           </p>
         </div>
         <button
@@ -204,7 +195,7 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
               className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800"
             >
               <p className="text-sm font-medium">
-                Consultation complete for <span className="font-semibold">{completionNotification.patientName}</span> ({completionNotification.ticket}). Call in the next patient.
+                <span className="font-semibold">{completionNotification.patientName}</span> ({completionNotification.ticket}) is done. Send the next patient to the doctor.
               </p>
               <button
                 type="button"

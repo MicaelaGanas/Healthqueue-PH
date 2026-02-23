@@ -26,9 +26,10 @@ function initials(name: string | null, email: string): string {
 
 type StaffHeaderProps = {
   onGoToAppointments?: () => void;
+  onGoToAlerts?: () => void;
 };
 
-export function StaffHeader({ onGoToAppointments }: StaffHeaderProps) {
+export function StaffHeader({ onGoToAppointments, onGoToAlerts }: StaffHeaderProps) {
   const [name, setName] = useState<string | null>(null);
   const [role, setRole] = useState<StaffRole | null>(null);
   const [email, setEmail] = useState<string>("");
@@ -159,7 +160,7 @@ export function StaffHeader({ onGoToAppointments }: StaffHeaderProps) {
           {notificationsOpen && (
             <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded-lg border border-[#dee2e6] bg-white py-2 shadow-lg">
               <div className="border-b border-[#e9ecef] px-4 py-2">
-                <p className="text-sm font-bold text-[#333333]">Notifications</p>
+                <p className="text-sm font-bold text-[#333333]">Alerts & Notifications</p>
                 <p className="text-xs text-[#6C757D]">Pending booking requests</p>
               </div>
               <div className="max-h-64 overflow-auto">
@@ -170,10 +171,19 @@ export function StaffHeader({ onGoToAppointments }: StaffHeaderProps) {
                 ) : (
                   <ul className="py-1">
                     {pendingNotifications.slice(0, 10).map((n) => (
-                      <li key={n.id} className="border-b border-[#e9ecef] px-4 py-2 last:border-b-0">
-                        <p className="text-sm font-medium text-[#333333]">{n.referenceNo}</p>
-                        <p className="text-xs text-[#6C757D]">{n.patientName} · {n.department}</p>
-                        <p className="text-xs text-[#6C757D]">{n.requestedDate} {n.requestedTime}</p>
+                      <li key={n.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onGoToAlerts?.();
+                            setNotificationsOpen(false);
+                          }}
+                          className="w-full border-b border-[#e9ecef] px-4 py-2 text-left last:border-b-0 hover:bg-[#f8f9fa]"
+                        >
+                          <p className="text-sm font-medium text-[#333333]">{n.referenceNo}</p>
+                          <p className="text-xs text-[#6C757D]">{n.patientName} · {n.department}</p>
+                          <p className="text-xs text-[#6C757D]">{n.requestedDate} {n.requestedTime}</p>
+                        </button>
                       </li>
                     ))}
                     {pendingCount > 10 && (
@@ -182,14 +192,14 @@ export function StaffHeader({ onGoToAppointments }: StaffHeaderProps) {
                   </ul>
                 )}
               </div>
-              {onGoToAppointments && (
+              {onGoToAlerts && (
                 <div className="border-t border-[#e9ecef] px-4 py-2">
                   <button
                     type="button"
-                    onClick={() => { onGoToAppointments(); setNotificationsOpen(false); }}
+                    onClick={() => { onGoToAlerts(); setNotificationsOpen(false); }}
                     className="w-full rounded bg-[#007bff] px-3 py-2 text-sm font-medium text-white hover:bg-[#0056b3]"
                   >
-                    View all in Manage bookings
+                    Open Alerts panel
                   </button>
                 </div>
               )}
