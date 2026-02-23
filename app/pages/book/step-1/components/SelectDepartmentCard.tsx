@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DEPARTMENTS } from "../../../../lib/departments";
+import { useDepartments } from "../../../../lib/useDepartments";
 
 function BuildingIcon({ className }: { className?: string }) {
   return (
@@ -19,6 +19,7 @@ type Props = {
 export function SelectDepartmentCard({ value = "", onChange }: Props) {
   const [internalValue, setInternalValue] = useState("");
   const [open, setOpen] = useState(false);
+  const { departments, loading, error } = useDepartments();
   const selected = onChange ? value : internalValue;
   const setSelected = onChange || setInternalValue;
 
@@ -32,9 +33,10 @@ export function SelectDepartmentCard({ value = "", onChange }: Props) {
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          className="flex w-full items-center justify-between rounded-lg border border-[#dee2e6] bg-white px-4 py-3 text-left text-[#333333] hover:border-[#adb5bd]"
+          disabled={loading}
+          className="flex w-full items-center justify-between rounded-lg border border-[#dee2e6] bg-white px-4 py-3 text-left text-[#333333] hover:border-[#adb5bd] disabled:bg-[#f8f9fa]"
         >
-          <span className={selected ? "" : "text-[#6C757D]"}>{selected || "Choose a department."}</span>
+          <span className={selected ? "" : "text-[#6C757D]"}>{loading ? "Loading…" : error ? "Could not load departments" : selected || "Choose a department."}</span>
           <svg
             className={`h-5 w-5 text-[#6C757D] transition-transform ${open ? "rotate-180" : ""}`}
             fill="none"
@@ -44,20 +46,20 @@ export function SelectDepartmentCard({ value = "", onChange }: Props) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
-        {open && (
+        {open && !loading && !error && (
           <>
             <div className="absolute z-10 mt-1 w-full rounded-lg border border-[#e9ecef] bg-white py-1 shadow-lg">
-              {DEPARTMENTS.map((dept) => (
+              {departments.map((dept) => (
                 <button
-                  key={dept}
+                  key={dept.id}
                   type="button"
                   onClick={() => {
-                    setSelected(dept);
+                    setSelected(dept.name);
                     setOpen(false);
                   }}
                   className="w-full px-4 py-2 text-left text-sm text-[#333333] hover:bg-[#f8f9fa]"
                 >
-                  {dept}
+                  {dept.name}
                 </button>
               ))}
             </div>

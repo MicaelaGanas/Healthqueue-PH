@@ -256,25 +256,21 @@ function AddToQueueOverlay({
   useEffect(() => {
     if (!open) return;
     setDoctorsLoading(true);
-    fetch("/api/doctors")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((list: DoctorOption[]) => {
-        if (!Array.isArray(list)) {
-          setDepartmentsList([]);
-          setDoctorsByDept({});
-          return;
-        }
+    Promise.all([
+      fetch("/api/departments").then((res) => (res.ok ? res.json() : [])).then((arr: { id: string; name: string }[]) => Array.isArray(arr) ? arr.map((d) => d.name) : []),
+      fetch("/api/doctors").then((res) => (res.ok ? res.json() : [])).then((list: DoctorOption[]) => {
+        if (!Array.isArray(list)) return {};
         const byDept: Record<string, string[]> = {};
-        const deptSet = new Set<string>();
         for (const d of list) {
           const dept = (d.department ?? "").trim() || "General Medicine";
-          deptSet.add(dept);
           if (!byDept[dept]) byDept[dept] = [];
           byDept[dept].push(d.displayLabel ?? `Dr. ${d.name}`);
         }
-        const depts = Array.from(deptSet).sort();
-        if (depts.length === 0) depts.push("General Medicine");
-        setDepartmentsList(depts);
+        return byDept;
+      }),
+    ])
+      .then(([deptNames, byDept]) => {
+        setDepartmentsList(deptNames.length > 0 ? deptNames : ["General Medicine"]);
         setDoctorsByDept(byDept);
       })
       .catch(() => {

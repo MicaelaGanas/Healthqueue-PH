@@ -344,7 +344,7 @@ export function ReportsContent() {
                   <YAxis stroke="#6C757D" fontSize={11} allowDecimals={false} />
                   <Tooltip
                     labelFormatter={(v) => new Date(v).toLocaleDateString()}
-                    formatter={(value: number, name: string) => [value, name === "consultations" ? "Consultations" : "Bookings"]}
+                    formatter={(value, name) => [value ?? 0, name === "consultations" ? "Consultations" : "Bookings"]}
                   />
                   <Area
                     type="monotone"
@@ -396,7 +396,7 @@ export function ReportsContent() {
                       <Cell key={i} fill={DEPARTMENT_COLORS[i % DEPARTMENT_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number, _n: string, props: { payload?: { name?: string; count?: number } }) => [`${value}% · ${props.payload?.count ?? 0} records`, props.payload?.name ?? ""]} />
+                  <Tooltip formatter={(value, _n, props) => [`${value ?? 0}% · ${(props?.payload as { count?: number })?.count ?? 0} records`, (props?.payload as { name?: string })?.name ?? ""]} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>

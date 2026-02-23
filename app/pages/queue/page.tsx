@@ -2,7 +2,7 @@ import React from "react";
 import { Footer } from "../../components/Footer";
 import { BackToHome } from "./components/BackToHome";
 import { FindYourQueue } from "./components/FindYourQueue";
-import { LiveQueueStatusSection } from "./components/LiveQueueStatusSection";
+import { LiveQueueStatusGrid } from "../../components/LiveQueueStatusGrid";
 
 export default function CheckQueueStatusPage() {
   return (
@@ -16,11 +16,10 @@ export default function CheckQueueStatusPage() {
         </p>
 
         <FindYourQueue />
-        <LiveQueueStatusSection />
+        <LiveQueueStatusGrid variant="page" />
       </main>
 
       <Footer />
     </div>
-
   );
 }

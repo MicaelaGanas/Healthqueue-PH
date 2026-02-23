@@ -8,13 +8,14 @@ type ScheduleNewAppointmentModalProps = {
   onClose: () => void;
 };
 
-import { DEPARTMENTS as DEPT_LIST } from "../../../../lib/departments";
+import { useDepartments } from "../../../../lib/useDepartments";
 
 const DOCTORS = ["Select doctor", "Dr. Jose Rizal", "Dr. Maria Clara", "Dr. Andres Bonifacio", "Dr. Emilio Aguinaldo"];
-const DEPARTMENTS = ["Select department", ...DEPT_LIST];
 const TYPES = ["Select type", "consultation", "follow up", "procedure"];
 
 export function ScheduleNewAppointmentModal({ open, onClose }: ScheduleNewAppointmentModalProps) {
+  const { departments } = useDepartments();
+  const departmentOptions = ["Select department", ...departments.map((d) => d.name)];
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -96,7 +97,7 @@ export function ScheduleNewAppointmentModal({ open, onClose }: ScheduleNewAppoin
               onChange={(e) => setDepartment(e.target.value)}
               className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
             >
-              {DEPARTMENTS.map((d) => (
+              {departmentOptions.map((d) => (
                 <option key={d} value={d === "Select department" ? "" : d}>
                   {d}
                 </option>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
-import { DEPARTMENTS } from "../../../../lib/departments";
+import { useDepartments } from "../../../../lib/useDepartments";
 
 export type UserRole = "admin" | "nurse" | "doctor" | "receptionist" | "laboratory";
 
@@ -18,6 +18,7 @@ export type AdminUser = {
 };
 
 export function UsersManagement() {
+  const { departments } = useDepartments();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -383,8 +384,8 @@ export function UsersManagement() {
                     required
                   >
                     <option value="">Select department...</option>
-                    {DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
                     ))}
                   </select>
                   <p className="mt-1 text-xs text-[#6C757D]">Set which department this staff member belongs to. Their queue view will be scoped to this department.</p>
