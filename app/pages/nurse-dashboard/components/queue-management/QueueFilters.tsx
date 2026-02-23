@@ -1,7 +1,5 @@
 "use client";
 
-import { DEPARTMENTS } from "../../../../lib/departments";
-
 export type QueueFiltersState = {
   search: string;
   department: string;
@@ -11,13 +9,13 @@ export type QueueFiltersState = {
 type QueueFiltersProps = {
   filters: QueueFiltersState;
   onFiltersChange: (f: QueueFiltersState) => void;
+  /** List of department names for the filter dropdown. */
+  departmentNames: string[];
   /** When set, department is fixed to this (managing one specialty); hide department dropdown. */
   managedDepartment?: string;
   /** When set, show who is on duty for this queue. */
   doctorOnDuty?: string;
 };
-
-export { DEPARTMENTS };
 
 const STATUSES = [
   { value: "all", label: "All Status" },
@@ -29,7 +27,7 @@ const STATUSES = [
   { value: "no show", label: "No Show" },
 ];
 
-export function QueueFilters({ filters, onFiltersChange, managedDepartment, doctorOnDuty }: QueueFiltersProps) {
+export function QueueFilters({ filters, onFiltersChange, departmentNames, managedDepartment, doctorOnDuty }: QueueFiltersProps) {
   const { search, status } = filters;
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -61,7 +59,7 @@ export function QueueFilters({ filters, onFiltersChange, managedDepartment, doct
               className="rounded-lg border border-[#dee2e6] bg-white py-2.5 pl-9 pr-8 text-sm text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
             >
               <option value="all">All Departments</option>
-              {DEPARTMENTS.map((d) => (
+              {departmentNames.map((d) => (
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>

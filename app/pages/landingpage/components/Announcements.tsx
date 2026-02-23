@@ -1,6 +1,7 @@
 "use client";
 
-import { FadeInSection } from "../../components/FadeInSection";
+import { useState, useEffect } from "react";
+import { FadeInSection } from "../../../components/FadeInSection";
 
 function CalendarIcon({ className }: { className?: string }) {
   return (
@@ -28,11 +29,7 @@ function AlertCircleIcon({ className }: { className?: string }) {
 
 type AnnouncementType = "notice" | "info" | "alert";
 
-const announcements: { type: AnnouncementType; date: string; title: string; description: string }[] = [
-  { type: "notice", date: "Jan 30, 2026", title: "System Maintenance", description: "Scheduled maintenance on February 5, 2026 from 2:00 AM - 4:00 AM. Queue services may be temporarily unavailable." },
-  { type: "info", date: "Jan 28, 2026", title: "Extended Hours", description: "The OPD will have extended hours on weekends starting February 1, 2026. Consultation available until 5:00 PM." },
-  { type: "alert", date: "Jan 25, 2026", title: "Flu Vaccination Available", description: "Free flu vaccination for senior citizens and PWDs. Visit the vaccination area near the main entrance." },
-];
+type AnnouncementItem = { id: string; type: AnnouncementType; title: string; description: string; created_at: string };
 
 const announcementStyles: Record<AnnouncementType, { pill: string; iconBg: string; icon: string; IconComponent: React.ComponentType<{ className?: string }> }> = {
   notice: { pill: "bg-[#FFF3E0] text-[#333333]", iconBg: "border-[#FFC107]", icon: "text-[#FFC107]", IconComponent: CalendarIcon },
@@ -40,35 +37,66 @@ const announcementStyles: Record<AnnouncementType, { pill: string; iconBg: strin
   alert: { pill: "bg-[#FFEBEE] text-[#333333]", iconBg: "border-[#EF5350]", icon: "text-[#EF5350]", IconComponent: AlertCircleIcon },
 };
 
+function formatDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
 export function Announcements() {
+  const [list, setList] = useState<AnnouncementItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/announcements")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) setList(data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <section className="border-t border-[#E9ECEF] bg-[#F8F9FB] py-12 sm:py-16" aria-labelledby="announcements-heading">
       <FadeInSection className="mx-auto max-w-7xl px-4 sm:px-6">
         <h2 id="announcements-heading" className="text-2xl font-bold text-[#333333] sm:text-3xl">Announcements</h2>
         <p className="mt-1 text-[#6C757D]">Important updates and notices</p>
-        <div className="mt-8 space-y-4">
-          {announcements.map((item, i) => {
-            const style = announcementStyles[item.type];
-            const Icon = style.IconComponent;
-            return (
-              <FadeInSection key={i} delay={i * 80}>
-              <article className="flex gap-4 rounded-xl border border-[#E9ECEF] bg-white p-4 shadow-sm">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 bg-white ${style.iconBg}`}>
-                  <Icon className={`h-5 w-5 ${style.icon}`} />
-                </div>
-                <div>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${style.pill}`}>
-                    {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-                  </span>
-                  <p className="mt-1 text-xs text-[#6C757D]">{item.date}</p>
-                  <h3 className="mt-1 font-semibold text-[#333333]">{item.title}</h3>
-                  <p className="mt-2 text-sm text-[#6C757D]">{item.description}</p>
-                </div>
-              </article>
-              </FadeInSection>
-            );
-          })}
-        </div>
+        {loading ? (
+          <p className="mt-8 text-sm text-[#6C757D]">Loading announcements…</p>
+        ) : list.length === 0 ? (
+          <p className="mt-8 text-sm text-[#6C757D]">No announcements at the moment.</p>
+        ) : (
+          <div className="mt-8 space-y-4">
+            {list.map((item, i) => {
+              const style = announcementStyles[item.type] ?? announcementStyles.info;
+              const Icon = style.IconComponent;
+              return (
+                <FadeInSection key={item.id} delay={i * 80}>
+                  <article className="flex gap-4 rounded-xl border border-[#E9ECEF] bg-white p-4 shadow-sm">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 bg-white ${style.iconBg}`}>
+                      <Icon className={`h-5 w-5 ${style.icon}`} />
+                    </div>
+                    <div>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${style.pill}`}>
+                        {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+                      </span>
+                      <p className="mt-1 text-xs text-[#6C757D]">{formatDate(item.created_at)}</p>
+                      <h3 className="mt-1 font-semibold text-[#333333]">{item.title}</h3>
+                      <p className="mt-2 text-sm text-[#6C757D]">{item.description}</p>
+                    </div>
+                  </article>
+                </FadeInSection>
+              );
+            })}
+          </div>
+        )}
       </FadeInSection>
     </section>
   );

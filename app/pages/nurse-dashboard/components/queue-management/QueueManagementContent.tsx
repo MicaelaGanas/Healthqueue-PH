@@ -4,8 +4,8 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { QueueSummaryCards } from "./QueueSummaryCards";
 import { QueueFilters, type QueueFiltersState } from "./QueueFilters";
-import { DEPARTMENTS } from "./QueueFilters";
 import { DOCTORS_BY_DEPARTMENT } from "../../../../lib/departments";
+import { useDepartments } from "../../../../lib/useDepartments";
 import { PatientQueueTable } from "./PatientQueueTable";
 import { AlertsNotifications } from "../dashboard/alerts/AlertsNotifications";
 import { useNurseQueue } from "../../context/NurseQueueContext";
@@ -24,6 +24,8 @@ const POLL_INTERVAL_MS = 20000;
 
 export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentProps) {
   const { queueRows, refetchQueue } = useNurseQueue();
+  const { departments } = useDepartments();
+  const departmentNames = departments.map((d) => d.name);
   const [staffDepartment, setStaffDepartment] = useState<string | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
   const [managedDepartment, setManagedDepartment] = useState<string>("");
@@ -148,7 +150,7 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
                 className="w-full rounded-lg border border-[#dee2e6] bg-white px-3 py-2.5 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
               >
                 <option value="">Select specialty...</option>
-                {DEPARTMENTS.map((d) => (
+                {departmentNames.map((d) => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
@@ -219,6 +221,7 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
           <QueueFilters
             filters={filters}
             onFiltersChange={setFilters}
+            departmentNames={departmentNames}
             managedDepartment={managedDepartment}
             doctorOnDuty={doctorOnDuty}
           />

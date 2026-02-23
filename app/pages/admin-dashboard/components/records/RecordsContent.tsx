@@ -6,6 +6,7 @@ import { getQueueRowsFromStorage } from "../../../../lib/queueSyncStorage";
 import { getBookedQueueFromStorage } from "../../../../lib/queueBookedStorage";
 import type { QueueRowSync } from "../../../../lib/queueSyncStorage";
 import type { BookedQueueEntry } from "../../../../lib/queueBookedStorage";
+import { useDepartments } from "../../../../lib/useDepartments";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -41,6 +42,8 @@ function inDateRange(iso: string | undefined, from: string, to: string): boolean
 }
 
 export function RecordsContent() {
+  const { departments } = useDepartments();
+  const departmentNames = departments.map((d) => d.name);
   const [recordType, setRecordType] = useState<RecordTypeFilter>("all");
   const [dateFrom, setDateFrom] = useState(today());
   const [dateTo, setDateTo] = useState(today());
@@ -52,14 +55,6 @@ export function RecordsContent() {
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const departments = useMemo(() => {
-    const set = new Set<string>();
-    queueRows.forEach((r) => r.department && set.add(r.department));
-    bookedLocal.forEach((b) => b.department && set.add(b.department));
-    bookingRequests.forEach((b) => b.department && set.add(b.department));
-    return Array.from(set).sort();
-  }, [queueRows, bookedLocal, bookingRequests]);
 
   useEffect(() => {
     setQueueRows(getQueueRowsFromStorage());
@@ -242,7 +237,7 @@ export function RecordsContent() {
                 className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-sm text-[#333333]"
               >
                 <option value="">All departments</option>
-                {departments.map((d) => (
+                {departmentNames.map((d) => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>

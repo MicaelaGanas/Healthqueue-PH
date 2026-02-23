@@ -10,6 +10,7 @@ import { ReportsContent } from "./components/reports/ReportsContent";
 import { RecordsContent } from "./components/records/RecordsContent";
 import { AdminSettingsContent } from "./components/settings/AdminSettingsContent";
 import { InsightsContent } from "./components/insights/InsightsContent";
+import { AnnouncementsContent } from "./components/announcements/AnnouncementsContent";
 
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<AdminTabId>("overview");
@@ -31,6 +32,12 @@ export default function AdminDashboardPage() {
             {activeTab === "insights" && (
               <div className="mt-4 sm:mt-6">
                 <InsightsContent />
+              </div>
+            )}
+
+            {activeTab === "announcements" && (
+              <div className="mt-4 sm:mt-6">
+                <AnnouncementsContent />
               </div>
             )}
 

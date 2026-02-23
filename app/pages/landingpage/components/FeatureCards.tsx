@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FadeInSection } from "../../components/FadeInSection";
+import { FadeInSection } from "../../../components/FadeInSection";
 
 function SearchIcon({ className }: { className?: string }) {
   return (
