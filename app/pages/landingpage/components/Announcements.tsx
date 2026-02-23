@@ -1,3 +1,7 @@
+"use client";
+
+import { FadeInSection } from "../../components/FadeInSection";
+
 function CalendarIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -39,7 +43,7 @@ const announcementStyles: Record<AnnouncementType, { pill: string; iconBg: strin
 export function Announcements() {
   return (
     <section className="border-t border-[#E9ECEF] bg-[#F8F9FB] py-12 sm:py-16" aria-labelledby="announcements-heading">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+      <FadeInSection className="mx-auto max-w-7xl px-4 sm:px-6">
         <h2 id="announcements-heading" className="text-2xl font-bold text-[#333333] sm:text-3xl">Announcements</h2>
         <p className="mt-1 text-[#6C757D]">Important updates and notices</p>
         <div className="mt-8 space-y-4">
@@ -47,7 +51,8 @@ export function Announcements() {
             const style = announcementStyles[item.type];
             const Icon = style.IconComponent;
             return (
-              <article key={i} className="flex gap-4 rounded-xl border border-[#E9ECEF] bg-white p-4 shadow-sm">
+              <FadeInSection key={i} delay={i * 80}>
+              <article className="flex gap-4 rounded-xl border border-[#E9ECEF] bg-white p-4 shadow-sm">
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 bg-white ${style.iconBg}`}>
                   <Icon className={`h-5 w-5 ${style.icon}`} />
                 </div>
@@ -60,10 +65,11 @@ export function Announcements() {
                   <p className="mt-2 text-sm text-[#6C757D]">{item.description}</p>
                 </div>
               </article>
+              </FadeInSection>
             );
           })}
         </div>
-      </div>
+      </FadeInSection>
     </section>
   );
 }

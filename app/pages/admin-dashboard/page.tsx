@@ -9,6 +9,7 @@ import { UsersManagement } from "./components/users/UsersManagement";
 import { ReportsContent } from "./components/reports/ReportsContent";
 import { RecordsContent } from "./components/records/RecordsContent";
 import { AdminSettingsContent } from "./components/settings/AdminSettingsContent";
+import { InsightsContent } from "./components/insights/InsightsContent";
 
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<AdminTabId>("overview");
@@ -21,14 +22,15 @@ export default function AdminDashboardPage() {
         <AdminHeader />
         <main className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
           <div className="w-full min-w-0 max-w-[1920px]">
-            <h2 className="text-lg font-bold text-[#333333] sm:text-xl">Admin Dashboard</h2>
-            <p className="mt-0.5 text-xs text-[#6C757D] sm:mt-1 sm:text-sm">
-              {activeTab === "overview" ? "Overview of queue, staff, and pending items" : "Manage users, view reports, and browse records"}
-            </p>
-
             {activeTab === "overview" && (
               <div className="mt-4 sm:mt-6">
                 <AdminOverviewContent onNavigateToTab={(tab) => setActiveTab(tab)} />
+              </div>
+            )}
+
+            {activeTab === "insights" && (
+              <div className="mt-4 sm:mt-6">
+                <InsightsContent />
               </div>
             )}
 
