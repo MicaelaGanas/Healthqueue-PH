@@ -98,7 +98,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   let rows = (data ?? []) as DbQueueRow[];
-  if (NURSE_LIKE_ROLES.includes(staff.role)) {
+  if (NURSE_LIKE_ROLES.includes(staff.role as "nurse" | "receptionist")) {
     rows = rows.filter(isRowForToday);
   }
   return NextResponse.json(rows.map(toAppRow));
@@ -117,7 +117,7 @@ export async function PUT(request: Request) {
   const body = await request.json();
   let rows = Array.isArray(body) ? body : body.rows ?? [];
   const { staff } = auth;
-  if (NURSE_LIKE_ROLES.includes(staff.role) && staff.department?.trim()) {
+  if (NURSE_LIKE_ROLES.includes(staff.role as "nurse" | "receptionist") && staff.department?.trim()) {
     const dept = staff.department.trim();
     rows = rows.filter((r: Record<string, unknown>) => (r.department as string) === dept);
   }
