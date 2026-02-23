@@ -71,7 +71,7 @@ export function Announcements() {
         {loading ? (
           <p className="mt-8 text-sm text-[#6C757D]">Loading announcements…</p>
         ) : list.length === 0 ? (
-          <p className="mt-8 text-sm text-[#6C757D]">No announcements at the moment.</p>
+          <p className="mx-8 text-sm text-[#6C757D]">No announcements at the moment.</p>
         ) : (
           <div className="mt-8 space-y-4">
             {list.map((item, i) => {

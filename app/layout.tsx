@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rosario } from "next/font/google";
 import "./globals.css";
 import { ConditionalNavbar } from "./components/ConditionalNavbar";
+import { ScrollToTopOnLoad } from "./components/ScrollToTopOnLoad";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,6 +26,8 @@ export const metadata: Metadata = {
   description: "Smart queue management for public hospitals in the Philippines. Check queue, book appointments, and view wait times.",
 };
 
+
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -35,6 +39,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${rosario.variable} antialiased`}
         suppressHydrationWarning
       >
+        <ScrollToTopOnLoad />
         <ConditionalNavbar />
         {children}
       </body>
