@@ -90,7 +90,7 @@ export async function GET(request: Request) {
   }
   const { staff } = auth;
   let q = supabase.from("queue_rows").select("*").order("added_at", { ascending: true });
-  if (NURSE_LIKE_ROLES.includes(staff.role) && staff.department?.trim()) {
+  if (NURSE_LIKE_ROLES.includes(staff.role as "nurse" | "receptionist") && staff.department?.trim()) {
     q = q.ilike("department", staff.department.trim());
   }
   const { data, error } = await q;
