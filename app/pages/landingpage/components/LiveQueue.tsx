@@ -1,3 +1,7 @@
+"use client";
+
+import { FadeInSection } from "../../components/FadeInSection";
+
 function UsersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -34,7 +38,7 @@ const queueDepartments = [
 export function LiveQueue() {
   return (
     <section id="live-queue" className="border-t border-[#E9ECEF] bg-[#f8f9fa] py-12 sm:py-16" aria-labelledby="queue-heading">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+      <FadeInSection className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Header: title + subtitle left, "Updated just now" with green dot right */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -51,7 +55,8 @@ export function LiveQueue() {
 
         {/* Cards: 3x2 grid, white, rounded, shadow; status badge top-right */}
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {queueDepartments.map((dept) => (
+          {queueDepartments.map((dept, index) => (
+            <FadeInSection key={dept.name} delay={index * 60}>
             <article
               key={dept.name}
               className="relative rounded-xl border border-[#e9ecef] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
@@ -80,6 +85,7 @@ export function LiveQueue() {
                 <span className="text-sm">{dept.waitTime}</span>
               </div>
             </article>
+            </FadeInSection>
           ))}
         </div>
 
@@ -93,7 +99,7 @@ export function LiveQueue() {
             </p>
           </div>
         </div>
-      </div>
+      </FadeInSection>
     </section>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { FadeInSection } from "../../components/FadeInSection";
 
 function SearchIcon({ className }: { className?: string }) {
   return (
@@ -73,21 +74,19 @@ const cards = [
 
 export function FeatureCards() {
   return (
-    <section
-      className="relative z-10 mx-auto -mt-8 max-w-7xl px-4 pb-14 sm:px-6"
-      aria-labelledby="actions-heading"
-    >
-      <h2 id="actions-heading" className="sr-only">
-        Get started
-      </h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <article
-              key={card.title}
-              className="group flex flex-col items-center text-center rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-shadow hover:shadow-[0_8px_32px_rgba(0,0,0,0.1)]"
-            >
+    <FadeInSection className="relative z-10 mx-auto -mt-8 max-w-7xl px-4 pb-14 sm:px-6">
+      <section aria-labelledby="actions-heading">
+        <h2 id="actions-heading" className="sr-only">
+          Get started
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {cards.map((card, index) => {
+            const Icon = card.icon;
+            return (
+              <FadeInSection key={card.title} delay={index * 80}>
+                <article
+                  className="group flex flex-col items-center text-center rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-shadow duration-300 hover:shadow-[0_8px_32px_rgba(0,0,0,0.1)]"
+                >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#f1f5f9] text-[#007bff]">
                 <Icon className="h-6 w-6" />
               </div>
@@ -108,10 +107,12 @@ export function FeatureCards() {
               >
                 {card.cta}
               </Link>
-            </article>
-          );
-        })}
-      </div>
-    </section>
+                </article>
+              </FadeInSection>
+            );
+          })}
+        </div>
+      </section>
+    </FadeInSection>
   );
 }
