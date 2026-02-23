@@ -29,7 +29,7 @@ function AlertCircleIcon({ className }: { className?: string }) {
 
 type AnnouncementType = "notice" | "info" | "alert";
 
-type AnnouncementItem = { id: string; type: AnnouncementType; title: string; description: string; created_at: string };
+type AnnouncementItem = { id: string; type: AnnouncementType; title: string; description: string; created_at: string; hidden?: boolean;};
 
 const announcementStyles: Record<AnnouncementType, { pill: string; iconBg: string; icon: string; IconComponent: React.ComponentType<{ className?: string }> }> = {
   notice: { pill: "bg-[#FFF3E0] text-[#333333]", iconBg: "border-[#FFC107]", icon: "text-[#FFC107]", IconComponent: CalendarIcon },
@@ -48,6 +48,8 @@ function formatDate(iso: string) {
 export function Announcements() {
   const [list, setList] = useState<AnnouncementItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const visibleList = list.filter((item) => !item.hidden);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +65,7 @@ export function Announcements() {
     return () => { cancelled = true; };
   }, []);
 
+  
   return (
     <section className="border-t border-[#E9ECEF] bg-[#F8F9FB] py-12 sm:py-16" aria-labelledby="announcements-heading">
       <FadeInSection className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -70,11 +73,11 @@ export function Announcements() {
         <p className="mt-1 text-[#6C757D]">Important updates and notices</p>
         {loading ? (
           <p className="mt-8 text-sm text-[#6C757D]">Loading announcements…</p>
-        ) : list.length === 0 ? (
-          <p className="mx-8 text-sm text-[#6C757D]">No announcements at the moment.</p>
+        ) : visibleList.length === 0 ? (
+          <p className="font-medium text-center py-5 text-xl text-[#6C757D]">No announcements at the moment.</p>
         ) : (
           <div className="mt-8 space-y-4">
-            {list.map((item, i) => {
+            {visibleList.map((item, i) => {
               const style = announcementStyles[item.type] ?? announcementStyles.info;
               const Icon = style.IconComponent;
               return (

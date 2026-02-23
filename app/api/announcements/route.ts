@@ -7,6 +7,7 @@ export type AnnouncementRow = {
   title: string;
   description: string;
   created_at: string;
+  hidden?: boolean;
 };
 
 /** GET: public list of announcements, newest first. No auth. */
@@ -21,7 +22,8 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("announcements")
-    .select("id, type, title, description, created_at")
+    .select("id, type, title, description, created_at, hidden")
+    .eq("hidden", false)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -29,6 +31,5 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const list = (data ?? []) as AnnouncementRow[];
-  return NextResponse.json(list);
+  return NextResponse.json(data ?? []);
 }
