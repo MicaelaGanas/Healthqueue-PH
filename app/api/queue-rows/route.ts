@@ -9,7 +9,7 @@ type QueueItemWithJoins = DbQueueItem & {
   staff_users?: { first_name: string; last_name: string } | null;
 };
 
-function toAppRow(r: QueueItemWithJoins) {
+function toAppRow(r: QueueItemWithJoins, hasVitals: boolean) {
   const patientName =
     r.patient_users?.first_name && r.patient_users?.last_name
       ? `${r.patient_users.first_name} ${r.patient_users.last_name}`
@@ -36,6 +36,7 @@ function toAppRow(r: QueueItemWithJoins) {
     appointmentTime: appointmentTime ?? undefined,
     assignedDoctor: assignedDoctor ?? undefined,
     appointmentDate: appointmentDate ?? undefined,
+    hasVitals,
   };
 }
 
@@ -63,7 +64,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   const rows = (data ?? []) as unknown as QueueItemWithJoins[];
-  return NextResponse.json(rows.map(toAppRow));
+  const tickets = rows.map((r) => r.ticket).filter(Boolean);
+  const ticketsWithVitals = new Set<string>();
+  if (tickets.length > 0) {
+    const { data: vitals } = await supabase
+      .from("vital_signs")
+      .select("ticket")
+      .in("ticket", tickets);
+    (vitals ?? []).forEach((v: { ticket: string }) => ticketsWithVitals.add(v.ticket));
+  }
+  return NextResponse.json(
+    rows.map((r) => toAppRow(r, ticketsWithVitals.has(r.ticket)))
+  );
 }
 
 async function resolveDepartmentId(supabase: ReturnType<typeof getSupabaseServer>, deptName: string | null | undefined): Promise<string | null> {

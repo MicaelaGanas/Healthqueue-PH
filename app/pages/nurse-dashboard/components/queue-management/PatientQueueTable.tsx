@@ -208,8 +208,8 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
     if (doctorOnDuty) {
       scope = scope.filter((r) => r.assignedDoctor === doctorOnDuty);
     }
-    // Do not show booked patients in queue until vitals are recorded (they belong in Vitals & Triage first).
-    scope = scope.filter((r) => r.source === "walk-in" || ticketsWithVitals.has(r.ticket));
+    // Do not show booked patients in Queue Management until vitals are recorded (Option A: they stay in Vitals & Triage first).
+    scope = scope.filter((r) => r.source === "walk-in" || r.hasVitals === true || ticketsWithVitals.has(r.ticket));
     const sorted = [...scope].sort((a, b) => {
       const ka = sortKey(a);
       const kb = sortKey(b);

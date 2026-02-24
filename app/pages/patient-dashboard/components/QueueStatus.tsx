@@ -42,6 +42,8 @@ function formatDate(ymd?: string | null): string {
 
 function statusLabel(status: string): string {
   const labels: Record<string, string> = {
+    confirmed: "Confirmed — check in when you arrive",
+    awaiting_triage: "Triage & vitals — please proceed to triage",
     waiting: "Waiting",
     scheduled: "Scheduled",
     called: "Called",
@@ -71,9 +73,10 @@ function getCurrentStepIndex(status: string): number {
   if (s === "completed" || s === "done") return QUEUE_FLOW_STEPS.length - 1; // Done
   if (s === "in progress" || s === "in_consultation" || s === "proceed") return 5; // With doctor
   if (s === "called" || s === "almost") return 4; // Called
-  if (s === "waiting") return 3; // In queue
-  if (s === "scheduled") return 2; // Triage or check-in
-  return 1; // Default: check-in (assume they're in the system)
+  if (s === "waiting" || s === "scheduled") return 3; // In queue (vitals already done)
+  if (s === "awaiting_triage") return 2; // In queue but vitals not recorded yet — triage current
+  if (s === "confirmed") return 0; // Appointment confirmed; not in queue yet — check in at desk
+  return 1; // Default: check-in
 }
 
 function QueueFlowProgress({ currentStepIndex }: { currentStepIndex: number }) {
@@ -401,9 +404,19 @@ export function QueueStatus({ selectedAppointment = null, onClearSelection }: Qu
           </div>
         </div>
       </div>
-      <p className="text-sm text-gray-500">
-        Please wait until your number is called. Check the appointments tab for your booking details.
-      </p>
+      {String(data.status).toLowerCase() === "confirmed" ? (
+        <p className="text-sm font-medium text-[#007bff]">
+          Your appointment is confirmed. Please check in at the desk when you arrive. Your queue status will update once you’re checked in.
+        </p>
+      ) : String(data.status).toLowerCase() === "awaiting_triage" ? (
+        <p className="text-sm font-medium text-[#007bff]">
+          You’re checked in. Please proceed to triage for your vital signs. Your queue position will update once vitals are recorded.
+        </p>
+      ) : (
+        <p className="text-sm text-gray-500">
+          Please wait until your number is called. Check the appointments tab for your booking details.
+        </p>
+      )}
 
       {/* Flowchart-aligned navigation: current steps and progress */}
       <QueueFlowProgress currentStepIndex={getCurrentStepIndex(data.status)} />

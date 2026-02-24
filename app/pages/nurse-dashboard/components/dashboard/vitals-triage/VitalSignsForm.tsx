@@ -7,17 +7,35 @@ import type { QueueRow } from "../../../context/NurseQueueContext";
 
 const SEVERITY_OPTIONS = ["Select severity", "Mild", "Moderate", "Severe", "Critical"];
 
-/** Today as YYYY-MM-DD for schedule filtering. */
+/** Today as YYYY-MM-DD in local time (so nurse's "today" matches their timezone). */
 function getTodayDateStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
-/** True if this queue row is scheduled for today (appointment date or added date). */
+/** Parse an ISO or YYYY-MM-DD string to local YYYY-MM-DD for comparison. */
+function toLocalDateStr(isoOrDate?: string | null): string {
+  if (!isoOrDate || typeof isoOrDate !== "string") return "";
+  const trimmed = isoOrDate.trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const date = new Date(trimmed + (isoOrDate.length > 10 ? "" : "T12:00:00"));
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+  const date = new Date(isoOrDate);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** True if this queue row is scheduled for today (appointment date or added date) in local time. */
 function isScheduledForToday(r: QueueRow): boolean {
   const today = getTodayDateStr();
-  const aptDate = (r.appointmentDate ?? "").trim().slice(0, 10);
-  const addedDate = (r.addedAt ?? "").slice(0, 10);
-  if (aptDate && /^\d{4}-\d{2}-\d{2}$/.test(aptDate)) return aptDate === today;
+  const aptDate = toLocalDateStr(r.appointmentDate ?? null);
+  const addedDate = toLocalDateStr(r.addedAt ?? null);
+  if (aptDate) return aptDate === today;
   return addedDate === today;
 }
 
@@ -42,10 +60,13 @@ function matchPatient(q: string, p: QueuePatient) {
 
 export function VitalSignsForm() {
   const { queueRows, setPatientPriority, confirmedForTriage, clearConfirmedForTriage } = useNurseQueue();
+  // Option B: Include anyone in queue without vitals (persists after refresh), plus today/confirmed for backwards compatibility.
   const queuePatients = useMemo<QueuePatient[]>(() => {
-    // Include rows scheduled for today OR confirmed in Manage bookings (so they appear in triage regardless of date).
     const included = queueRows.filter(
-      (r) => isScheduledForToday(r) || confirmedForTriage.includes(r.ticket)
+      (r) =>
+        r.hasVitals !== true ||
+        isScheduledForToday(r) ||
+        confirmedForTriage.includes(r.ticket)
     );
     return included.map((r) => ({ ticket: r.ticket, patientName: r.patientName, department: r.department }));
   }, [queueRows, confirmedForTriage]);
@@ -119,9 +140,10 @@ export function VitalSignsForm() {
   const showSearchResults = searchFocused && searchQuery.trim().length >= 0;
   const checkedTickets = new Set(vitalsCompleted.map((r) => r.ticket));
   const uncheckedPatients = queuePatients.filter((p) => !checkedTickets.has(p.ticket));
-  const confirmedRefsNeedingVitals = useMemo(
-    () => confirmedForTriage.filter((t) => queuePatients.some((p) => p.ticket === t) && !checkedTickets.has(t)),
-    [confirmedForTriage, queuePatients, vitalsCompleted]
+  /** Patients in the list who still need vitals (show in green box so they persist after refresh). */
+  const awaitingTriageRefs = useMemo(
+    () => uncheckedPatients.map((p) => p.ticket),
+    [uncheckedPatients]
   );
 
   useEffect(() => {
@@ -194,20 +216,20 @@ export function VitalSignsForm() {
 
   return (
     <div className="space-y-6">
-      {/* Confirmed appointments from Manage bookings */}
-      {confirmedRefsNeedingVitals.length > 0 && (
+      {/* Patients awaiting triage (in queue, vitals not recorded yet — persists after refresh) */}
+      {awaitingTriageRefs.length > 0 && (
         <div className="rounded-lg border border-green-200 bg-green-50 p-4">
           <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-green-800">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Confirmed appointments — need vitals
+            Patients awaiting triage — record vitals
           </h3>
           <p className="mb-2 text-sm text-green-800">
-            These references were confirmed in Manage bookings. Record their vitals below.
+            These patients are in the queue and need their vitals recorded. They will stay in this list after you refresh until vitals are saved.
           </p>
           <div className="flex flex-wrap gap-2">
-            {confirmedRefsNeedingVitals.map((ref) => {
+            {awaitingTriageRefs.map((ref) => {
               const p = queuePatients.find((x) => x.ticket === ref);
               return p ? (
                 <button
