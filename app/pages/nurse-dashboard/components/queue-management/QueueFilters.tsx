@@ -18,11 +18,12 @@ type QueueFiltersProps = {
 };
 
 const STATUSES = [
-  { value: "all", label: "All Status" },
+  { value: "all", label: "Active (waiting, with doctor)" },
+  { value: "all_status", label: "All statuses" },
   { value: "scheduled", label: "Waiting for doctor" },
   { value: "waiting", label: "Waiting for doctor" },
   { value: "called", label: "Called" },
-  { value: "in progress", label: "Meeting with doctor" },
+  { value: "in progress", label: "With doctor" },
   { value: "completed", label: "Done" },
   { value: "no show", label: "No show" },
 ];

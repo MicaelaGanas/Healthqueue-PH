@@ -75,7 +75,8 @@ export async function GET(request: Request) {
     queueItemsRes,
     pendingBookingsRes,
     pendingWalkInsRes,
-    staffRes,
+    adminStaffRes,
+    staffUsersRes,
     bookingRequestsRes,
     departmentsRes,
   ] = await Promise.all([
@@ -83,6 +84,7 @@ export async function GET(request: Request) {
     supabase.from("booking_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("pending_walk_ins").select("id", { count: "exact", head: true }),
     supabase.from("admin_users").select("id, first_name, last_name, email, role, status").order("first_name"),
+    supabase.from("staff_users").select("id, first_name, last_name, email, role, status").order("first_name"),
     supabase.from("booking_requests").select("status, confirmed_at"),
     supabase.from("departments").select("name").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
   ]);
@@ -101,15 +103,16 @@ export async function GET(request: Request) {
   const departmentNames = (departmentsRes.error ? [] : (departmentsRes.data ?? []).map((r: { name: string }) => r.name)) as string[];
   const pendingBookingsCount = pendingBookingsRes.error ? 0 : (pendingBookingsRes.count ?? 0);
   const pendingWalkInsCount = pendingWalkInsRes.error ? 0 : (pendingWalkInsRes.count ?? 0);
-  const staff = staffRes.error
-    ? []
-    : ((staffRes.data ?? []).map((s: { id: string; first_name: string; last_name: string; email: string; role: string; status: string }) => ({
-        id: s.id,
-        name: [s.first_name, s.last_name].filter(Boolean).join(" ").trim() || "Staff",
-        email: s.email,
-        role: s.role,
-        status: s.status,
-      })) as { id: string; name: string; email: string; role: string; status: string }[]);
+  const toStaff = (s: { id: string; first_name: string; last_name: string; email: string; role: string; status: string }) => ({
+    id: s.id,
+    name: [s.first_name, s.last_name].filter(Boolean).join(" ").trim() || "Staff",
+    email: s.email,
+    role: s.role,
+    status: s.status,
+  });
+  const adminStaff = adminStaffRes.error ? [] : (adminStaffRes.data ?? []).map(toStaff);
+  const staffUsers = staffUsersRes.error ? [] : (staffUsersRes.data ?? []).map(toStaff);
+  const staff = [...adminStaff, ...staffUsers];
   const staffCount = staff.length;
   const activeStaffCount = staff.filter((s) => s.status === "active").length;
   const bookingRequests = (bookingRequestsRes.error ? [] : (bookingRequestsRes.data ?? [])) as { status: string; confirmed_at: string | null }[];

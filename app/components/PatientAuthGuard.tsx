@@ -66,11 +66,20 @@ export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
 
         if (cancelled) return;
 
+        if (res.status === 404) {
+          setProfile(null);
+          setStatus("denied");
+          setTimeout(() => {
+            if (!cancelled) {
+              router.replace("/pages/patient-complete-profile");
+            }
+          }, 500);
+          return;
+        }
+
         if (!res.ok) {
           setProfile(null);
-          // Keep showing loading animation instead of immediate redirect
           setStatus("denied");
-          // Redirect after a brief delay to show loading animation
           setTimeout(() => {
             if (!cancelled) {
               router.replace("/pages/patient-login");

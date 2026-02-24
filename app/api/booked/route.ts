@@ -6,7 +6,7 @@ import { requireRoles } from "../../lib/api/auth";
 type QueueItemWithJoins = DbQueueItem & {
   departments?: { name: string } | null;
   patient_users?: { first_name: string; last_name: string } | null;
-  admin_users?: { first_name: string; last_name: string } | null;
+  staff_users?: { first_name: string; last_name: string } | null;
 };
 
 function queueItemToBookedEntry(r: QueueItemWithJoins) {
@@ -18,8 +18,8 @@ function queueItemToBookedEntry(r: QueueItemWithJoins) {
         : r.walk_in_first_name || "Unknown";
   const department = r.departments?.name ?? "General Medicine";
   const preferredDoctor =
-    r.admin_users?.first_name && r.admin_users?.last_name
-      ? `${r.admin_users.first_name} ${r.admin_users.last_name}`
+    r.staff_users?.first_name && r.staff_users?.last_name
+      ? `${r.staff_users.first_name} ${r.staff_users.last_name}`
       : null;
   const appointmentDate = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null;
   const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
   }
   const { data, error } = await supabase
     .from("queue_items")
-    .select("*, departments(name), patient_users(first_name, last_name), admin_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)")
+    .select("*, departments(name), patient_users(first_name, last_name), staff_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)")
     .eq("source", "booked")
     .order("added_at", { ascending: true });
   if (error) {
@@ -71,7 +71,7 @@ async function resolveDoctorId(supabase: ReturnType<typeof getSupabaseServer>, d
   const firstName = parts[0] ?? "";
   const lastName = parts.slice(1).join(" ");
   if (!firstName) return null;
-  let q = supabase.from("admin_users").select("id").eq("role", "doctor").eq("status", "active").eq("first_name", firstName);
+  let q = supabase.from("staff_users").select("id").eq("role", "doctor").eq("status", "active").eq("first_name", firstName);
   if (lastName) q = q.eq("last_name", lastName);
   const { data } = await q.maybeSingle();
   return (data?.id as string | undefined) ?? null;

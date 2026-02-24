@@ -39,10 +39,14 @@ export async function PATCH(
     return NextResponse.json({ error: "Request is no longer pending" }, { status: 400 });
   }
 
+  const staffId = auth.staff.id;
+  const { data: inAdmin } = await supabase.from("admin_users").select("id").eq("id", staffId).maybeSingle();
+  const isAdminUser = !!inAdmin?.id;
   const update: Record<string, unknown> = {
     status,
     confirmed_at: status === "confirmed" ? new Date().toISOString() : null,
-    confirmed_by: status !== "pending" ? auth.staff.id : null,
+    confirmed_by: status !== "pending" && isAdminUser ? staffId : null,
+    confirmed_by_staff_id: status !== "pending" && !isAdminUser ? staffId : null,
     rejection_reason: status === "rejected" ? (body.rejectionReason ?? "").trim() || null : null,
   };
 
@@ -54,7 +58,8 @@ export async function PATCH(
 
   const actionName = status === "confirmed" ? "booking_confirmed" : status === "rejected" ? "booking_rejected" : "booking_cancelled";
   await supabase.from("staff_activity_log").insert({
-    staff_id: auth.staff.id,
+    staff_id: isAdminUser ? staffId : null,
+    staff_staff_id: isAdminUser ? null : staffId,
     staff_name: auth.staff.name ?? "Staff",
     staff_email: auth.staff.email ?? "",
     action: actionName,
@@ -75,19 +80,6 @@ export async function PATCH(
       walkInLastName = req.beneficiary_last_name ?? null;
     }
 
-    let assignedDoctorId: string | null = req.preferred_doctor_id ?? null;
-    if (!assignedDoctorId && req.department_id) {
-      const { data: doctors } = await supabase
-        .from("admin_users")
-        .select("id")
-        .eq("role", "doctor")
-        .eq("status", "active")
-        .eq("department_id", req.department_id)
-        .order("first_name")
-        .limit(1);
-      assignedDoctorId = (doctors?.[0]?.id as string | undefined) ?? null;
-    }
-
     const appointmentAt =
       req.requested_date && req.requested_time
         ? new Date(`${req.requested_date}T${req.requested_time}`).toISOString()
@@ -95,11 +87,12 @@ export async function PATCH(
           ? new Date(`${req.requested_date}T00:00:00`).toISOString()
           : null;
 
+    // assigned_doctor_id omitted so insert works when queue_items.assigned_doctor_id references staff_users (not admin_users)
     const queueItem = {
       ticket: req.reference_no,
       source: "booked" as const,
       priority: "normal" as const,
-      status: "scheduled",
+      status: "waiting",
       wait_time: "",
       department_id: req.department_id,
       patient_user_id: patientUserId,
@@ -110,7 +103,7 @@ export async function PATCH(
       walk_in_phone: null,
       walk_in_email: null,
       booking_request_id: req.id,
-      assigned_doctor_id: assignedDoctorId,
+      assigned_doctor_id: null,
       appointment_at: appointmentAt,
       added_at: new Date().toISOString(),
     };

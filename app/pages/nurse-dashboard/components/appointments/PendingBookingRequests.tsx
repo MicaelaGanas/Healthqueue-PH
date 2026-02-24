@@ -181,10 +181,11 @@ type PendingBookingRequestsProps = {
 };
 
 export function PendingBookingRequests({ refreshTrigger, onPendingChange }: PendingBookingRequestsProps) {
-  const { refetchQueue } = useNurseQueue();
+  const { refetchQueue, addBookedRowFromConfirm } = useNurseQueue();
   const [list, setList] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
   const [summaryRequest, setSummaryRequest] = useState<BookingRequest | null>(null);
@@ -229,7 +230,9 @@ export function PendingBookingRequests({ refreshTrigger, onPendingChange }: Pend
   const handleConfirm = async (id: string) => {
     const supabase = createSupabaseBrowser();
     if (!supabase?.auth.getSession) return;
+    setConfirmError(null);
     setActingId(id);
+    const request = list.find((r) => r.id === id);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) return;
     const res = await fetch(`/api/booking-requests/${id}`, {
@@ -239,11 +242,28 @@ export function PendingBookingRequests({ refreshTrigger, onPendingChange }: Pend
     });
     setActingId(null);
     if (res.ok) {
+      if (request) {
+        const patientName =
+          request.bookingType === "dependent"
+            ? [request.beneficiaryFirstName, request.beneficiaryLastName].filter(Boolean).join(" ") || "Dependent"
+            : [request.patientFirstName, request.patientLastName].filter(Boolean).join(" ") || "Patient";
+        addBookedRowFromConfirm({
+          ticket: request.referenceNo,
+          patientName,
+          department: request.department,
+          requestedDate: request.requestedDate,
+          requestedTime: request.requestedTime ?? null,
+          preferredDoctor: request.preferredDoctor ?? null,
+        });
+      }
       setList((prev) => prev.filter((r) => r.id !== id));
       setSummaryRequest((prev) => (prev?.id === id ? null : prev));
       onPendingChange?.();
       await refetchQueue();
-      setTimeout(() => refetchQueue(), 800);
+      setTimeout(() => refetchQueue(), 600);
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setConfirmError((body.error as string) || "Failed to confirm. Try again.");
     }
   };
 
@@ -276,6 +296,12 @@ export function PendingBookingRequests({ refreshTrigger, onPendingChange }: Pend
       <div className="border-b border-[#e9ecef] px-4 py-3">
         <h3 className="font-bold text-[#333333]">Pending requests (awaiting confirmation)</h3>
         <p className="mt-0.5 text-xs text-[#6C757D]">Confirm to add the patient to the queue. Reject to decline the request.</p>
+        {confirmError && (
+          <div className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {confirmError}
+            <button type="button" onClick={() => setConfirmError(null)} className="ml-2 underline">Dismiss</button>
+          </div>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

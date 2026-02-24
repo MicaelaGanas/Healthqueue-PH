@@ -40,12 +40,6 @@ function isInWeek(bookingDate: Date, ref: Date): boolean {
   return t >= start.getTime() && t < end.getTime();
 }
 
-/** True if this booking is scheduled for today (so nurse can confirm for vitals/triage). */
-function isScheduledForToday(r: QueueRow): boolean {
-  const d = getBookingDate(r);
-  return d ? sameDay(d, new Date()) : false;
-}
-
 type BookingsListProps = {
   onGoToVitals?: () => void;
 };
@@ -187,8 +181,6 @@ export function BookingsList({ onGoToVitals }: BookingsListProps) {
                     <td className="px-4 py-3 text-right">
                       {confirmedForTriage.includes(r.ticket) ? (
                         <span className="text-xs font-medium text-[#6C757D]">Confirmed</span>
-                      ) : !isScheduledForToday(r) ? (
-                        <span className="text-xs text-[#6C757D]">Confirm on appointment date</span>
                       ) : (
                         <div className="flex flex-wrap items-center justify-end gap-2">
                           <button

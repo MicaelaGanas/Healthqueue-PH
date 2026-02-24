@@ -71,10 +71,17 @@ export default function PatientLoginPage() {
         return;
       }
 
-      // Verify patient profile exists
+      // Verify patient profile exists (or send to complete-profile if missing)
       const res = await fetch('/api/patient-users', {
         headers: { Authorization: `Bearer ${data.session.access_token}` },
       });
+
+      if (res.status === 404) {
+        // Account verified but no profile row (e.g. signed up with email confirmation). Complete profile.
+        router.push('/pages/patient-complete-profile');
+        setLoading(false);
+        return;
+      }
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));

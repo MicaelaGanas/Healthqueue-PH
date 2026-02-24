@@ -1,14 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
+
+const OTP_LENGTH = 6;
 
 export default function PatientSignUpPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [step, setStep] = useState<'form' | 'otp'>('form');
+  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -27,6 +32,32 @@ export default function PatientSignUpPage() {
     setError('');
   };
 
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length > 1) {
+      const digits = value.replace(/\D/g, '').slice(0, OTP_LENGTH).split('');
+      const next = [...otp];
+      digits.forEach((d, i) => {
+        if (index + i < OTP_LENGTH) next[index + i] = d;
+      });
+      setOtp(next);
+      const nextFocus = Math.min(index + digits.length, OTP_LENGTH - 1);
+      otpInputRefs.current[nextFocus]?.focus();
+      return;
+    }
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const next = [...otp];
+    next[index] = digit;
+    setOtp(next);
+    setError('');
+    if (digit && index < OTP_LENGTH - 1) otpInputRefs.current[index + 1]?.focus();
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) {
@@ -36,24 +67,58 @@ export default function PatientSignUpPage() {
     setError('');
     setLoading(true);
     try {
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email: form.email.trim(),
         password: form.password,
+        options: { emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/pages/auth/callback` : undefined },
       });
       if (signUpError) {
         const msg = signUpError.message ?? '';
         const isEmailRateLimit = /email.*rate limit|rate limit.*email/i.test(msg);
+        const isConfirmEmailError = /error sending confirmation email/i.test(msg);
         setError(
           isEmailRateLimit
             ? 'Too many sign-up attempts. Please try again in an hour, or contact support if you need access sooner.'
-            : msg || 'Sign up failed'
+            : isConfirmEmailError
+              ? 'We couldn\'t send the confirmation email. If you\'re testing with Resend sandbox, use the same email you used to sign up for Resend. Otherwise check Supabase → Authentication → SMTP (username must be "resend", password = API key). See docs/EMAIL_SMTP_SETUP.md.'
+              : msg || 'Sign up failed'
         );
         setLoading(false);
         return;
       }
-      const token = authData.session?.access_token;
+      setStep('otp');
+      setOtp(Array(OTP_LENGTH).fill(''));
+      setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    }
+    setLoading(false);
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = otp.join('').trim();
+    if (code.length !== OTP_LENGTH) {
+      setError(`Please enter the ${OTP_LENGTH}-digit code from your email.`);
+      return;
+    }
+    if (!supabase) return;
+    setError('');
+    setLoading(true);
+    try {
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: form.email.trim(),
+        token: code,
+        type: 'signup',
+      });
+      if (verifyError) {
+        setError(verifyError.message || 'Invalid or expired code. Try again or use the link in your email.');
+        setLoading(false);
+        return;
+      }
+      const token = data.session?.access_token;
       if (!token) {
-        setError('Account created. Please check your email to confirm, then log in.');
+        setError('Verification succeeded. Please log in.');
         setLoading(false);
         return;
       }
@@ -73,12 +138,12 @@ export default function PatientSignUpPage() {
         }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      if (!res.ok && res.status !== 409) {
         setError(body.error || 'Failed to save profile');
         setLoading(false);
         return;
       }
-      router.push('/pages/patient-login');
+      router.push('/pages/patient-dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     }
@@ -120,11 +185,50 @@ export default function PatientSignUpPage() {
                 </div>
               </div>
 
-              <h1 className="text-2xl font-bold text-center mb-2">Patient Sign Up</h1>
+              <h1 className="text-2xl font-bold text-center mb-2">
+                {step === 'form' ? 'Patient Sign Up' : 'Verify your email'}
+              </h1>
               <p className="text-gray-600 text-center mb-6">
-                Create an account to access your queue status and appointments
+                {step === 'form'
+                  ? 'Create an account to access your queue status and appointments'
+                  : `We sent a 6-digit code to ${form.email}. Enter it below.`}
               </p>
 
+              {step === 'otp' ? (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="flex justify-center gap-2">
+                    {otp.map((digit, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => { otpInputRefs.current[i] = el; }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={digit}
+                        onChange={(e) => handleOtpChange(i, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                        className="w-11 h-12 text-center text-lg font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        aria-label={`Digit ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+                  {error && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium py-3 rounded-lg transition-colors mt-2"
+                  >
+                    {loading ? 'Verifying…' : 'Verify and continue'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setStep('form'); setError(''); }}
+                    className="w-full text-gray-600 hover:text-gray-800 text-sm"
+                  >
+                    Back to form
+                  </button>
+                </form>
+              ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -268,9 +372,10 @@ export default function PatientSignUpPage() {
                   disabled={loading}
                   className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium py-3 rounded-lg transition-colors mt-2"
                 >
-                  {loading ? 'Creating account…' : 'Sign Up'}
+                  {loading ? 'Sending code…' : 'Sign Up'}
                 </button>
               </form>
+              )}
 
               <p className="text-center text-sm text-gray-500 mt-6">
                 Already have an account?{' '}

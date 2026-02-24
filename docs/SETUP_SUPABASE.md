@@ -102,7 +102,19 @@ Staff sign in with **email + password** (Supabase Auth). Their **role** comes fr
      ```
 - After that, staff go to **Staff Login**, enter that email and password; the app looks up their role from **admin_users** and redirects to the correct dashboard (nurse/doctor/admin). Dashboards are protected: if the user is not signed in or their role doesn’t match, they are redirected to the login page.
 
-## 8. Restart the dev server
+## 8. Email (patient signup, password reset)
+
+Supabase’s default email is limited to about **2 emails per hour** and is for testing only. For real use (patient signup confirmations, password reset), configure **custom SMTP** with a free provider.
+
+See **[docs/EMAIL_SMTP_SETUP.md](EMAIL_SMTP_SETUP.md)** for:
+
+- **Resend** (free: 100/day, 3,000/month) – recommended
+- **Brevo** (free: 300/day)
+- Other options (SendGrid, Postmark, etc.) and step-by-step Supabase SMTP setup
+
+No code changes are required; you only set SMTP in **Supabase Dashboard** → **Authentication** → **SMTP Settings**.
+
+## 9. Restart the dev server
 
 After changing `.env.local`, restart the Next.js dev server:
 

@@ -82,7 +82,7 @@ export async function GET(request: Request) {
   const statusFilter = searchParams.get("status");
 
   const staffAuth = await getStaffFromRequest(request);
-  const selectWithJoins = "*, departments(name), preferred_doctor:admin_users!booking_requests_preferred_doctor_id_fkey(first_name, last_name)";
+  const selectWithJoins = "*, departments(name), preferred_doctor:staff_users!booking_requests_preferred_doctor_id_fkey(first_name, last_name)";
   if (staffAuth) {
     let q = supabase.from("booking_requests").select(selectWithJoins).order("created_at", { ascending: false });
     if (statusFilter) q = q.eq("status", statusFilter);
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
       const firstName = parts[0] ?? "";
       const lastName = parts.slice(1).join(" ");
       if (firstName) {
-        let q = supabase.from("admin_users").select("id").eq("role", "doctor").eq("status", "active").eq("first_name", firstName);
+        let q = supabase.from("staff_users").select("id").eq("role", "doctor").eq("status", "active").eq("first_name", firstName);
         if (lastName) q = q.eq("last_name", lastName);
         const { data: doc } = await q.maybeSingle();
         preferredDoctorId = (doc?.id as string | undefined) ?? null;

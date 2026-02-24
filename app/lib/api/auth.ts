@@ -46,12 +46,12 @@ export async function getStaffFromRequest(request: Request): Promise<Staff | nul
   const supabase = getSupabaseServer();
   if (!supabase) return null;
 
-  const { data: staff } = await supabase
-    .from("admin_users")
-    .select("id, first_name, last_name, email, role, status, employee_id, department_id")
-    .ilike("email", user.email)
-    .maybeSingle();
-
+  const emailNorm = user.email.trim().toLowerCase();
+  const [adminRes, staffRes] = await Promise.all([
+    supabase.from("admin_users").select("id, first_name, last_name, email, role, status, employee_id, department_id").ilike("email", emailNorm).maybeSingle(),
+    supabase.from("staff_users").select("id, first_name, last_name, email, role, status, employee_id, department_id").ilike("email", emailNorm).maybeSingle(),
+  ]);
+  const staff = adminRes.data ?? staffRes.data ?? null;
   if (!staff || staff.status !== "active") return null;
   const name = [staff.first_name, staff.last_name].filter(Boolean).join(" ").trim() || "Staff";
   let departmentName: string | null = null;

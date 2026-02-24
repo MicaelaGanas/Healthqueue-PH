@@ -43,9 +43,12 @@ function matchPatient(q: string, p: QueuePatient) {
 export function VitalSignsForm() {
   const { queueRows, setPatientPriority, confirmedForTriage, clearConfirmedForTriage } = useNurseQueue();
   const queuePatients = useMemo<QueuePatient[]>(() => {
-    const scheduledToday = queueRows.filter(isScheduledForToday);
-    return scheduledToday.map((r) => ({ ticket: r.ticket, patientName: r.patientName, department: r.department }));
-  }, [queueRows]);
+    // Include rows scheduled for today OR confirmed in Manage bookings (so they appear in triage regardless of date).
+    const included = queueRows.filter(
+      (r) => isScheduledForToday(r) || confirmedForTriage.includes(r.ticket)
+    );
+    return included.map((r) => ({ ticket: r.ticket, patientName: r.patientName, department: r.department }));
+  }, [queueRows, confirmedForTriage]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);

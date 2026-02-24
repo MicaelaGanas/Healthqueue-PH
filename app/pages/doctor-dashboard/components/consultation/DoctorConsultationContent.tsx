@@ -119,11 +119,19 @@ export function DoctorConsultationContent() {
   const VISIBLE_STATUSES = ["called", "in progress", "completed"];
   const myQueue = useMemo(() => {
     let scope = rows.filter((r) => VISIBLE_STATUSES.includes((r.status || "").toLowerCase()));
-    if (effectiveDoctor) {
+    if (effectiveDoctor && staffDepartment) {
+      const deptMatch = (r: QueueRowSync) => (r.department || "").trim() === staffDepartment;
       scope = scope.filter((r) => {
-        if (r.assignedDoctor !== effectiveDoctor) return false;
-        if (staffDepartment) return (r.department || "").trim() === staffDepartment;
-        return true;
+        if (!deptMatch(r)) return false;
+        const assigned = (r.assignedDoctor ?? "").trim();
+        if (assigned === "") return true;
+        return r.assignedDoctor === effectiveDoctor;
+      });
+    } else if (effectiveDoctor) {
+      scope = scope.filter((r) => {
+        const assigned = (r.assignedDoctor ?? "").trim();
+        if (assigned === "") return true;
+        return r.assignedDoctor === effectiveDoctor;
       });
     } else if (staffDepartment) {
       scope = scope.filter((r) => (r.department || "").trim() === staffDepartment);
