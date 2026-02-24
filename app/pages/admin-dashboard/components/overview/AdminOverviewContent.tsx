@@ -329,7 +329,7 @@ export function AdminOverviewContent({ onNavigateToTab }: AdminOverviewContentPr
                     <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
                     <XAxis dataKey="time" stroke="#6C757D" fontSize={11} />
                     <YAxis stroke="#6C757D" fontSize={11} domain={[0, 60]} tickCount={5} />
-                    <Tooltip formatter={(value: number, name: string) => [`${value} min`, name]} labelFormatter={(l) => l} />
+                    <Tooltip formatter={(value, name) => [`${value != null ? value : 0} min`, name]} labelFormatter={(l) => l} />
                     <Legend layout="horizontal" align="right" verticalAlign="top" wrapperStyle={{ paddingBottom: 8 }} iconType="circle" iconSize={8} />
                     {depts.map((d, i) => (
                       <Area key={d.department} type="monotone" dataKey={d.department} name={d.department} stroke={colors[i % colors.length]} fill={colors[i % colors.length]} fillOpacity={0.4} strokeWidth={2} />
