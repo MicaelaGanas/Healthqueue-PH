@@ -109,6 +109,15 @@ type NurseQueueContextValue = {
   clearConfirmedForTriage: (ticket: string) => void;
   /** Refetch queue from server (e.g. after confirming a booking request). */
   refetchQueue: () => Promise<void>;
+  /** Add a booked row optimistically so it shows in Booked queue immediately after confirm. */
+  addBookedRowFromConfirm: (params: {
+    ticket: string;
+    patientName: string;
+    department: string;
+    requestedDate: string;
+    requestedTime?: string | null;
+    preferredDoctor?: string | null;
+  }) => void;
 };
 
 const NurseQueueContext = createContext<NurseQueueContextValue | null>(null);
@@ -170,7 +179,12 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
       const data = await res.json();
       if (Array.isArray(data)) {
         skipNextSyncToApiRef.current = true;
-        setQueueRows(data as QueueRow[]);
+        const fromApi = data as QueueRow[];
+        const apiTickets = new Set(fromApi.map((r) => r.ticket));
+        setQueueRows((prev) => {
+          const optimisticBooked = prev.filter((r) => r.source === "booked" && !apiTickets.has(r.ticket));
+          return optimisticBooked.length ? [...fromApi, ...optimisticBooked] : fromApi;
+        });
       } else {
         setQueueRows(loadFallbackQueue());
       }
@@ -465,6 +479,33 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
     setConfirmedForTriage((prev) => prev.filter((t) => t !== ticket));
   }, []);
 
+  const addBookedRowFromConfirm = useCallback(
+    (params: {
+      ticket: string;
+      patientName: string;
+      department: string;
+      requestedDate: string;
+      requestedTime?: string | null;
+      preferredDoctor?: string | null;
+    }) => {
+      const row: QueueRow = {
+        ticket: params.ticket,
+        patientName: params.patientName,
+        department: params.department,
+        priority: "normal",
+        status: "waiting",
+        waitTime: "",
+        source: "booked",
+        addedAt: new Date().toISOString(),
+        appointmentTime: params.requestedTime ?? undefined,
+        appointmentDate: params.requestedDate ?? undefined,
+        assignedDoctor: params.preferredDoctor ?? undefined,
+      };
+      setQueueRows((prev) => (prev.some((r) => r.ticket === params.ticket) ? prev : [...prev, row]));
+    },
+    []
+  );
+
   const value = useMemo<NurseQueueContextValue>(
     () => ({
       queueRows,
@@ -485,6 +526,7 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
       confirmBooking,
       clearConfirmedForTriage,
       refetchQueue,
+      addBookedRowFromConfirm,
     }),
     [
       queueRows,
@@ -505,6 +547,7 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
       confirmBooking,
       clearConfirmedForTriage,
       refetchQueue,
+      addBookedRowFromConfirm,
     ]
   );
 

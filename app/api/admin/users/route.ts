@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../lib/supabase/server";
-import type { DbAdminUser } from "../../../lib/supabase/types";
+import type { DbAdminUser, DbStaffUser } from "../../../lib/supabase/types";
 import { requireRoles } from "../../../lib/api/auth";
 
 type DbAdminUserWithDept = DbAdminUser & { departments?: { name: string } | null };
+type DbStaffUserWithDept = DbStaffUser & { departments?: { name: string } | null };
 
-function toAppUser(r: DbAdminUserWithDept) {
+function toAppUser(r: DbAdminUserWithDept | DbStaffUserWithDept) {
   const name = [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || "Staff";
   return {
     id: r.id,
@@ -58,49 +59,41 @@ export async function GET(request: Request) {
       { status: 503 }
     );
   }
-  const { data, error } = await supabase
-    .from("admin_users")
-    .select("id, first_name, last_name, email, role, status, employee_id, department_id, created_at, departments(name)")
-    .order("created_at", { ascending: false });
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  return NextResponse.json(((data ?? []) as unknown as DbAdminUserWithDept[]).map(toAppUser));
+  const [adminRes, staffRes] = await Promise.all([
+    supabase
+      .from("admin_users")
+      .select("id, first_name, last_name, email, role, status, employee_id, department_id, created_at, departments(name)")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("staff_users")
+      .select("id, first_name, last_name, email, role, status, employee_id, department_id, created_at, departments(name)")
+      .order("created_at", { ascending: false }),
+  ]);
+  if (adminRes.error) return NextResponse.json({ error: adminRes.error.message }, { status: 500 });
+  if (staffRes.error) return NextResponse.json({ error: staffRes.error.message }, { status: 500 });
+  const adminRows = (adminRes.data ?? []) as unknown as DbAdminUserWithDept[];
+  const staffRows = (staffRes.data ?? []) as unknown as DbStaffUserWithDept[];
+  const combined = [...adminRows, ...staffRows].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  return NextResponse.json(combined.map(toAppUser));
 }
 
 async function generateNextEmployeeId(supabase: ReturnType<typeof getSupabaseServer>): Promise<string> {
-  if (!supabase) {
-    throw new Error("Database not configured");
-  }
-
-  // Get all existing employee IDs
-  const { data, error } = await supabase
-    .from("admin_users")
-    .select("employee_id");
-
-  if (error) {
-    throw new Error(`Failed to fetch existing employee IDs: ${error.message}`);
-  }
-
-  // Extract numbers from existing employee IDs with format "EMP - XXXX" (case-insensitive for compatibility)
+  if (!supabase) throw new Error("Database not configured");
+  const [adminRes, staffRes] = await Promise.all([
+    supabase.from("admin_users").select("employee_id"),
+    supabase.from("staff_users").select("employee_id"),
+  ]);
+  if (adminRes.error) throw new Error(`Failed to fetch admin employee IDs: ${adminRes.error.message}`);
+  if (staffRes.error) throw new Error(`Failed to fetch staff employee IDs: ${staffRes.error.message}`);
   const existingNumbers: number[] = [];
   const empIdPattern = /^emp\s*-\s*(\d+)$/i;
-
-  (data || []).forEach((user) => {
-    const match = user.employee_id?.match(empIdPattern);
-    if (match) {
-      existingNumbers.push(parseInt(match[1], 10));
-    }
-  });
-
-  // Find the next available number
-  let nextNumber = 1;
-  if (existingNumbers.length > 0) {
-    const maxNumber = Math.max(...existingNumbers);
-    nextNumber = maxNumber + 1;
+  for (const row of [...(adminRes.data ?? []), ...(staffRes.data ?? [])]) {
+    const match = (row as { employee_id?: string }).employee_id?.match(empIdPattern);
+    if (match) existingNumbers.push(parseInt(match[1], 10));
   }
-
-  // Generate employee ID with format "EMP - XXXX"
+  const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
   return `EMP - ${nextNumber.toString().padStart(4, "0")}`;
 }
 
@@ -129,41 +122,42 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  const roleNorm = String(role).trim().toLowerCase();
+  const isAdmin = roleNorm === "admin";
+  const staffRoles = ["nurse", "doctor", "receptionist", "laboratory"];
+  if (isAdmin === false && !staffRoles.includes(roleNorm)) {
+    return NextResponse.json(
+      { error: `Role must be admin or one of: ${staffRoles.join(", ")}` },
+      { status: 400 }
+    );
+  }
 
-  // Check if admin_users record already exists
-  const { data: existingAdminUser } = await supabase
-    .from("admin_users")
-    .select("id, email")
-    .eq("email", email.trim())
-    .maybeSingle();
-
-  if (existingAdminUser) {
+  const emailNorm = email.trim().toLowerCase();
+  const [existingAdmin, existingStaff] = await Promise.all([
+    supabase.from("admin_users").select("id, email").ilike("email", emailNorm).maybeSingle(),
+    supabase.from("staff_users").select("id, email").ilike("email", emailNorm).maybeSingle(),
+  ]);
+  if (existingAdmin.data || existingStaff.data) {
     return NextResponse.json(
       { error: "User with this email already exists in the system" },
       { status: 409 }
     );
   }
 
-  // Auto-generate employee ID if not provided
   let finalEmployeeId: string;
   if (employeeId && employeeId.trim()) {
     finalEmployeeId = employeeId.trim();
-    
-    // Check if the provided employee ID already exists
-    const { data: existing, error: checkError } = await supabase
-      .from("admin_users")
-      .select("employee_id")
-      .eq("employee_id", finalEmployeeId)
-      .maybeSingle();
-    
-    if (checkError) {
+    const [adminCheck, staffCheck] = await Promise.all([
+      supabase.from("admin_users").select("employee_id").eq("employee_id", finalEmployeeId).maybeSingle(),
+      supabase.from("staff_users").select("employee_id").eq("employee_id", finalEmployeeId).maybeSingle(),
+    ]);
+    if (adminCheck.error || staffCheck.error) {
       return NextResponse.json(
-        { error: `Failed to check employee ID: ${checkError.message}` },
+        { error: `Failed to check employee ID: ${adminCheck.error?.message ?? staffCheck.error?.message}` },
         { status: 500 }
       );
     }
-    
-    if (existing) {
+    if (adminCheck.data || staffCheck.data) {
       return NextResponse.json(
         { error: `Employee ID "${finalEmployeeId}" already exists` },
         { status: 409 }
@@ -233,37 +227,35 @@ export async function POST(request: Request) {
     authUserId = authData.user.id;
   }
 
-  // Create admin_users record
   const deptId = await resolveDepartmentId(supabase, { departmentId, department });
+  const table = isAdmin ? "admin_users" : "staff_users";
+  const insertPayload = {
+    first_name: fn,
+    last_name: ln,
+    email: email.trim(),
+    role: role,
+    status: status ?? "active",
+    employee_id: finalEmployeeId,
+    department_id: deptId,
+  };
+
   const { data, error } = await supabase
-    .from("admin_users")
-    .insert({
-      first_name: fn,
-      last_name: ln,
-      email: email.trim(),
-      role: role,
-      status: status ?? "active",
-      employee_id: finalEmployeeId,
-      department_id: deptId,
-    })
+    .from(table)
+    .insert(insertPayload)
     .select("id, first_name, last_name, email, role, status, employee_id, department_id, created_at, departments(name)")
     .single();
 
   if (error) {
-    // If admin_users insert fails but auth user was created (not pre-existing), try to clean up
     if (authUserId && authData?.user && !authError) {
       await supabaseAdmin.auth.admin.deleteUser(authUserId);
     }
-    
-    // Check if it's a duplicate error (email or employee_id)
     if (error.code === "23505") {
-      const isEmployeeIdError = error.message?.includes("employee_id") || error.message?.includes("unique_employee_id");
+      const isEmployeeIdError = error.message?.includes("employee_id");
       return NextResponse.json(
-        { error: isEmployeeIdError ? `Employee ID already exists` : "User with this email already exists" },
+        { error: isEmployeeIdError ? "Employee ID already exists" : "User with this email already exists" },
         { status: 409 }
       );
     }
-    
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

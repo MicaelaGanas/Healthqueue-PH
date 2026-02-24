@@ -17,15 +17,16 @@ export async function PATCH(request: Request) {
   }
   const body = await request.json();
   const ticket = body?.ticket;
-  const status = body?.status;
-  if (!ticket || typeof status !== "string") {
+  const rawStatus = body?.status;
+  if (!ticket || typeof rawStatus !== "string") {
     return NextResponse.json(
       { error: "Missing ticket or status" },
       { status: 400 }
     );
   }
+  const status = rawStatus === "no show" ? "no_show" : rawStatus === "in progress" ? "in_consultation" : rawStatus.trim();
   const { error } = await supabase
-    .from("queue_rows")
+    .from("queue_items")
     .update({ status })
     .eq("ticket", ticket);
   if (error) {

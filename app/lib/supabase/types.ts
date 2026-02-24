@@ -38,6 +38,19 @@ export type DbAdminUser = {
   created_at: string;
 };
 
+/** Same shape as DbAdminUser; used for staff_users (nurse, doctor, receptionist, laboratory). */
+export type DbStaffUser = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+  status: string;
+  employee_id: string;
+  department_id: string | null;
+  created_at: string;
+};
+
 export type DbAlert = {
   id: string;
   type: string;

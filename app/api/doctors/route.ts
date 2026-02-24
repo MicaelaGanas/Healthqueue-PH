@@ -3,7 +3,7 @@ import { getSupabaseServer } from "../../lib/supabase/server";
 
 /**
  * GET /api/doctors
- * Public: returns active doctors from admin_users (for booking "Preferred doctor").
+ * Public: returns active doctors from staff_users (for booking "Preferred doctor").
  * Query: ?department=OB-GYN to filter by department.
  * Returns: [{ id, name, department, displayLabel }] where displayLabel is "Dr. Name - Department".
  */
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   }
 
   let q = supabase
-    .from("admin_users")
+    .from("staff_users")
     .select("id, first_name, last_name, department_id, departments(name)")
     .eq("role", "doctor")
     .eq("status", "active")

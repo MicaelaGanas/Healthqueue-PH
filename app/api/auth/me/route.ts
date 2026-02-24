@@ -33,15 +33,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
 
-  const { data: staff, error } = await supabase
-    .from("admin_users")
-    .select("id, first_name, last_name, email, role, status, employee_id, department_id")
-    .ilike("email", user.email)
-    .maybeSingle();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const emailNorm = user.email.trim().toLowerCase();
+  const [adminRes, staffRes] = await Promise.all([
+    supabase.from("admin_users").select("id, first_name, last_name, email, role, status, employee_id, department_id").ilike("email", emailNorm).maybeSingle(),
+    supabase.from("staff_users").select("id, first_name, last_name, email, role, status, employee_id, department_id").ilike("email", emailNorm).maybeSingle(),
+  ]);
+  if (adminRes.error) return NextResponse.json({ error: adminRes.error.message }, { status: 500 });
+  if (staffRes.error) return NextResponse.json({ error: staffRes.error.message }, { status: 500 });
+  const staff = adminRes.data ?? staffRes.data ?? null;
   if (!staff || staff.status !== "active") {
     return NextResponse.json({ error: "No access; contact an administrator" }, { status: 403 });
   }

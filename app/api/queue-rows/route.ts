@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../lib/supabase/server";
-import type { DbQueueItem } from "../../lib/supabase/types";
+import type { DbBookingRequest, DbQueueItem } from "../../lib/supabase/types";
 import { requireRoles } from "../../lib/api/auth";
 
 type QueueItemWithJoins = DbQueueItem & {
   departments?: { name: string } | null;
   patient_users?: { first_name: string; last_name: string } | null;
-  admin_users?: { first_name: string; last_name: string } | null;
+  staff_users?: { first_name: string; last_name: string } | null;
 };
 
 function toAppRow(r: QueueItemWithJoins) {
@@ -18,17 +18,18 @@ function toAppRow(r: QueueItemWithJoins) {
         : r.walk_in_first_name || r.patient_users?.first_name || "Unknown";
   const department = r.departments?.name ?? "General Medicine";
   const assignedDoctor =
-    r.admin_users?.first_name && r.admin_users?.last_name
-      ? `${r.admin_users.first_name} ${r.admin_users.last_name}`
+    r.staff_users?.first_name && r.staff_users?.last_name
+      ? `${r.staff_users.first_name} ${r.staff_users.last_name}`
       : null;
   const appointmentDate = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null;
   const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
+  const statusForApp = r.status === "no_show" ? "no show" : r.status === "in_consultation" ? "in progress" : r.status;
   return {
     ticket: r.ticket,
     patientName,
     department,
     priority: r.priority,
-    status: r.status,
+    status: statusForApp,
     waitTime: r.wait_time ?? "",
     source: r.source === "walk_in" ? "walk-in" : r.source,
     addedAt: r.added_at ?? undefined,
@@ -42,47 +43,36 @@ const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
 
 const NURSE_LIKE_ROLES = ["nurse", "receptionist"] as const;
 
-/** Today YYYY-MM-DD in Asia/Manila (for queue date filtering). */
-function getTodayDateStr(): string {
-  const now = new Date();
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Manila",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-    .format(now)
-    .replace(/\//g, "-");
-}
-
-/** Format an ISO date in Asia/Manila as YYYY-MM-DD (so "today" matches nurse's day). */
-function toManilaDateStr(iso: string | null | undefined): string | null {
-  if (!iso || typeof iso !== "string") return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Manila",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-    .format(d)
-    .replace(/\//g, "-");
-}
-
-/** True if row is for today: appointment date (booked) or added date (walk-in) in Asia/Manila. */
-function isRowForToday(r: QueueItemWithJoins): boolean {
-  const today = getTodayDateStr();
-  if (r.appointment_at) {
-    const aptDateStr = toManilaDateStr(r.appointment_at);
-    if (aptDateStr === today) return true;
-  }
-  const addedAt = r.added_at ?? "";
-  if (addedAt) {
-    const addedDate = toManilaDateStr(addedAt);
-    if (addedDate === today) return true;
-  }
-  return false;
+/** Build queue_items row from a confirmed booking_request (same shape as PATCH confirm). */
+function queueItemFromBookingRequest(req: DbBookingRequest) {
+  const patientUserId = req.booking_type === "self" ? req.patient_user_id : null;
+  const walkInFirstName = req.booking_type === "dependent" ? (req.beneficiary_first_name ?? null) : null;
+  const walkInLastName = req.booking_type === "dependent" ? (req.beneficiary_last_name ?? null) : null;
+  const appointmentAt =
+    req.requested_date && req.requested_time
+      ? new Date(`${req.requested_date}T${req.requested_time}`).toISOString()
+      : req.requested_date
+        ? new Date(`${req.requested_date}T00:00:00`).toISOString()
+        : null;
+  return {
+    ticket: req.reference_no,
+    source: "booked" as const,
+    priority: "normal" as const,
+    status: "waiting",
+    wait_time: "",
+    department_id: req.department_id,
+    patient_user_id: patientUserId,
+    walk_in_first_name: walkInFirstName,
+    walk_in_last_name: walkInLastName,
+    walk_in_age_years: null,
+    walk_in_sex: null,
+    walk_in_phone: null,
+    walk_in_email: null,
+    booking_request_id: req.id,
+    assigned_doctor_id: null,
+    appointment_at: appointmentAt,
+    added_at: req.confirmed_at ?? new Date().toISOString(),
+  };
 }
 
 export async function GET(request: Request) {
@@ -95,21 +85,36 @@ export async function GET(request: Request) {
       { status: 503 }
     );
   }
-  const { staff } = auth;
-  let q = supabase
+  // Fetch all queue items so confirmed bookings always show in Booked queue (confirmed).
+  const q = supabase
     .from("queue_items")
-    .select("*, departments(name), patient_users(first_name, last_name), admin_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)")
+    .select("*, departments(name), patient_users(first_name, last_name), staff_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)")
     .order("added_at", { ascending: true });
-  if (NURSE_LIKE_ROLES.includes(staff.role as "nurse" | "receptionist") && staff.departmentId) {
-    q = q.eq("department_id", staff.departmentId);
-  }
   const { data, error } = await q;
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   let rows = (data ?? []) as unknown as QueueItemWithJoins[];
-  if (NURSE_LIKE_ROLES.includes(staff.role as "nurse" | "receptionist")) {
-    rows = rows.filter(isRowForToday);
+  const existingBookingRequestIds = new Set(
+    rows.map((r) => r.booking_request_id).filter(Boolean) as string[]
+  );
+  // Backfill: confirmed booking_requests that never got a queue_items row (e.g. confirm failed earlier).
+  const { data: confirmedReqs } = await supabase
+    .from("booking_requests")
+    .select("*")
+    .eq("status", "confirmed");
+  const toBackfill = (confirmedReqs ?? []) as DbBookingRequest[];
+  const missing = toBackfill.filter((r) => r.id && !existingBookingRequestIds.has(r.id));
+  if (missing.length > 0) {
+    for (const req of missing) {
+      const queueItem = queueItemFromBookingRequest(req);
+      await supabase.from("queue_items").upsert(queueItem, { onConflict: "ticket" });
+    }
+    const { data: refetched, error: refetchError } = await supabase
+      .from("queue_items")
+      .select("*, departments(name), patient_users(first_name, last_name), staff_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)")
+      .order("added_at", { ascending: true });
+    if (!refetchError && refetched) rows = refetched as unknown as QueueItemWithJoins[];
   }
   return NextResponse.json(rows.map(toAppRow));
 }
@@ -128,7 +133,7 @@ async function resolveDoctorId(supabase: ReturnType<typeof getSupabaseServer>, d
   const firstName = parts[0] ?? "";
   const lastName = parts.slice(1).join(" ");
   if (!firstName) return null;
-  let q = supabase.from("admin_users").select("id").eq("role", "doctor").eq("status", "active").eq("first_name", firstName);
+  let q = supabase.from("staff_users").select("id").eq("role", "doctor").eq("status", "active").eq("first_name", firstName);
   if (lastName) q = q.eq("last_name", lastName);
   const { data } = await q.maybeSingle();
   return (data?.id as string | undefined) ?? null;
@@ -176,11 +181,13 @@ export async function PUT(request: Request) {
             ? new Date(`${r.appointmentDate}T00:00:00`).toISOString()
             : null;
 
+      const rawStatus = String(r.status ?? "waiting").trim();
+      const statusForDb = rawStatus === "no show" ? "no_show" : rawStatus === "in progress" ? "in_consultation" : rawStatus;
       return {
         ticket: String(r.ticket).trim(),
         source,
         priority,
-        status: String(r.status ?? "waiting").trim(),
+        status: statusForDb,
         wait_time: String(r.waitTime ?? "").trim(),
         department_id: deptId,
         patient_user_id: null,

@@ -75,10 +75,13 @@ export default function PatientSignUpPage() {
       if (signUpError) {
         const msg = signUpError.message ?? '';
         const isEmailRateLimit = /email.*rate limit|rate limit.*email/i.test(msg);
+        const isConfirmEmailError = /error sending confirmation email/i.test(msg);
         setError(
           isEmailRateLimit
             ? 'Too many sign-up attempts. Please try again in an hour, or contact support if you need access sooner.'
-            : msg || 'Sign up failed'
+            : isConfirmEmailError
+              ? 'We couldn\'t send the confirmation email. If you\'re testing with Resend sandbox, use the same email you used to sign up for Resend. Otherwise check Supabase → Authentication → SMTP (username must be "resend", password = API key). See docs/EMAIL_SMTP_SETUP.md.'
+              : msg || 'Sign up failed'
         );
         setLoading(false);
         return;

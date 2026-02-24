@@ -66,10 +66,9 @@ export async function PATCH(
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ ok: true });
   }
-  const { error } = await supabase
-    .from("admin_users")
-    .update(update)
-    .eq("id", id);
+  const { data: adminMatch } = await supabase.from("admin_users").select("id").eq("id", id).maybeSingle();
+  const table = adminMatch ? "admin_users" : "staff_users";
+  const { error } = await supabase.from(table).update(update).eq("id", id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
