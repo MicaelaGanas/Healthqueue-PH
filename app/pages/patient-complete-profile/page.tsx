@@ -2,11 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
+
+function isSafeRedirect(path: string | null): path is string {
+  if (!path || typeof path !== 'string') return false;
+  return path.startsWith('/') && !path.startsWith('//');
+}
 
 export default function PatientCompleteProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
+  const safeRedirect = isSafeRedirect(redirectParam) ? redirectParam : null;
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -85,7 +93,7 @@ export default function PatientCompleteProfilePage() {
           // Ignore storage errors
         }
       }
-      router.push('/pages/patient-dashboard');
+      router.push(safeRedirect ?? '/pages/patient-dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     }

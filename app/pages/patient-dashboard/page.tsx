@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Footer } from "../../components/Footer";
 import { PatientAuthGuard } from "../../components/PatientAuthGuard";
 import { QueueStatus } from "./components/QueueStatus";
@@ -16,8 +17,20 @@ export type AppointmentForQueue = {
 };
 
 export default function PatientDashboardPage() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"queue" | "appointment" | "notification">("queue");
   const [selectedAppointmentForQueue, setSelectedAppointmentForQueue] = useState<AppointmentForQueue | null>(null);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "appointment" || tab === "appointments") {
+      setActiveTab("appointment");
+    } else if (tab === "notification") {
+      setActiveTab("notification");
+    } else if (tab === "queue") {
+      setActiveTab("queue");
+    }
+  }, [searchParams]);
 
   const handleViewQueueStatus = useCallback((appointment: AppointmentForQueue) => {
     setSelectedAppointmentForQueue(appointment);

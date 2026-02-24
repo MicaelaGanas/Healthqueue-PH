@@ -68,6 +68,8 @@ function matchPatient(q: string, p: QueuePatient) {
 export function VitalSignsForm() {
   const { queueRows, setPatientPriority, confirmedForTriage, clearConfirmedForTriage } = useNurseQueue();
   // Only today's patients or just-confirmed: need vitals AND (scheduled for today OR in confirmedForTriage). Avoids old patients accumulating.
+  // Include todayDateStr in deps so the list updates when the date changes (e.g. past midnight while component stays mounted).
+  const todayDateStr = getTodayDateStr();
   const queuePatients = useMemo<QueuePatient[]>(() => {
     const included = queueRows.filter(
       (r) =>
@@ -75,7 +77,7 @@ export function VitalSignsForm() {
         (isScheduledForToday(r) || confirmedForTriage.includes(r.ticket))
     );
     return included.map((r) => ({ ticket: r.ticket, patientName: r.patientName, department: r.department }));
-  }, [queueRows, confirmedForTriage]);
+  }, [queueRows, confirmedForTriage, todayDateStr]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);

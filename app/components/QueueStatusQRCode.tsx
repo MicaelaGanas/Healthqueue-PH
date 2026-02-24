@@ -62,20 +62,21 @@ export function QueueStatusQRCode({
   }
 
   return (
-    <div className={`flex flex-col items-center gap-2 ${className}`}>
-      <img
-        src={dataUrl}
-        alt={`QR code for queue reference ${referenceNo}`}
-        width={size}
-        height={size}
-        className="rounded-lg border border-gray-200 bg-white"
-      />
-      <p className="text-center text-xs text-gray-500">Nurse can scan to check your status</p>
+    <div className={`flex flex-col items-center gap-3 ${className}`}>
+      <div className="rounded-xl bg-white p-2.5 shadow-md ring-1 ring-slate-200/60">
+        <img
+          src={dataUrl}
+          alt={`QR code for queue reference ${referenceNo}`}
+          width={size}
+          height={size}
+          className="rounded-lg"
+        />
+      </div>
       {showDownload && (
         <button
           type="button"
           onClick={handleDownload}
-          className="rounded-lg border border-[#007bff] bg-white px-3 py-1.5 text-sm font-medium text-[#007bff] hover:bg-[#007bff] hover:text-white"
+          className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700"
         >
           Save as PNG
         </button>

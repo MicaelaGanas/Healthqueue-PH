@@ -67,10 +67,16 @@ export async function GET(request: Request) {
   const tickets = rows.map((r) => r.ticket).filter(Boolean);
   const ticketsWithVitals = new Set<string>();
   if (tickets.length > 0) {
-    const { data: vitals } = await supabase
+    const { data: vitals, error: vitalsError } = await supabase
       .from("vital_signs")
       .select("ticket")
       .in("ticket", tickets);
+    if (vitalsError) {
+      return NextResponse.json(
+        { error: `Failed to load vitals: ${vitalsError.message}` },
+        { status: 500 }
+      );
+    }
     (vitals ?? []).forEach((v: { ticket: string }) => ticketsWithVitals.add(v.ticket));
   }
   return NextResponse.json(
@@ -189,10 +195,10 @@ export async function PUT(request: Request) {
   for (const r of rows as Record<string, unknown>[]) {
     const source = r.source === "walk-in" ? "walk_in" : (r.source === "booked" ? "booked" : "walk_in");
     const ticket = String(r.ticket).trim();
-    const appointmentDate = r.appointmentDate as string | undefined;
-    const appointmentTime = r.appointmentTime as string | undefined;
-    if (source !== "booked" || !appointmentDate || !appointmentTime) continue;
-    const dateStr = appointmentDate.trim().slice(0, 10);
+    const appointmentDate = r.appointmentDate as string | number | undefined;
+    const appointmentTime = r.appointmentTime as string | number | undefined;
+    if (source !== "booked" || appointmentDate == null || appointmentTime == null) continue;
+    const dateStr = String(appointmentDate).trim().slice(0, 10);
     let timeStr = String(appointmentTime).trim();
     if (timeStr.includes(":")) {
       const [h, m] = timeStr.split(":");

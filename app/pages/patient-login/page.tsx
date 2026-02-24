@@ -2,13 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
 
 const DESKTOP_BREAKPOINT = 1024;
 
+function isSafeRedirect(path: string | null): path is string {
+  if (!path || typeof path !== 'string') return false;
+  return path.startsWith('/') && !path.startsWith('//');
+}
+
 export default function PatientLoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
+  const safeRedirect = isSafeRedirect(redirectParam) ? redirectParam : null;
   const [activeTab, setActiveTab] = useState<'account'>('account');
 
   useEffect(() => {
@@ -38,8 +46,7 @@ export default function PatientLoginPage() {
   const supabase = createSupabaseBrowser();
 
   const handleAccessDashboard = () => {
-    // For now: redirect to patient dashboard
-    router.push('/pages/patient-dashboard');
+    router.push(safeRedirect ?? '/pages/patient-dashboard');
   };
 
   const handleAccountLogin = async (e: React.FormEvent) => {
@@ -77,7 +84,10 @@ export default function PatientLoginPage() {
 
       if (res.status === 404) {
         // Account verified but no profile row (e.g. signed up with email confirmation). Complete profile.
-        router.push('/pages/patient-complete-profile');
+        const completeUrl = safeRedirect
+          ? `/pages/patient-complete-profile?redirect=${encodeURIComponent(safeRedirect)}`
+          : '/pages/patient-complete-profile';
+        router.push(completeUrl);
         setLoading(false);
         return;
       }
@@ -104,8 +114,8 @@ export default function PatientLoginPage() {
         // Ignore storage errors
       }
 
-      // Success - redirect to dashboard
-      router.push('/pages/patient-dashboard');
+      // Success - redirect to intended page or dashboard
+      router.push(safeRedirect ?? '/pages/patient-dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setLoading(false);

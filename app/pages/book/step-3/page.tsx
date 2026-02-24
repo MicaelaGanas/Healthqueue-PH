@@ -195,23 +195,35 @@ export default function BookStep3Page() {
           </p>
 
           {referenceNo && (
-          <>
-          <ConfirmationDetails
-            referenceNo={referenceNo}
-            name={name}
-            phone={phone}
-            email={email}
-            department={department}
-            date={date}
-            time={time}
-            preferredDoctor={preferredDoctor}
-          />
-          <div className="mt-6 flex flex-col items-center gap-2 rounded-lg border border-[#e9ecef] bg-[#f8f9fa] p-4">
-            <p className="text-sm font-medium text-[#333333]">Your queue status QR code</p>
-            <p className="text-xs text-[#6C757D]">Save as image to show at the clinic if you have no internet</p>
-            <QueueStatusQRCode referenceNo={referenceNo} size={180} showDownload />
-          </div>
-          </>
+            <div className="mt-8 overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-black/5">
+              <div className="flex flex-col lg:flex-row lg:min-h-[320px]">
+                {/* QR – left: soft gradient, centered content */}
+                <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-4 bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-50 px-6 py-8 lg:py-10">
+                  <div className="text-center">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Show at the clinic</h3>
+                    <p className="mt-1 text-xs text-slate-500">Save the QR or image—works offline</p>
+                  </div>
+                  <QueueStatusQRCode referenceNo={referenceNo} size={200} showDownload className="shrink-0" />
+                </div>
+
+                {/* Divider */}
+                <div className="hidden shrink-0 w-px bg-slate-200/80 lg:block" aria-hidden />
+
+                {/* Details – right: clean list */}
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <ConfirmationDetails
+                    referenceNo={referenceNo}
+                    name={name}
+                    phone={phone}
+                    email={email}
+                    department={department}
+                    date={date}
+                    time={time}
+                    preferredDoctor={preferredDoctor}
+                  />
+                </div>
+              </div>
+            </div>
           )}
 
           {referenceNo && (

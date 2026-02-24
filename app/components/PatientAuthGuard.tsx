@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, createContext, useContext } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createSupabaseBrowser, getSessionOrSignOut } from "../lib/supabase/client";
 import { Footer } from "./Footer";
 
@@ -26,15 +26,21 @@ type PatientAuthGuardProps = {
 
 export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [status, setStatus] = useState<"loading" | "allowed" | "denied">("loading");
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const supabase = createSupabaseBrowser();
+
+  const loginUrl =
+    pathname && pathname !== "/pages/patient-login"
+      ? `/pages/patient-login?redirect=${encodeURIComponent(pathname)}`
+      : "/pages/patient-login";
 
   useEffect(() => {
     if (!supabase) {
       setStatus("denied");
       setTimeout(() => {
-        router.replace("/pages/patient-login");
+        router.replace(loginUrl);
       }, 500);
       return;
     }
@@ -53,7 +59,7 @@ export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
           // Redirect after a brief delay to show loading animation
           setTimeout(() => {
             if (!cancelled) {
-              router.replace("/pages/patient-login");
+              router.replace(loginUrl);
             }
           }, 500);
           return;
@@ -69,9 +75,13 @@ export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
         if (res.status === 404) {
           setProfile(null);
           setStatus("denied");
+          const completeProfileUrl =
+            pathname && pathname !== "/pages/patient-login"
+              ? `/pages/patient-complete-profile?redirect=${encodeURIComponent(pathname)}`
+              : "/pages/patient-complete-profile";
           setTimeout(() => {
             if (!cancelled) {
-              router.replace("/pages/patient-complete-profile");
+              router.replace(completeProfileUrl);
             }
           }, 500);
           return;
@@ -82,7 +92,7 @@ export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
           setStatus("denied");
           setTimeout(() => {
             if (!cancelled) {
-              router.replace("/pages/patient-login");
+              router.replace(loginUrl);
             }
           }, 500);
           return;
@@ -105,7 +115,7 @@ export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
           setStatus("denied");
           setTimeout(() => {
             if (!cancelled) {
-              router.replace("/pages/patient-login");
+              router.replace(loginUrl);
             }
           }, 500);
         }
@@ -121,7 +131,7 @@ export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
         setStatus("denied");
         setTimeout(() => {
           if (!cancelled) {
-            router.replace("/pages/patient-login");
+            router.replace(loginUrl);
           }
         }, 500);
       } else if (!cancelled) {
@@ -133,7 +143,7 @@ export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, [supabase, router]);
+  }, [supabase, router, loginUrl, pathname]);
 
   if (status === "loading" || status === "denied") {
     return (

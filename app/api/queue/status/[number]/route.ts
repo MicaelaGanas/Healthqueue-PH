@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase/server";
 
+/** Format ISO timestamp to YYYY-MM-DD in local time (avoids UTC date shift for UTC+x timezones). */
+function toLocalDateStr(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /** GET /api/queue/status/[number] – public queue status by ticket or reference number */
 export async function GET(
   _request: Request,
@@ -92,7 +103,7 @@ export async function GET(
           email: r.walk_in_email ?? r.patient_users?.email ?? null,
           priority: r.priority,
           source: r.source === "walk_in" ? "walk-in" : r.source,
-          appointmentDate: r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null,
+          appointmentDate: toLocalDateStr(r.appointment_at),
           appointmentTime: r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null,
           assignedDoctor,
           addedAt: r.added_at ?? null,
@@ -132,7 +143,7 @@ export async function GET(
       email: r.walk_in_email ?? r.patient_users?.email ?? null,
       priority: r.priority,
       source: r.source === "walk_in" ? "walk-in" : r.source,
-      appointmentDate: r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null,
+      appointmentDate: toLocalDateStr(r.appointment_at),
       appointmentTime: r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null,
       assignedDoctor,
       addedAt: r.added_at ?? null,

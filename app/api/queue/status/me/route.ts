@@ -2,6 +2,26 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase/server";
 
+/** Format ISO timestamp to YYYY-MM-DD in local time (avoids UTC date shift for UTC+x timezones). */
+function toLocalDateStr(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Today as YYYY-MM-DD in local time (for filtering bookings). */
+function getTodayLocal(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 /**
  * GET /api/queue/status/me
  * Returns the logged-in patient's active queue entry (if any).
@@ -34,7 +54,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayLocal();
 
   const { data: bookings } = await supabase
     .from("booking_requests")
@@ -65,7 +85,7 @@ export async function GET(request: Request) {
   if (row) {
     type Row = { ticket: string; status: string; wait_time: string | null; appointment_at: string | null; departments?: { name: string } | null };
     const r = row as unknown as Row;
-    const appointmentDate = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null;
+    const appointmentDate = toLocalDateStr(r.appointment_at);
     const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
     const raw = (r.status || "").toLowerCase().trim();
 
