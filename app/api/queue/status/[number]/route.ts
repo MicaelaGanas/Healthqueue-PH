@@ -37,12 +37,15 @@ export async function GET(
 
     // Patient in queue but not yet checked for triage/vitals
     if (raw === "waiting" || raw === "scheduled") {
-      const { data: vitalsRow } = await supabase
+      const { data: vitalsRow, error: vitalsError } = await supabase
         .from("vital_signs")
         .select("ticket")
         .eq("ticket", r.ticket)
         .limit(1)
         .maybeSingle();
+      if (vitalsError) {
+        return NextResponse.json({ error: vitalsError.message }, { status: 500 });
+      }
       if (!vitalsRow) {
         return NextResponse.json({
           queueNumber: r.ticket,
@@ -80,10 +83,12 @@ export async function GET(
     .maybeSingle();
 
   if (booking) {
-    const b = booking as { reference_no: string; departments?: { name: string } | null };
+    const b = booking as unknown as { reference_no: string; departments?: { name: string } | { name: string }[] | null };
+    const dept = b.departments;
+    const departmentName = Array.isArray(dept) ? dept[0]?.name : dept?.name;
     return NextResponse.json({
       queueNumber: b.reference_no,
-      assignedDepartment: b.departments?.name ?? "—",
+      assignedDepartment: departmentName ?? "—",
       estimatedWaitTime: "",
       status: "confirmed",
     });

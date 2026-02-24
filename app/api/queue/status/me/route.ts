@@ -71,12 +71,15 @@ export async function GET(request: Request) {
 
     let status = r.status;
     if (raw === "waiting" || raw === "scheduled") {
-      const { data: vitalsRow } = await supabase
+      const { data: vitalsRow, error: vitalsError } = await supabase
         .from("vital_signs")
         .select("ticket")
         .eq("ticket", r.ticket)
         .limit(1)
         .maybeSingle();
+      if (vitalsError) {
+        return NextResponse.json({ error: vitalsError.message }, { status: 500 });
+      }
       if (!vitalsRow) status = "awaiting_triage";
     }
 

@@ -404,7 +404,7 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
       )}
       <h3 className="border-b border-[#e9ecef] px-4 py-3 text-base font-bold text-[#333333]">
         Patient Queue
-        <span className="ml-2 text-sm font-normal text-[#6C757D]">(sorted by priority, then appointment/add time)</span>
+        <span className="ml-2 text-sm font-normal text-[#6C757D]">(sorted by priority, then date &amp; time — earliest first)</span>
       </h3>
       <div className="border-b border-[#e9ecef]">
         {currentWithDoctor && (
@@ -412,7 +412,7 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
             <span className="text-sm font-medium text-emerald-800">With doctor:</span>
             <span className="text-sm font-semibold text-[#333333]">{currentWithDoctor.patientName}</span>
             <span className="text-sm text-[#6C757D]">({currentWithDoctor.ticket})</span>
-            <span className="text-sm text-emerald-700 ml-auto">Status will update to Done when the doctor finishes the consultation.</span>
+            <span className="text-sm text-emerald-700 ml-auto">Mark this patient as Done before sending the next one to the doctor.</span>
           </div>
         )}
         {suggestedNextTicket && (
@@ -423,8 +423,10 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
             </p>
             <button
               type="button"
-              onClick={() => setPatientStatus(suggestedNextTicket, "in progress")}
-              className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
+              disabled={!!currentWithDoctor}
+              onClick={() => !currentWithDoctor && setPatientStatus(suggestedNextTicket, "in progress")}
+              title={currentWithDoctor ? "Doctor is currently with a patient — mark their consultation Done first" : "Send this patient to the doctor"}
+              className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-sky-600"
             >
               <PlayIcon className="h-5 w-5" />
               Send to doctor
@@ -450,7 +452,8 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
               <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Ticket</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Patient</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Department</th>
-              <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Date & time</th>
+              <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Date</th>
+              <th className="px-3 py-2.5 text-left font-medium text-[#333333]" title="Scheduled or added time — earliest at top">Time</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Type</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Priority</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#333333]">Status</th>
@@ -495,7 +498,12 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
                     <span className="block truncate max-w-[120px]">{r.department}</span>
                   </td>
                   <td className="align-middle px-3 py-2.5 text-[#333333]">
-                    <span className="whitespace-nowrap" title={formatDateAndTime(r)}>{formatDateAndTime(r)}</span>
+                    <span className="whitespace-nowrap" title={formatDateAndTime(r)}>
+                      {r.appointmentDate ? formatDateDisplay(r.appointmentDate, { useTodayLabel: true }) : (r.addedAt ? new Date(r.addedAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—")}
+                    </span>
+                  </td>
+                  <td className="align-middle px-3 py-2.5 text-[#333333] whitespace-nowrap font-medium tabular-nums" title={r.appointmentTime ? "Scheduled time" : "Added time"}>
+                    {formatSlotTime(r)}
                   </td>
                   <td className="align-middle px-3 py-2.5">
                     <Badge value={r.source === "booked" ? "Reserved" : "Walk-in"} styles={{ Reserved: SOURCE_STYLES.booked, "Walk-in": SOURCE_STYLES["walk-in"] } as Record<string, string>} />

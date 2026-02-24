@@ -16,16 +16,23 @@ function getTodayDateStr(): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Parse an ISO or YYYY-MM-DD string to local YYYY-MM-DD for comparison. */
+/** Parse an ISO or YYYY-MM-DD string to local YYYY-MM-DD for comparison. Uses full timestamp when present so local date is correct in all timezones. */
 function toLocalDateStr(isoOrDate?: string | null): string {
   if (!isoOrDate || typeof isoOrDate !== "string") return "";
-  const trimmed = isoOrDate.trim().slice(0, 10);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    const date = new Date(trimmed + (isoOrDate.length > 10 ? "" : "T12:00:00"));
+  const s = isoOrDate.trim();
+  // Full ISO timestamp (has time part): parse as instant so local date is correct (e.g. "2026-02-25T23:30:00Z" in UTC+8 → 2026-02-26).
+  if (s.length > 10 || s.includes("T")) {
+    const date = new Date(s);
     if (Number.isNaN(date.getTime())) return "";
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   }
-  const date = new Date(isoOrDate);
+  // Date-only YYYY-MM-DD: parse as local noon to avoid UTC-midnight interpretation (which can shift date in eastern timezones).
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const date = new Date(s + "T12:00:00");
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+  const date = new Date(s);
   if (Number.isNaN(date.getTime())) return "";
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
