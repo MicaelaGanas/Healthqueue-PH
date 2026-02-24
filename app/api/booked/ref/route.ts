@@ -21,7 +21,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Missing referenceNo" }, { status: 400 });
   }
   const { error } = await supabase
-    .from("queue_rows")
+    .from("queue_items")
     .delete()
     .eq("ticket", referenceNo);
   if (error) {

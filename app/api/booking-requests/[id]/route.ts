@@ -5,7 +5,7 @@ import { requireRoles } from "../../../lib/api/auth";
 
 const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
 
-/** PATCH: confirm or reject a booking request (staff only). On confirm, add to queue_rows (source=booked). */
+/** PATCH: confirm or reject a booking request (staff only). On confirm, add to queue_items (source=booked). */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -64,56 +64,57 @@ export async function PATCH(
   });
 
   if (status === "confirmed") {
-    let patientName: string;
-    if (req.booking_type === "dependent" && req.beneficiary_first_name && req.beneficiary_last_name) {
-      patientName = `${req.beneficiary_first_name} ${req.beneficiary_last_name}`.trim();
-    } else if (req.patient_first_name != null || req.patient_last_name != null) {
-      patientName = [req.patient_first_name ?? "", req.patient_last_name ?? ""].map((s) => String(s).trim()).filter(Boolean).join(" ") || "Patient";
-    } else {
-      const { data: patient } = await supabase
-        .from("patient_users")
-        .select("first_name, last_name")
-        .eq("id", req.patient_user_id)
-        .maybeSingle();
-      patientName = patient
-        ? `${patient.first_name ?? ""} ${patient.last_name ?? ""}`.trim() || "Patient"
-        : "Patient";
+    let patientUserId: string | null = null;
+    let walkInFirstName: string | null = null;
+    let walkInLastName: string | null = null;
+
+    if (req.booking_type === "self") {
+      patientUserId = req.patient_user_id;
+    } else if (req.booking_type === "dependent") {
+      walkInFirstName = req.beneficiary_first_name ?? null;
+      walkInLastName = req.beneficiary_last_name ?? null;
     }
 
-    const preferred = (req.preferred_doctor ?? "").trim();
-    const noPreference = !preferred || preferred === "—" || preferred.toLowerCase() === "no preference";
-    let assignedDoctor: string | null = preferred && !noPreference ? preferred : null;
-    if (noPreference && req.department) {
+    let assignedDoctorId: string | null = req.preferred_doctor_id ?? null;
+    if (!assignedDoctorId && req.department_id) {
       const { data: doctors } = await supabase
         .from("admin_users")
-        .select("name, department")
+        .select("id")
         .eq("role", "doctor")
         .eq("status", "active")
-        .eq("department", req.department)
-        .order("name", { ascending: true })
+        .eq("department_id", req.department_id)
+        .order("first_name")
         .limit(1);
-      const doc = doctors?.[0] as { name: string; department: string | null } | undefined;
-      if (doc) {
-        const dept = (doc.department ?? "").trim();
-        assignedDoctor = dept ? `Dr. ${doc.name} - ${dept}` : `Dr. ${doc.name}`;
-      }
+      assignedDoctorId = (doctors?.[0]?.id as string | undefined) ?? null;
     }
 
-    const addedAt = new Date().toISOString();
-    const queueRow = {
+    const appointmentAt =
+      req.requested_date && req.requested_time
+        ? new Date(`${req.requested_date}T${req.requested_time}`).toISOString()
+        : req.requested_date
+          ? new Date(`${req.requested_date}T00:00:00`).toISOString()
+          : null;
+
+    const queueItem = {
       ticket: req.reference_no,
-      patient_name: patientName,
-      department: req.department,
-      priority: "normal",
+      source: "booked" as const,
+      priority: "normal" as const,
       status: "scheduled",
       wait_time: "",
-      source: "booked",
-      added_at: addedAt,
-      appointment_time: req.requested_time,
-      assigned_doctor: assignedDoctor,
-      appointment_date: req.requested_date ?? null,
+      department_id: req.department_id,
+      patient_user_id: patientUserId,
+      walk_in_first_name: walkInFirstName,
+      walk_in_last_name: walkInLastName,
+      walk_in_age_years: null,
+      walk_in_sex: null,
+      walk_in_phone: null,
+      walk_in_email: null,
+      booking_request_id: req.id,
+      assigned_doctor_id: assignedDoctorId,
+      appointment_at: appointmentAt,
+      added_at: new Date().toISOString(),
     };
-    const { error: insertQueueError } = await supabase.from("queue_rows").upsert(queueRow, {
+    const { error: insertQueueError } = await supabase.from("queue_items").upsert(queueItem, {
       onConflict: "ticket",
     });
     if (insertQueueError) {

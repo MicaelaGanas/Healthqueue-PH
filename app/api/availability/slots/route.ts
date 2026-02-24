@@ -34,16 +34,20 @@ export async function GET(request: Request) {
     if (t) takenSet.add(parseTimeTo24(String(t)));
   }
 
-  // queue_rows (source=booked) for that date
-  const { data: queueRows } = await supabase
-    .from("queue_rows")
-    .select("appointment_time")
-    .eq("appointment_date", date)
+  // queue_items (source=booked) for that date
+  const { data: queueItems } = await supabase
+    .from("queue_items")
+    .select("appointment_at")
     .eq("source", "booked");
 
-  for (const row of queueRows ?? []) {
-    const t = row.appointment_time;
-    if (t) takenSet.add(parseTimeTo24(String(t)));
+  for (const row of queueItems ?? []) {
+    if (row.appointment_at) {
+      const aptDate = new Date(row.appointment_at).toISOString().slice(0, 10);
+      if (aptDate === date) {
+        const t = new Date(row.appointment_at).toTimeString().slice(0, 5);
+        if (t) takenSet.add(parseTimeTo24(t));
+      }
+    }
   }
 
   return NextResponse.json({ takenTimes: Array.from(takenSet) });

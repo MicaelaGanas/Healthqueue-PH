@@ -27,11 +27,41 @@ export async function PATCH(
   }
   const body = await request.json();
   const update: Record<string, unknown> = {};
-  if (body.name !== undefined) update.name = body.name;
+
+  const splitName = (s: string): { firstName: string; lastName: string } => {
+    const clean = s.trim().replace(/\s+/g, " ");
+    const parts = clean.split(" ");
+    return { firstName: parts[0] ?? "", lastName: parts.slice(1).join(" ") };
+  };
+
+  if (body.firstName !== undefined) update.first_name = String(body.firstName).trim();
+  if (body.lastName !== undefined) update.last_name = String(body.lastName).trim();
+  if (body.name !== undefined && (update.first_name === undefined || update.last_name === undefined)) {
+    const parsed = splitName(String(body.name));
+    if (update.first_name === undefined) update.first_name = parsed.firstName;
+    if (update.last_name === undefined) update.last_name = parsed.lastName;
+  }
   if (body.email !== undefined) update.email = body.email;
   if (body.role !== undefined) update.role = body.role;
   if (body.status !== undefined) update.status = body.status;
-  if (body.department !== undefined) update.department = body.department && String(body.department).trim() ? String(body.department).trim() : null;
+
+  // department can be provided as departmentId (uuid) or department (name)
+  if (body.departmentId !== undefined) {
+    update.department_id = body.departmentId && String(body.departmentId).trim() ? String(body.departmentId).trim() : null;
+  } else if (body.department !== undefined) {
+    const deptName = body.department && String(body.department).trim() ? String(body.department).trim() : null;
+    if (!deptName) {
+      update.department_id = null;
+    } else {
+      const { data: dept, error: deptErr } = await supabase
+        .from("departments")
+        .select("id")
+        .eq("name", deptName)
+        .maybeSingle();
+      if (deptErr) return NextResponse.json({ error: deptErr.message }, { status: 500 });
+      update.department_id = (dept?.id as string | undefined) ?? null;
+    }
+  }
   // employeeId is intentionally ignored - it cannot be changed after creation
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ ok: true });

@@ -4,20 +4,49 @@ import { getSupabaseServer } from "../../../lib/supabase/server";
 import type { DbAdminUser } from "../../../lib/supabase/types";
 import { requireRoles } from "../../../lib/api/auth";
 
-function toAppUser(r: DbAdminUser) {
+type DbAdminUserWithDept = DbAdminUser & { departments?: { name: string } | null };
+
+function toAppUser(r: DbAdminUserWithDept) {
+  const name = [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || "Staff";
   return {
     id: r.id,
-    name: r.name,
+    name,
     email: r.email,
     role: r.role,
     status: r.status,
     employeeId: r.employee_id,
-    department: r.department ?? null,
+    department: r.departments?.name ?? null,
+    departmentId: r.department_id ?? null,
     createdAt: r.created_at,
   };
 }
 
 const requireAdmin = requireRoles(["admin"]);
+
+function splitName(input: unknown): { firstName: string; lastName: string } | null {
+  if (typeof input !== "string") return null;
+  const s = input.trim().replace(/\s+/g, " ");
+  if (!s) return null;
+  const parts = s.split(" ");
+  const firstName = parts[0] ?? "";
+  const lastName = parts.slice(1).join(" ");
+  return { firstName, lastName };
+}
+
+async function resolveDepartmentId(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  opts: { departmentId?: unknown; department?: unknown }
+): Promise<string | null> {
+  if (!supabase) return null;
+  if (typeof opts.departmentId === "string" && opts.departmentId.trim()) return opts.departmentId.trim();
+  if (typeof opts.department !== "string" || !opts.department.trim()) return null;
+  const { data } = await supabase
+    .from("departments")
+    .select("id")
+    .eq("name", opts.department.trim())
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
 
 export async function GET(request: Request) {
   const auth = await requireAdmin(request);
@@ -31,12 +60,12 @@ export async function GET(request: Request) {
   }
   const { data, error } = await supabase
     .from("admin_users")
-    .select("*")
+    .select("id, first_name, last_name, email, role, status, employee_id, department_id, created_at, departments(name)")
     .order("created_at", { ascending: false });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json((data ?? []).map(toAppUser));
+  return NextResponse.json(((data ?? []) as unknown as DbAdminUserWithDept[]).map(toAppUser));
 }
 
 async function generateNextEmployeeId(supabase: ReturnType<typeof getSupabaseServer>): Promise<string> {
@@ -88,12 +117,15 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { name, email, role, employeeId, password, status, department } = body;
+  const { name, firstName, lastName, email, role, employeeId, password, status, department, departmentId } = body;
 
   // Validate required fields (employeeId is now optional and will be auto-generated)
-  if (!name || !email || !role || !password) {
+  const parsed = splitName(typeof name === "string" ? name : `${firstName ?? ""} ${lastName ?? ""}`);
+  const fn = typeof firstName === "string" && firstName.trim() ? firstName.trim() : parsed?.firstName ?? "";
+  const ln = typeof lastName === "string" && lastName.trim() ? lastName.trim() : parsed?.lastName ?? "";
+  if (!fn || !email || !role || !password) {
     return NextResponse.json(
-      { error: "name, email, role, and password are required" },
+      { error: "firstName/lastName (or name), email, role, and password are required" },
       { status: 400 }
     );
   }
@@ -202,17 +234,19 @@ export async function POST(request: Request) {
   }
 
   // Create admin_users record
+  const deptId = await resolveDepartmentId(supabase, { departmentId, department });
   const { data, error } = await supabase
     .from("admin_users")
     .insert({
-      name: name.trim(),
+      first_name: fn,
+      last_name: ln,
       email: email.trim(),
       role: role,
       status: status ?? "active",
       employee_id: finalEmployeeId,
-      department: department && String(department).trim() ? String(department).trim() : null,
+      department_id: deptId,
     })
-    .select()
+    .select("id, first_name, last_name, email, role, status, employee_id, department_id, created_at, departments(name)")
     .single();
 
   if (error) {
@@ -233,5 +267,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(toAppUser(data as DbAdminUser));
+  return NextResponse.json(toAppUser(data as unknown as DbAdminUserWithDept));
 }

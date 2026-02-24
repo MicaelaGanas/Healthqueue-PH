@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   const { data: staff, error } = await supabase
     .from("admin_users")
-    .select("id, name, email, role, status, employee_id, department")
+    .select("id, first_name, last_name, email, role, status, employee_id, department_id")
     .ilike("email", user.email)
     .maybeSingle();
 
@@ -46,12 +46,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "No access; contact an administrator" }, { status: 403 });
   }
 
+  const name = [staff.first_name, staff.last_name].filter(Boolean).join(" ").trim() || "Staff";
+  let department: string | null = null;
+  if (staff.department_id) {
+    const { data: dept } = await supabase.from("departments").select("name").eq("id", staff.department_id).maybeSingle();
+    department = dept?.name ?? null;
+  }
+
   return NextResponse.json({
     email: staff.email,
     role: staff.role,
-    name: staff.name,
+    name,
     employeeId: staff.employee_id,
     id: staff.id,
-    department: staff.department ?? null,
+    department,
+    departmentId: staff.department_id ?? null,
   });
 }

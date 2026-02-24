@@ -18,8 +18,10 @@ export type Staff = {
   role: StaffRole;
   name: string;
   employeeId: string;
-  /** Staff's assigned department (nurse/receptionist see only this department's data). */
+  /** Staff's assigned department name (nurse/receptionist see only this department's data). */
   department: string | null;
+  /** Staff's department id for filtering. */
+  departmentId: string | null;
 };
 
 /**
@@ -46,18 +48,25 @@ export async function getStaffFromRequest(request: Request): Promise<Staff | nul
 
   const { data: staff } = await supabase
     .from("admin_users")
-    .select("id, name, email, role, status, employee_id, department")
+    .select("id, first_name, last_name, email, role, status, employee_id, department_id")
     .ilike("email", user.email)
     .maybeSingle();
 
   if (!staff || staff.status !== "active") return null;
+  const name = [staff.first_name, staff.last_name].filter(Boolean).join(" ").trim() || "Staff";
+  let departmentName: string | null = null;
+  if (staff.department_id) {
+    const { data: dept } = await supabase.from("departments").select("name").eq("id", staff.department_id).maybeSingle();
+    departmentName = dept?.name ?? null;
+  }
   return {
     id: staff.id,
     email: staff.email,
     role: staff.role as StaffRole,
-    name: staff.name,
+    name,
     employeeId: staff.employee_id,
-    department: staff.department ?? null,
+    department: departmentName,
+    departmentId: staff.department_id ?? null,
   };
 }
 

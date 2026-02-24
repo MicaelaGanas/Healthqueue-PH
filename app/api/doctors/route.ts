@@ -16,15 +16,27 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const department = searchParams.get("department")?.trim() || null;
 
+  let departmentId: string | null = null;
+  if (department) {
+    const { data: dept, error: deptErr } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("name", department)
+      .maybeSingle();
+    if (deptErr) return NextResponse.json({ error: deptErr.message }, { status: 500 });
+    departmentId = (dept?.id as string | undefined) ?? null;
+    if (!departmentId) return NextResponse.json([]);
+  }
+
   let q = supabase
     .from("admin_users")
-    .select("id, name, department")
+    .select("id, first_name, last_name, department_id, departments(name)")
     .eq("role", "doctor")
     .eq("status", "active")
-    .order("name");
+    .order("first_name");
 
-  if (department) {
-    q = q.eq("department", department);
+  if (departmentId) {
+    q = q.eq("department_id", departmentId);
   }
 
   const { data, error } = await q;
@@ -32,13 +44,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const list = (data ?? []).map((r: { id: string; name: string; department: string | null }) => {
-    const dept = r.department ?? "";
-    const displayLabel = dept ? `Dr. ${r.name} - ${dept}` : `Dr. ${r.name}`;
+  type DoctorRow = { id: string; first_name: string; last_name: string; departments?: { name: string } | null };
+  const rows = (data ?? []) as unknown as DoctorRow[];
+  const list = rows.map((r) => {
+    const name = [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || "Doctor";
+    const dept = r.departments?.name ?? "";
+    const displayLabel = dept ? `Dr. ${name} - ${dept}` : `Dr. ${name}`;
     return {
       id: r.id,
-      name: r.name,
-      department: r.department ?? null,
+      name,
+      department: dept || null,
       displayLabel,
     };
   });
