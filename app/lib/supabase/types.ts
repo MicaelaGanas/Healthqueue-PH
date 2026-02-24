@@ -28,12 +28,13 @@ export type DbBookedEntry = {
 
 export type DbAdminUser = {
   id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   role: string;
   status: string;
   employee_id: string;
-  department: string | null;
+  department_id: string | null;
   created_at: string;
 };
 
@@ -90,8 +91,8 @@ export type DbBookingRequest = {
   beneficiary_date_of_birth: string | null;
   beneficiary_gender: string | null;
   relationship: "child" | "parent" | "spouse" | "other" | null;
-  department: string;
-  preferred_doctor: string | null;
+  department_id: string;
+  preferred_doctor_id: string | null;
   requested_date: string;
   requested_time: string;
   notes: string | null;
@@ -101,4 +102,26 @@ export type DbBookingRequest = {
   rejection_reason: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type DbQueueItem = {
+  id: string;
+  ticket: string;
+  source: string;
+  priority: string;
+  status: string;
+  wait_time: string;
+  department_id: string;
+  patient_user_id: string | null;
+  walk_in_first_name: string | null;
+  walk_in_last_name: string | null;
+  walk_in_age_years: number | null;
+  walk_in_sex: string | null;
+  walk_in_phone: string | null;
+  walk_in_email: string | null;
+  booking_request_id: string | null;
+  assigned_doctor_id: string | null;
+  appointment_at: string | null;
+  added_at: string;
+  created_at: string;
 };

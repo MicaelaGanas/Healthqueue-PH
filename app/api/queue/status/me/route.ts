@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
   const { data: bookings } = await supabase
     .from("booking_requests")
-    .select("reference_no, requested_date, department")
+    .select("reference_no, requested_date, department_id")
     .eq("patient_user_id", user.id)
     .eq("status", "confirmed")
     .gte("requested_date", today)
@@ -51,8 +51,8 @@ export async function GET(request: Request) {
   }
 
   const { data: row, error } = await supabase
-    .from("queue_rows")
-    .select("ticket, patient_name, department, status, wait_time, appointment_time, appointment_date, added_at")
+    .from("queue_items")
+    .select("ticket, status, wait_time, appointment_at, added_at, departments(name)")
     .eq("ticket", ref)
     .maybeSingle();
 
@@ -63,12 +63,17 @@ export async function GET(request: Request) {
     return NextResponse.json(null);
   }
 
+  type Row = { ticket: string; status: string; wait_time: string | null; appointment_at: string | null; departments?: { name: string } | null };
+  const r = row as unknown as Row;
+  const appointmentDate = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null;
+  const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
+
   return NextResponse.json({
-    queueNumber: row.ticket,
-    department: row.department ?? "—",
-    status: row.status,
-    waitTime: row.wait_time ?? "",
-    appointmentDate: row.appointment_date ?? null,
-    appointmentTime: row.appointment_time ?? null,
+    queueNumber: r.ticket,
+    department: r.departments?.name ?? "—",
+    status: r.status,
+    waitTime: r.wait_time ?? "",
+    appointmentDate,
+    appointmentTime,
   });
 }

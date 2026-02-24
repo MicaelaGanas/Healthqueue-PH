@@ -72,33 +72,44 @@ export async function GET(request: Request) {
   const yesterdayStart = getYesterdayStart();
 
   const [
-    queueRowsRes,
+    queueItemsRes,
     pendingBookingsRes,
     pendingWalkInsRes,
     staffRes,
     bookingRequestsRes,
     departmentsRes,
   ] = await Promise.all([
-    supabase.from("queue_rows").select("department, priority, status, added_at, patient_name, wait_time"),
+    supabase.from("queue_items").select("priority, status, added_at, wait_time, departments(name), patient_users(first_name, last_name), walk_in_first_name, walk_in_last_name"),
     supabase.from("booking_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("pending_walk_ins").select("id", { count: "exact", head: true }),
-    supabase.from("admin_users").select("id, name, email, role, status").order("name"),
+    supabase.from("admin_users").select("id, first_name, last_name, email, role, status").order("first_name"),
     supabase.from("booking_requests").select("status, confirmed_at"),
     supabase.from("departments").select("name").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
   ]);
 
-  const queueRows = (queueRowsRes.error ? [] : (queueRowsRes.data ?? [])) as {
-    department: string | null;
+  type QueueItemRow = {
     priority: string | null;
     status: string | null;
     added_at: string | null;
-    patient_name: string | null;
     wait_time: string | null;
-  }[];
+    departments?: { name: string } | null;
+    patient_users?: { first_name: string; last_name: string } | null;
+    walk_in_first_name: string | null;
+    walk_in_last_name: string | null;
+  };
+  const queueRows = (queueItemsRes.error ? [] : (queueItemsRes.data ?? [])) as unknown as QueueItemRow[];
   const departmentNames = (departmentsRes.error ? [] : (departmentsRes.data ?? []).map((r: { name: string }) => r.name)) as string[];
   const pendingBookingsCount = pendingBookingsRes.error ? 0 : (pendingBookingsRes.count ?? 0);
   const pendingWalkInsCount = pendingWalkInsRes.error ? 0 : (pendingWalkInsRes.count ?? 0);
-  const staff = staffRes.error ? [] : ((staffRes.data ?? []) as { id: string; name: string; email: string; role: string; status: string }[]);
+  const staff = staffRes.error
+    ? []
+    : ((staffRes.data ?? []).map((s: { id: string; first_name: string; last_name: string; email: string; role: string; status: string }) => ({
+        id: s.id,
+        name: [s.first_name, s.last_name].filter(Boolean).join(" ").trim() || "Staff",
+        email: s.email,
+        role: s.role,
+        status: s.status,
+      })) as { id: string; name: string; email: string; role: string; status: string }[]);
   const staffCount = staff.length;
   const activeStaffCount = staff.filter((s) => s.status === "active").length;
   const bookingRequests = (bookingRequestsRes.error ? [] : (bookingRequestsRes.data ?? [])) as { status: string; confirmed_at: string | null }[];
@@ -113,7 +124,7 @@ export async function GET(request: Request) {
   const patientsTodaySet = new Set<string>();
 
   for (const r of queueRows) {
-    const dept = (r.department ?? "").trim() || "General Medicine";
+    const dept = (r.departments?.name ?? "").trim() || "General Medicine";
     queueByDepartment[dept] = (queueByDepartment[dept] ?? 0) + 1;
     const mins = parseWaitTimeToMins(r.wait_time);
     if (mins != null) {
@@ -127,8 +138,13 @@ export async function GET(request: Request) {
     const addedAt = r.added_at ? new Date(r.added_at).toISOString() : "";
     if (addedAt >= todayStart) {
       addedTodayCount++;
-      const name = (r.patient_name ?? "").trim();
-      if (name) patientsTodaySet.add(name);
+      const name =
+        r.patient_users?.first_name && r.patient_users?.last_name
+          ? `${r.patient_users.first_name} ${r.patient_users.last_name}`
+          : r.walk_in_first_name && r.walk_in_last_name
+            ? `${r.walk_in_first_name} ${r.walk_in_last_name}`
+            : r.walk_in_first_name || r.patient_users?.first_name || "";
+      if (name.trim()) patientsTodaySet.add(name.trim());
     } else if (addedAt >= yesterdayStart && addedAt < todayStart) {
       addedYesterdayCount++;
     }

@@ -10,7 +10,17 @@ function generateReferenceNo(): string {
   return `APT-${date}-${rand}`;
 }
 
-function toAppRequest(r: DbBookingRequest) {
+type BookingRequestRow = DbBookingRequest & {
+  departments?: { name: string } | null;
+  preferred_doctor?: { first_name: string; last_name: string } | null;
+};
+
+function toAppRequest(r: BookingRequestRow) {
+  const departmentName = r.departments?.name ?? undefined;
+  const preferredDoctorName =
+    r.preferred_doctor?.first_name && r.preferred_doctor?.last_name
+      ? `${r.preferred_doctor.first_name} ${r.preferred_doctor.last_name}`
+      : undefined;
   return {
     id: r.id,
     referenceNo: r.reference_no,
@@ -25,8 +35,10 @@ function toAppRequest(r: DbBookingRequest) {
     beneficiaryDateOfBirth: r.beneficiary_date_of_birth ?? undefined,
     beneficiaryGender: r.beneficiary_gender ?? undefined,
     relationship: r.relationship ?? undefined,
-    department: r.department,
-    preferredDoctor: r.preferred_doctor ?? undefined,
+    department: departmentName,
+    departmentId: r.department_id,
+    preferredDoctor: preferredDoctorName ?? undefined,
+    preferredDoctorId: r.preferred_doctor_id ?? undefined,
     requestedDate: r.requested_date,
     requestedTime: r.requested_time,
     notes: r.notes ?? undefined,
@@ -70,24 +82,25 @@ export async function GET(request: Request) {
   const statusFilter = searchParams.get("status");
 
   const staffAuth = await getStaffFromRequest(request);
+  const selectWithJoins = "*, departments(name), preferred_doctor:admin_users!booking_requests_preferred_doctor_id_fkey(first_name, last_name)";
   if (staffAuth) {
-    let q = supabase.from("booking_requests").select("*").order("created_at", { ascending: false });
+    let q = supabase.from("booking_requests").select(selectWithJoins).order("created_at", { ascending: false });
     if (statusFilter) q = q.eq("status", statusFilter);
-    if (["nurse", "receptionist"].includes(staffAuth.role) && staffAuth.department?.trim()) {
-      q = q.eq("department", staffAuth.department.trim());
+    if (["nurse", "receptionist"].includes(staffAuth.role) && staffAuth.departmentId) {
+      q = q.eq("department_id", staffAuth.departmentId);
     }
     const { data, error } = await q;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json((data ?? []).map((r: DbBookingRequest) => toAppRequest(r)));
+    return NextResponse.json(((data ?? []) as unknown as BookingRequestRow[]).map(toAppRequest));
   }
 
   const { data, error } = await supabase
     .from("booking_requests")
-    .select("*")
+    .select(selectWithJoins)
     .eq("patient_user_id", user.id)
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  let list = (data ?? []) as DbBookingRequest[];
+  let list = (data ?? []) as unknown as BookingRequestRow[];
   if (statusFilter) list = list.filter((r) => r.status === statusFilter);
   return NextResponse.json(list.map(toAppRequest));
 }
@@ -126,11 +139,36 @@ export async function POST(request: Request) {
 
   const body = await request.json();
   const bookingType = body.bookingType === "dependent" ? "dependent" : "self";
-  const department = (body.department ?? "").trim() || "General Medicine";
+  const departmentName = (body.department ?? "").trim() || "General Medicine";
   const requestedDate = (body.requestedDate ?? "").trim();
   const requestedTime = (body.requestedTime ?? "").trim();
   if (!requestedDate || !requestedTime) {
     return NextResponse.json({ error: "Requested date and time are required" }, { status: 400 });
+  }
+
+  const { data: dept } = await supabase.from("departments").select("id").eq("name", departmentName).maybeSingle();
+  if (!dept?.id) {
+    return NextResponse.json({ error: `Department "${departmentName}" not found` }, { status: 400 });
+  }
+  const departmentId = dept.id as string;
+
+  let preferredDoctorId: string | null = null;
+  const preferredDoctor = body.preferredDoctor?.trim();
+  if (preferredDoctor) {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(preferredDoctor)) {
+      preferredDoctorId = preferredDoctor;
+    } else {
+      const clean = preferredDoctor.replace(/^Dr\.\s*/i, "").replace(/\s*-\s*.*$/, "").trim();
+      const parts = clean.split(" ");
+      const firstName = parts[0] ?? "";
+      const lastName = parts.slice(1).join(" ");
+      if (firstName) {
+        let q = supabase.from("admin_users").select("id").eq("role", "doctor").eq("status", "active").eq("first_name", firstName);
+        if (lastName) q = q.eq("last_name", lastName);
+        const { data: doc } = await q.maybeSingle();
+        preferredDoctorId = (doc?.id as string | undefined) ?? null;
+      }
+    }
   }
 
   const referenceNo = generateReferenceNo();
@@ -138,8 +176,8 @@ export async function POST(request: Request) {
     reference_no: referenceNo,
     patient_user_id: user.id,
     booking_type: bookingType,
-    department,
-    preferred_doctor: body.preferredDoctor?.trim() || null,
+    department_id: departmentId,
+    preferred_doctor_id: preferredDoctorId,
     requested_date: requestedDate,
     requested_time: requestedTime,
     notes: body.notes?.trim() || null,

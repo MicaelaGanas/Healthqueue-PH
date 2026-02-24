@@ -37,8 +37,8 @@ export async function GET(request: Request) {
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true }),
     supabase
-      .from("queue_rows")
-      .select("ticket, department, status, wait_time, added_at, appointment_date"),
+      .from("queue_items")
+      .select("ticket, status, wait_time, added_at, appointment_at, departments(name)"),
   ]);
 
   if (deptRes.error) {
@@ -51,12 +51,19 @@ export async function GET(request: Request) {
   }
 
   const departments = (deptRes.data ?? []) as { id: string; name: string; sort_order: number }[];
-  type Row = { ticket: string; department: string; status: string; wait_time: string | null; added_at: string | null; appointment_date: string | null };
-  const allRows = (queueRes.data ?? []) as Row[];
+  type Row = {
+    ticket: string;
+    status: string;
+    wait_time: string | null;
+    added_at: string | null;
+    appointment_at: string | null;
+    departments?: { name: string } | null;
+  };
+  const allRows = (queueRes.data ?? []) as unknown as Row[];
 
   const rows = allRows.filter((r) => {
-    const apt = (r.appointment_date ?? "").slice(0, 10);
-    const added = (r.added_at ?? "").slice(0, 10);
+    const apt = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : "";
+    const added = r.added_at ? new Date(r.added_at).toISOString().slice(0, 10) : "";
     return apt === effectiveDate || added === effectiveDate;
   });
 
@@ -67,7 +74,7 @@ export async function GET(request: Request) {
 
   for (const r of rows) {
     const status = (r.status ?? "").trim().toLowerCase();
-    const dept = (r.department ?? "").trim() || "General";
+    const dept = (r.departments?.name ?? "").trim() || "General";
     if (!byDept[dept]) byDept[dept] = { waiting: 0, waitTimes: [], nowServing: null };
 
     if (status === "completed") continue;

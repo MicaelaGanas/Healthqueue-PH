@@ -20,8 +20,8 @@ export async function GET(
   const decoded = decodeURIComponent(number).trim();
 
   const { data: row, error } = await supabase
-    .from("queue_rows")
-    .select("ticket, department, status, wait_time")
+    .from("queue_items")
+    .select("ticket, status, wait_time, departments(name)")
     .eq("ticket", decoded)
     .maybeSingle();
 
@@ -32,6 +32,8 @@ export async function GET(
     return NextResponse.json(null);
   }
 
+  type Row = { ticket: string; status: string; wait_time: string | null; departments?: { name: string } | null };
+  const r = row as unknown as Row;
   const statusMap: Record<string, "waiting" | "almost" | "proceed"> = {
     waiting: "waiting",
     called: "almost",
@@ -39,9 +41,9 @@ export async function GET(
     completed: "proceed",
   };
   return NextResponse.json({
-    queueNumber: row.ticket,
-    assignedDepartment: row.department ?? "—",
-    estimatedWaitTime: row.wait_time ?? "—",
-    status: statusMap[row.status] ?? "waiting",
+    queueNumber: r.ticket,
+    assignedDepartment: r.departments?.name ?? "—",
+    estimatedWaitTime: r.wait_time ?? "—",
+    status: statusMap[r.status] ?? "waiting",
   });
 }

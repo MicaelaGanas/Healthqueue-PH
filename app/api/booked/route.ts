@@ -1,18 +1,36 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../lib/supabase/server";
-import type { DbQueueRow } from "../../lib/supabase/types";
+import type { DbQueueItem } from "../../lib/supabase/types";
 import { requireRoles } from "../../lib/api/auth";
 
-/** Map queue_rows (source=booked) to the same shape as legacy booked_queue API. */
-function queueRowToBookedEntry(r: DbQueueRow) {
+type QueueItemWithJoins = DbQueueItem & {
+  departments?: { name: string } | null;
+  patient_users?: { first_name: string; last_name: string } | null;
+  admin_users?: { first_name: string; last_name: string } | null;
+};
+
+function queueItemToBookedEntry(r: QueueItemWithJoins) {
+  const patientName =
+    r.patient_users?.first_name && r.patient_users?.last_name
+      ? `${r.patient_users.first_name} ${r.patient_users.last_name}`
+      : r.walk_in_first_name && r.walk_in_last_name
+        ? `${r.walk_in_first_name} ${r.walk_in_last_name}`
+        : r.walk_in_first_name || "Unknown";
+  const department = r.departments?.name ?? "General Medicine";
+  const preferredDoctor =
+    r.admin_users?.first_name && r.admin_users?.last_name
+      ? `${r.admin_users.first_name} ${r.admin_users.last_name}`
+      : null;
+  const appointmentDate = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null;
+  const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
   return {
     referenceNo: r.ticket,
-    patientName: r.patient_name,
-    department: r.department,
-    appointmentTime: r.appointment_time ?? "",
+    patientName,
+    department,
+    appointmentTime: appointmentTime ?? "",
     addedAt: r.added_at ?? "",
-    preferredDoctor: r.assigned_doctor ?? undefined,
-    appointmentDate: r.appointment_date ?? undefined,
+    preferredDoctor: preferredDoctor ?? undefined,
+    appointmentDate: appointmentDate ?? undefined,
   };
 }
 
@@ -29,14 +47,40 @@ export async function GET(request: Request) {
     );
   }
   const { data, error } = await supabase
-    .from("queue_rows")
-    .select("*")
+    .from("queue_items")
+    .select("*, departments(name), patient_users(first_name, last_name), admin_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)")
     .eq("source", "booked")
     .order("added_at", { ascending: true });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json((data ?? []).map(queueRowToBookedEntry));
+  return NextResponse.json(((data ?? []) as unknown as QueueItemWithJoins[]).map(queueItemToBookedEntry));
+}
+
+async function resolveDepartmentId(supabase: ReturnType<typeof getSupabaseServer>, deptName: string | null | undefined): Promise<string | null> {
+  if (!deptName || !supabase) return null;
+  const { data } = await supabase.from("departments").select("id").eq("name", deptName.trim()).maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
+async function resolveDoctorId(supabase: ReturnType<typeof getSupabaseServer>, doctorName: string | null | undefined): Promise<string | null> {
+  if (!doctorName || !supabase) return null;
+  const clean = doctorName.trim().replace(/^Dr\.\s*/i, "").replace(/\s*-\s*.*$/, "").trim();
+  if (!clean) return null;
+  const parts = clean.split(" ");
+  const firstName = parts[0] ?? "";
+  const lastName = parts.slice(1).join(" ");
+  if (!firstName) return null;
+  let q = supabase.from("admin_users").select("id").eq("role", "doctor").eq("status", "active").eq("first_name", firstName);
+  if (lastName) q = q.eq("last_name", lastName);
+  const { data } = await q.maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
+function splitPatientName(name: string): { firstName: string; lastName: string } {
+  const clean = name.trim().replace(/\s+/g, " ");
+  const parts = clean.split(" ");
+  return { firstName: parts[0] ?? "", lastName: parts.slice(1).join(" ") };
 }
 
 /** POST: create/upsert booked entry into queue (source=booked). Public (no auth) so the booking form can submit. */
@@ -49,20 +93,39 @@ export async function POST(request: Request) {
     );
   }
   const body = await request.json();
-  const queueRow = {
+  const deptId = await resolveDepartmentId(supabase, body.department);
+  if (!deptId) {
+    return NextResponse.json({ error: `Department "${body.department}" not found` }, { status: 400 });
+  }
+  const doctorId = await resolveDoctorId(supabase, body.preferredDoctor);
+  const { firstName, lastName } = splitPatientName(body.patientName ?? "");
+  const appointmentAt =
+    body.appointmentDate && body.appointmentTime
+      ? new Date(`${body.appointmentDate}T${body.appointmentTime}`).toISOString()
+      : body.appointmentDate
+        ? new Date(`${body.appointmentDate}T00:00:00`).toISOString()
+        : null;
+
+  const queueItem = {
     ticket: body.referenceNo,
-    patient_name: body.patientName,
-    department: body.department,
-    priority: "normal",
+    source: "booked" as const,
+    priority: "normal" as const,
     status: "scheduled",
     wait_time: "",
-    source: "booked",
-    added_at: body.addedAt,
-    appointment_time: body.appointmentTime,
-    assigned_doctor: body.preferredDoctor ?? null,
-    appointment_date: body.appointmentDate ?? null,
+    department_id: deptId,
+    patient_user_id: null,
+    walk_in_first_name: firstName,
+    walk_in_last_name: lastName,
+    walk_in_age_years: null,
+    walk_in_sex: null,
+    walk_in_phone: null,
+    walk_in_email: null,
+    booking_request_id: null,
+    assigned_doctor_id: doctorId,
+    appointment_at: appointmentAt,
+    added_at: body.addedAt ? new Date(body.addedAt).toISOString() : new Date().toISOString(),
   };
-  const { error } = await supabase.from("queue_rows").upsert(queueRow, {
+  const { error } = await supabase.from("queue_items").upsert(queueItem, {
     onConflict: "ticket",
   });
   if (error) {
