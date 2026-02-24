@@ -34,16 +34,22 @@ export async function GET(
 
   type Row = { ticket: string; status: string; wait_time: string | null; departments?: { name: string } | null };
   const r = row as unknown as Row;
-  const statusMap: Record<string, "waiting" | "almost" | "proceed"> = {
+  const raw = (r.status || "").toLowerCase().trim();
+  // Map DB values to statuses the patient progress UI expects (so steps update when staff change status in Supabase)
+  const statusMap: Record<string, string> = {
     waiting: "waiting",
+    scheduled: "waiting",
     called: "almost",
     "in progress": "almost",
-    completed: "proceed",
+    in_consultation: "proceed", // DB stores in_consultation when staff set "With doctor"
+    completed: "completed",
+    cancelled: "completed",
+    no_show: "completed",
   };
   return NextResponse.json({
     queueNumber: r.ticket,
     assignedDepartment: r.departments?.name ?? "—",
     estimatedWaitTime: r.wait_time ?? "—",
-    status: statusMap[r.status] ?? "waiting",
+    status: statusMap[raw] ?? "waiting",
   });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { Footer } from "../../components/Footer";
 import { PatientAuthGuard } from "../../components/PatientAuthGuard";
@@ -8,8 +8,25 @@ import { QueueStatus } from "./components/QueueStatus";
 import { Appointment } from "./components/Appointment";
 import { Notification } from "./components/Notification";
 
+export type AppointmentForQueue = {
+  referenceNo: string;
+  requestedDate: string;
+  requestedTime: string;
+  department: string;
+};
+
 export default function PatientDashboardPage() {
   const [activeTab, setActiveTab] = useState<"queue" | "appointment" | "notification">("queue");
+  const [selectedAppointmentForQueue, setSelectedAppointmentForQueue] = useState<AppointmentForQueue | null>(null);
+
+  const handleViewQueueStatus = useCallback((appointment: AppointmentForQueue) => {
+    setSelectedAppointmentForQueue(appointment);
+    setActiveTab("queue");
+  }, []);
+
+  const clearQueueSelection = useCallback(() => {
+    setSelectedAppointmentForQueue(null);
+  }, []);
 
   return (
     <PatientAuthGuard>
@@ -75,10 +92,17 @@ export default function PatientDashboardPage() {
             </div>
 
             {/* Queue Status Tab Content */}
-            {activeTab === "queue" && <QueueStatus />}
+            {activeTab === "queue" && (
+              <QueueStatus
+                selectedAppointment={selectedAppointmentForQueue}
+                onClearSelection={clearQueueSelection}
+              />
+            )}
 
             {/* Appointment Tab Content */}
-            {activeTab === "appointment" && <Appointment />}
+            {activeTab === "appointment" && (
+              <Appointment onViewQueueStatus={handleViewQueueStatus} />
+            )}
 
             {/* Notification Tab Content */}
             {activeTab === "notification" && <Notification />}

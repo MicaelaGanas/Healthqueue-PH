@@ -91,6 +91,20 @@ export default function PatientLoginPage() {
         return;
       }
 
+      const profileData = await res.json();
+      // Cache profile for Navbar so it shows the logged-in user immediately after redirect
+      try {
+        sessionStorage.setItem('patient_profile_cache', JSON.stringify({
+          id: profileData.id,
+          email: profileData.email,
+          first_name: profileData.first_name,
+          last_name: profileData.last_name,
+        }));
+        sessionStorage.setItem('user_type_cache', 'patient');
+      } catch {
+        // Ignore storage errors
+      }
+
       // Success - redirect to dashboard
       router.push('/pages/patient-dashboard');
     } catch (err) {

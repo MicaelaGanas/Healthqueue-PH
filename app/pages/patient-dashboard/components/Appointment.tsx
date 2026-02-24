@@ -176,7 +176,18 @@ function BookingDetailsModal({
   );
 }
 
-export function Appointment() {
+type AppointmentForQueue = {
+  referenceNo: string;
+  requestedDate: string;
+  requestedTime: string;
+  department: string;
+};
+
+type AppointmentProps = {
+  onViewQueueStatus?: (appointment: AppointmentForQueue) => void;
+};
+
+export function Appointment({ onViewQueueStatus }: AppointmentProps) {
   const [requests, setRequests] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -343,6 +354,22 @@ export function Appointment() {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <StatusBadge status={req.status} />
+                  {onViewQueueStatus && req.status === "confirmed" && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onViewQueueStatus({
+                          referenceNo: req.referenceNo,
+                          requestedDate: req.requestedDate ?? "",
+                          requestedTime: req.requestedTime ?? "",
+                          department: req.department,
+                        })
+                      }
+                      className="rounded-lg bg-[#007bff] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0069d9]"
+                    >
+                      View queue status
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setDetailsRequest(req)}

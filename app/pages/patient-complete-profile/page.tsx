@@ -72,6 +72,19 @@ export default function PatientCompleteProfilePage() {
         setSubmitting(false);
         return;
       }
+      if (body?.id != null) {
+        try {
+          sessionStorage.setItem('patient_profile_cache', JSON.stringify({
+            id: body.id,
+            email: body.email ?? '',
+            first_name: body.first_name ?? '',
+            last_name: body.last_name ?? '',
+          }));
+          sessionStorage.setItem('user_type_cache', 'patient');
+        } catch {
+          // Ignore storage errors
+        }
+      }
       router.push('/pages/patient-dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
