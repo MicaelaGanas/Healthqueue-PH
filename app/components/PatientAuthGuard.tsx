@@ -2,7 +2,7 @@
 
 import { useEffect, useState, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowser } from "../lib/supabase/client";
+import { createSupabaseBrowser, getSessionOrSignOut } from "../lib/supabase/client";
 import { Footer } from "./Footer";
 
 export interface PatientProfile {
@@ -43,7 +43,7 @@ export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
 
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { session } = await getSessionOrSignOut(supabase);
         if (cancelled) return;
 
         if (!session?.access_token) {

@@ -33,7 +33,7 @@ export default function AboutPage() {
     "Automated queue management with AI-powered predictions",
     "Priority triage for emergency cases",
     "Accessible design for elderly and PWD patients",
-    "IoT gadgets for real-time patient notifications",
+    "QR code queue status for offline check-in",
     "Multi-language support (Filipino, English)",
     "Real-time hospital navigation guidance"
   ];

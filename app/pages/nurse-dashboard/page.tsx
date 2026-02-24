@@ -5,7 +5,7 @@ import { StaffSidebar } from "./components/layout/StaffSidebar";
 import { StaffHeader } from "./components/layout/StaffHeader";
 import { MetricCards } from "./components/dashboard/MetricCards";
 import { WalkInRegistration, WalkInPendingQueue } from "./components/dashboard/registration/WalkInRegistration";
-import { IoTGadgetAssignment } from "./components/dashboard/registration/IoTGadgetAssignment";
+import { QRQueueStatusScanner } from "./components/dashboard/registration/QRQueueStatusScanner";
 import { VitalSignsForm } from "./components/dashboard/vitals-triage/VitalSignsForm";
 import { QueueManagementContent } from "./components/queue-management/QueueManagementContent";
 import { AppointmentsContent } from "./components/appointments/AppointmentsContent";
@@ -89,7 +89,7 @@ export default function NurseDashboardPage() {
                 {activeTab === "registration" && (
                   <div className="mt-4 grid gap-4 sm:mt-6 sm:gap-6 md:grid-cols-2">
                     <WalkInRegistration />
-                    <IoTGadgetAssignment />
+                    <QRQueueStatusScanner />
                     <div className="md:col-span-2">
                       <WalkInPendingQueue />
                     </div>

@@ -67,13 +67,12 @@ function matchPatient(q: string, p: QueuePatient) {
 
 export function VitalSignsForm() {
   const { queueRows, setPatientPriority, confirmedForTriage, clearConfirmedForTriage } = useNurseQueue();
-  // Option B: Include anyone in queue without vitals (persists after refresh), plus today/confirmed for backwards compatibility.
+  // Only today's patients or just-confirmed: need vitals AND (scheduled for today OR in confirmedForTriage). Avoids old patients accumulating.
   const queuePatients = useMemo<QueuePatient[]>(() => {
     const included = queueRows.filter(
       (r) =>
-        r.hasVitals !== true ||
-        isScheduledForToday(r) ||
-        confirmedForTriage.includes(r.ticket)
+        r.hasVitals !== true &&
+        (isScheduledForToday(r) || confirmedForTriage.includes(r.ticket))
     );
     return included.map((r) => ({ ticket: r.ticket, patientName: r.patientName, department: r.department }));
   }, [queueRows, confirmedForTriage]);
@@ -165,10 +164,53 @@ export function VitalSignsForm() {
     setSelectedTicket(p.ticket);
     setSearchQuery("");
     setSearchFocused(false);
+    // Reset form fields to default prefilled values
+    setSystolic("");
+    setDiastolic("");
+    setHeartRate("72");
+    setTemperature("36.5");
+    setO2Sat("98");
+    setRespRate("16");
+    setSeverity("");
+    setSaveError("");
   };
 
   const handleSaveVitals = async () => {
-    if (!selectedPatient) return;
+    if (!selectedPatient) {
+      setSaveError("Please select a patient first.");
+      return;
+    }
+    
+    // Validate all required fields
+    if (!systolic.trim()) {
+      setSaveError("Systolic blood pressure is required.");
+      return;
+    }
+    if (!diastolic.trim()) {
+      setSaveError("Diastolic blood pressure is required.");
+      return;
+    }
+    if (!heartRate.trim()) {
+      setSaveError("Heart rate is required.");
+      return;
+    }
+    if (!temperature.trim()) {
+      setSaveError("Temperature is required.");
+      return;
+    }
+    if (!o2Sat.trim()) {
+      setSaveError("O₂ Saturation is required.");
+      return;
+    }
+    if (!respRate.trim()) {
+      setSaveError("Respiratory rate is required.");
+      return;
+    }
+    if (!severity || severity === "Select severity") {
+      setSaveError("Symptom severity is required.");
+      return;
+    }
+    
     setSaveError("");
     setSaving(true);
     const supabase = createSupabaseBrowser();
@@ -194,13 +236,13 @@ export function VitalSignsForm() {
           ticket: selectedPatient.ticket,
           patientName: selectedPatient.patientName,
           department: selectedPatient.department,
-          systolic: systolic.trim() || undefined,
-          diastolic: diastolic.trim() || undefined,
-          heartRate: heartRate.trim() || undefined,
-          temperature: temperature.trim() || undefined,
-          o2Sat: o2Sat.trim() || undefined,
-          respRate: respRate.trim() || undefined,
-          severity: severity && severity !== "Select severity" ? severity : undefined,
+          systolic: systolic.trim(),
+          diastolic: diastolic.trim(),
+          heartRate: heartRate.trim(),
+          temperature: temperature.trim(),
+          o2Sat: o2Sat.trim(),
+          respRate: respRate.trim(),
+          severity: severity,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -341,22 +383,11 @@ export function VitalSignsForm() {
 
       {/* Section: Record vitals form */}
       <div className="rounded-lg border border-[#e9ecef] bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <svg className="h-5 w-5 text-[#007bff]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-          <h2 className="text-lg font-bold text-[#333333]">Vital Signs & Triage Assessment</h2>
-        </div>
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-lg border border-[#007bff] bg-white px-4 py-2 text-sm font-medium text-[#007bff] hover:bg-[#007bff] hover:text-white"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Auto-Read from Device
-        </button>
+      <div className="mb-4 flex items-center gap-2">
+        <svg className="h-5 w-5 text-[#007bff]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+        <h2 className="text-lg font-bold text-[#333333]">Vital Signs & Triage Assessment</h2>
       </div>
       <div className="mb-4" ref={searchRef}>
         <label className="block text-sm font-medium text-[#333333]">Search patient for vitals</label>
@@ -409,13 +440,16 @@ export function VitalSignsForm() {
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-[#333333]">Blood Pressure (mmHg)</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            Blood Pressure (mmHg) <span className="text-red-600">*</span>
+          </label>
           <div className="mt-1 flex gap-2">
             <input
               type="text"
               value={systolic}
               onChange={(e) => setSystolic(e.target.value)}
               placeholder="Systolic"
+              required
               className="w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
             />
             <input
@@ -423,51 +457,67 @@ export function VitalSignsForm() {
               value={diastolic}
               onChange={(e) => setDiastolic(e.target.value)}
               placeholder="Diastolic"
+              required
               className="w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
             />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#333333]">Heart Rate (bpm)</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            Heart Rate (bpm) <span className="text-red-600">*</span>
+          </label>
           <input
             type="text"
             value={heartRate}
             onChange={(e) => setHeartRate(e.target.value)}
+            required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#333333]">Temperature (°C)</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            Temperature (°C) <span className="text-red-600">*</span>
+          </label>
           <input
             type="text"
             value={temperature}
             onChange={(e) => setTemperature(e.target.value)}
+            required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#333333]">O₂ Saturation (%)</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            O₂ Saturation (%) <span className="text-red-600">*</span>
+          </label>
           <input
             type="text"
             value={o2Sat}
             onChange={(e) => setO2Sat(e.target.value)}
+            required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#333333]">Respiratory Rate (/min)</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            Respiratory Rate (/min) <span className="text-red-600">*</span>
+          </label>
           <input
             type="text"
             value={respRate}
             onChange={(e) => setRespRate(e.target.value)}
+            required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#333333]">Symptom Severity</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            Symptom Severity <span className="text-red-600">*</span>
+          </label>
           <select
             value={severity}
             onChange={(e) => setSeverity(e.target.value)}
+            required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           >
             {SEVERITY_OPTIONS.map((opt) => (

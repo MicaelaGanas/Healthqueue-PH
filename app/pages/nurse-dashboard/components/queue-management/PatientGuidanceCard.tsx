@@ -5,7 +5,6 @@ import { useState } from "react";
 export type GuidancePatient = {
   patientName: string;
   ticket: string;
-  gadgetId?: string | null;
 };
 
 function PaperPlaneIcon({ className }: { className?: string }) {
@@ -42,7 +41,6 @@ export function PatientGuidanceCard({ selectedPatient = null }: PatientGuidanceC
           <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[#333333]">
             <span><span className="text-[#6C757D]">Patient:</span> <span className="font-medium">{selectedPatient.patientName}</span></span>
             <span><span className="text-[#6C757D]">Ticket:</span> <span className="font-medium">{selectedPatient.ticket}</span></span>
-            <span><span className="text-[#6C757D]">Gadget:</span> <span className="font-medium">{selectedPatient.gadgetId ?? "—"}</span></span>
           </div>
           <div className="mb-4">
         <label className="block text-sm font-medium text-[#333333]">Next Location / Step</label>
@@ -73,7 +71,7 @@ export function PatientGuidanceCard({ selectedPatient = null }: PatientGuidanceC
         <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2 text-sm text-[#333333]">
             <input type="checkbox" checked={vibration} onChange={() => setVibration(!vibration)} className="rounded border-[#dee2e6] text-[#007bff] focus:ring-[#007bff]" />
-            <span>Gadget Vibration</span>
+            <span>Vibration / Alert</span>
             <svg className="h-4 w-4 text-[#6C757D]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>

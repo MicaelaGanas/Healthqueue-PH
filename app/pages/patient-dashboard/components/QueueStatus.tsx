@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createSupabaseBrowser } from "../../../lib/supabase/client";
 import Link from "next/link";
+import { QueueStatusQRCode } from "../../../components/QueueStatusQRCode";
 import type { AppointmentForQueue } from "../page";
 
 type QueueStatusData = {
@@ -402,6 +403,11 @@ export function QueueStatus({ selectedAppointment = null, onClearSelection }: Qu
               <p className="text-lg font-semibold text-[#007bff]">Estimate: {data.waitTime}</p>
             )}
           </div>
+        </div>
+        <div className="mt-4 flex flex-col items-center gap-2 border-t border-gray-200 pt-4">
+          <p className="text-sm font-medium text-[#333333]">Queue status QR code</p>
+          <p className="text-xs text-gray-500">Save as PNG to show at the clinic if you have no internet</p>
+          <QueueStatusQRCode referenceNo={data.queueNumber} size={160} showDownload />
         </div>
       </div>
       {String(data.status).toLowerCase() === "confirmed" ? (

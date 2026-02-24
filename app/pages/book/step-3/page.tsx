@@ -11,6 +11,7 @@ import { StepIndicator } from "../components/StepIndicator";
 import { ConfirmationDetails } from "./components/ConfirmationDetails";
 import { ConfirmationDisclaimer } from "./components/ConfirmationDisclaimer";
 import { ConfirmationActions } from "./components/ConfirmationActions";
+import { QueueStatusQRCode } from "../../../components/QueueStatusQRCode";
 
 const BOOKING_STORAGE_KEY = "healthqueue_booking";
 const BOOKING_SUBMITTED_KEY = "healthqueue_booking_submitted";
@@ -194,6 +195,7 @@ export default function BookStep3Page() {
           </p>
 
           {referenceNo && (
+          <>
           <ConfirmationDetails
             referenceNo={referenceNo}
             name={name}
@@ -204,6 +206,12 @@ export default function BookStep3Page() {
             time={time}
             preferredDoctor={preferredDoctor}
           />
+          <div className="mt-6 flex flex-col items-center gap-2 rounded-lg border border-[#e9ecef] bg-[#f8f9fa] p-4">
+            <p className="text-sm font-medium text-[#333333]">Your queue status QR code</p>
+            <p className="text-xs text-[#6C757D]">Save as image to show at the clinic if you have no internet</p>
+            <QueueStatusQRCode referenceNo={referenceNo} size={180} showDownload />
+          </div>
+          </>
           )}
 
           {referenceNo && (

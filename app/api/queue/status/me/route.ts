@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // In queue: return live status (if waiting/scheduled and no vitals yet, patient is awaiting_triage)
+  // In queue: return live status (if waiting/scheduled and no vitals yet, patient is awaiting_triage). Use same statusMap as /api/queue/status/[number] for consistent API.
   if (row) {
     type Row = { ticket: string; status: string; wait_time: string | null; appointment_at: string | null; departments?: { name: string } | null };
     const r = row as unknown as Row;
@@ -69,7 +69,18 @@ export async function GET(request: Request) {
     const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
     const raw = (r.status || "").toLowerCase().trim();
 
-    let status = r.status;
+    const statusMap: Record<string, string> = {
+      waiting: "waiting",
+      scheduled: "waiting",
+      called: "almost",
+      "in progress": "almost",
+      in_consultation: "proceed",
+      completed: "completed",
+      cancelled: "completed",
+      no_show: "completed",
+    };
+
+    let status: string;
     if (raw === "waiting" || raw === "scheduled") {
       const { data: vitalsRow, error: vitalsError } = await supabase
         .from("vital_signs")
@@ -80,7 +91,13 @@ export async function GET(request: Request) {
       if (vitalsError) {
         return NextResponse.json({ error: vitalsError.message }, { status: 500 });
       }
-      if (!vitalsRow) status = "awaiting_triage";
+      if (!vitalsRow) {
+        status = "awaiting_triage";
+      } else {
+        status = statusMap[raw] ?? "waiting";
+      }
+    } else {
+      status = statusMap[raw] ?? "waiting";
     }
 
     return NextResponse.json({

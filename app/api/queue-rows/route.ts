@@ -199,11 +199,17 @@ export async function PUT(request: Request) {
       timeStr = `${String(Number(h)).padStart(2, "0")}:${String(Number(m) || 0).padStart(2, "0")}`;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !/^\d{2}:\d{2}$/.test(timeStr)) continue;
-    await supabase
+    const { error: updateError } = await supabase
       .from("booking_requests")
       .update({ requested_date: dateStr, requested_time: timeStr })
       .eq("reference_no", ticket)
       .eq("status", "confirmed");
+    if (updateError) {
+      return NextResponse.json(
+        { error: `Failed to sync reschedule to appointment: ${updateError.message}` },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ ok: true });

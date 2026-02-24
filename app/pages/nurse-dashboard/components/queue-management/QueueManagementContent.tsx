@@ -7,7 +7,6 @@ import { QueueFilters, type QueueFiltersState } from "./QueueFilters";
 import { DOCTORS_BY_DEPARTMENT } from "../../../../lib/departments";
 import { useDepartments } from "../../../../lib/useDepartments";
 import { PatientQueueTable } from "./PatientQueueTable";
-import { AlertsNotifications } from "../dashboard/alerts/AlertsNotifications";
 import { useNurseQueue } from "../../context/NurseQueueContext";
 
 const DEFAULT_FILTERS: QueueFiltersState = {
@@ -222,8 +221,6 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
             managedDepartment={managedDepartment}
             doctorOnDuty={doctorOnDuty}
           />
-
-          <AlertsNotifications />
         </>
       )}
     </div>
