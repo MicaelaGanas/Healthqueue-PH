@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
+
+type DateFilter = "all" | "today" | "week";
 
 type BookingRequest = {
   id: string;
@@ -31,6 +33,27 @@ function formatTime(t?: string): string {
   const hour = h % 12 || 12;
   const ampm = h < 12 ? "AM" : "PM";
   return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+function getBookingDate(requestedDate?: string): Date | null {
+  if (!requestedDate) return null;
+  const d = new Date(requestedDate);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+function sameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function isInWeek(bookingDate: Date, ref: Date): boolean {
+  const start = new Date(ref);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(ref);
+  end.setDate(end.getDate() + 7);
+  end.setHours(0, 0, 0, 0);
+  const t = bookingDate.getTime();
+  return t >= start.getTime() && t < end.getTime();
 }
 
 const RELATIONSHIP_LABELS: Record<string, string> = {
@@ -187,6 +210,39 @@ export function PendingBookingRequests({ refreshTrigger, onPendingChange }: Pend
   const [actingId, setActingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
   const [summaryRequest, setSummaryRequest] = useState<BookingRequest | null>(null);
+  const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+
+  const filteredList = useMemo(() => {
+    const now = new Date();
+    let rows = list;
+    if (dateFilter === "today") {
+      rows = rows.filter((r) => {
+        const d = getBookingDate(r.requestedDate);
+        return d ? sameDay(d, now) : false;
+      });
+    } else if (dateFilter === "week") {
+      rows = rows.filter((r) => {
+        const d = getBookingDate(r.requestedDate);
+        return d ? isInWeek(d, now) : false;
+      });
+    }
+
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+
+    return rows.filter((r) => {
+      const name = r.bookingType === "dependent"
+        ? [r.beneficiaryFirstName, r.beneficiaryLastName].filter(Boolean).join(" ")
+        : [r.patientFirstName, r.patientLastName].filter(Boolean).join(" ") || "Self";
+      return (
+        (r.referenceNo ?? "").toLowerCase().includes(q) ||
+        name.toLowerCase().includes(q) ||
+        (r.department ?? "").toLowerCase().includes(q) ||
+        (r.preferredDoctor ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [list, dateFilter, search]);
 
   const loadPending = async (silent = false) => {
     const supabase = createSupabaseBrowser();
@@ -271,7 +327,6 @@ export function PendingBookingRequests({ refreshTrigger, onPendingChange }: Pend
 
   if (loading) return <p className="text-sm text-[#6C757D]">Loading pending requests…</p>;
   if (error) return <p className="text-sm text-[#dc3545]">{error}</p>;
-  if (list.length === 0) return <p className="text-sm text-[#6C757D]">No pending booking requests.</p>;
 
   return (
     <div className="rounded-lg border border-[#e9ecef] bg-white shadow-sm">
@@ -284,6 +339,31 @@ export function PendingBookingRequests({ refreshTrigger, onPendingChange }: Pend
             <button type="button" onClick={() => setConfirmError(null)} className="ml-2 underline">Dismiss</button>
           </div>
         )}
+      </div>
+      <div className="flex flex-wrap gap-2 border-b border-[#e9ecef] p-4 sm:gap-3">
+        <div className="relative flex-1 min-w-[140px]">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6C757D]">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, reference, department..."
+            className="w-full rounded-lg border border-[#dee2e6] py-2 pl-10 pr-3 text-sm text-[#333333] placeholder:text-[#6C757D] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
+          />
+        </div>
+        <select
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value as DateFilter)}
+          className="rounded-lg border border-[#dee2e6] bg-white px-3 py-2 text-sm text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
+        >
+          <option value="all">All dates</option>
+          <option value="today">Today</option>
+          <option value="week">This week</option>
+        </select>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -299,54 +379,62 @@ export function PendingBookingRequests({ refreshTrigger, onPendingChange }: Pend
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e9ecef]">
-            {list.map((r) => (
-              <tr key={r.id} className="hover:bg-[#f8f9fa]">
-                <td className="px-3 py-2 font-medium text-[#007bff]">{r.referenceNo}</td>
-                <td className="px-3 py-2 text-[#333333]">
-                  {r.bookingType === "dependent"
-                    ? `Dependent: ${[r.beneficiaryFirstName, r.beneficiaryLastName].filter(Boolean).join(" ")}`
-                    : [r.patientFirstName, r.patientLastName].filter(Boolean).join(" ") || "Self"}
-                </td>
-                <td className="px-3 py-2 text-[#333333]">{r.department}</td>
-                <td className="px-3 py-2 text-[#333333]">{r.requestedDate}</td>
-                <td className="px-3 py-2 text-[#333333]">{formatTime(r.requestedTime)}</td>
-                <td className="px-3 py-2 text-[#333333]">{r.preferredDoctor ?? "—"}</td>
-                <td className="px-3 py-2 text-right">
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSummaryRequest(r)}
-                      className="rounded border border-[#007bff] bg-white px-2 py-1.5 text-xs font-medium text-[#007bff] hover:bg-[#e7f1ff]"
-                    >
-                      Summary
-                    </button>
-                    <input
-                      type="text"
-                      placeholder="Rejection reason (optional)"
-                      value={rejectReason[r.id] ?? ""}
-                      onChange={(e) => setRejectReason((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                      className="max-w-[140px] rounded border border-[#dee2e6] px-2 py-1 text-xs"
-                    />
-                    <button
-                      type="button"
-                      disabled={actingId === r.id}
-                      onClick={() => handleConfirm(r.id)}
-                      className="rounded bg-[#28a745] px-2 py-1.5 text-xs font-medium text-white hover:bg-[#218838] disabled:opacity-50"
-                    >
-                      {actingId === r.id ? "…" : "Confirm"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actingId === r.id}
-                      onClick={() => handleReject(r.id)}
-                      className="rounded border border-[#dc3545] bg-white px-2 py-1.5 text-xs font-medium text-[#dc3545] hover:bg-red-50 disabled:opacity-50"
-                    >
-                      Reject
-                    </button>
-                  </div>
+            {filteredList.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-3 py-8 text-center text-sm text-[#6C757D]">
+                  {list.length === 0 ? "No pending booking requests." : "No pending requests match the current filters."}
                 </td>
               </tr>
-            ))}
+            ) : (
+              filteredList.map((r) => (
+                <tr key={r.id} className="hover:bg-[#f8f9fa]">
+                  <td className="px-3 py-2 font-medium text-[#007bff]">{r.referenceNo}</td>
+                  <td className="px-3 py-2 text-[#333333]">
+                    {r.bookingType === "dependent"
+                      ? `Dependent: ${[r.beneficiaryFirstName, r.beneficiaryLastName].filter(Boolean).join(" ")}`
+                      : [r.patientFirstName, r.patientLastName].filter(Boolean).join(" ") || "Self"}
+                  </td>
+                  <td className="px-3 py-2 text-[#333333]">{r.department}</td>
+                  <td className="px-3 py-2 text-[#333333]">{r.requestedDate}</td>
+                  <td className="px-3 py-2 text-[#333333]">{formatTime(r.requestedTime)}</td>
+                  <td className="px-3 py-2 text-[#333333]">{r.preferredDoctor ?? "—"}</td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSummaryRequest(r)}
+                        className="rounded border border-[#007bff] bg-white px-2 py-1.5 text-xs font-medium text-[#007bff] hover:bg-[#e7f1ff]"
+                      >
+                        Summary
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="Rejection reason (optional)"
+                        value={rejectReason[r.id] ?? ""}
+                        onChange={(e) => setRejectReason((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                        className="max-w-[140px] rounded border border-[#dee2e6] px-2 py-1 text-xs"
+                      />
+                      <button
+                        type="button"
+                        disabled={actingId === r.id}
+                        onClick={() => handleConfirm(r.id)}
+                        className="rounded bg-[#28a745] px-2 py-1.5 text-xs font-medium text-white hover:bg-[#218838] disabled:opacity-50"
+                      >
+                        {actingId === r.id ? "…" : "Confirm"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={actingId === r.id}
+                        onClick={() => handleReject(r.id)}
+                        className="rounded border border-[#dc3545] bg-white px-2 py-1.5 text-xs font-medium text-[#dc3545] hover:bg-red-50 disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

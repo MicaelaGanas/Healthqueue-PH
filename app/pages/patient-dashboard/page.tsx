@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { Suspense, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Footer } from "../../components/Footer";
@@ -17,6 +17,20 @@ export type AppointmentForQueue = {
 };
 
 export default function PatientDashboardPage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]">
+          <div className="w-10 h-10 border-4 border-[#007bff] border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+    >
+      <PatientDashboardContent />
+    </Suspense>
+  );
+}
+
+function PatientDashboardContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"queue" | "appointment" | "notification">("queue");
   const [selectedAppointmentForQueue, setSelectedAppointmentForQueue] = useState<AppointmentForQueue | null>(null);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
@@ -11,6 +11,20 @@ function isSafeRedirect(path: string | null): path is string {
 }
 
 export default function PatientCompleteProfilePage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]">
+          <div className="w-10 h-10 border-4 border-[#007bff] border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+    >
+      <PatientCompleteProfileContent />
+    </Suspense>
+  );
+}
+
+function PatientCompleteProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get('redirect');

@@ -124,6 +124,8 @@ type NurseQueueContextValue = {
 
 const NurseQueueContext = createContext<NurseQueueContextValue | null>(null);
 
+const CONFIRMED_FOR_TRIAGE_STORAGE_KEY = "healthqueue_confirmed_for_triage";
+
 let walkInTicketCounter = 1;
 function nextWalkInTicket(): string {
   const n = walkInTicketCounter++;
@@ -161,6 +163,43 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
   const [openSlots, setOpenSlots] = useState<OpenSlot[]>([]);
   const [confirmedForTriage, setConfirmedForTriage] = useState<string[]>([]);
   const skipNextSyncToApiRef = useRef(false);
+
+  // Restore confirmed-arrival tickets so Vitals & Triage list survives page refresh.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(CONFIRMED_FOR_TRIAGE_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return;
+      const normalized = parsed
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+      if (normalized.length > 0) {
+        setConfirmedForTriage(Array.from(new Set(normalized)));
+      }
+    } catch {
+      // Ignore malformed localStorage values.
+    }
+  }, []);
+
+  // Persist confirmed-arrival tickets after any change.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (confirmedForTriage.length === 0) {
+        window.localStorage.removeItem(CONFIRMED_FOR_TRIAGE_STORAGE_KEY);
+        return;
+      }
+      window.localStorage.setItem(
+        CONFIRMED_FOR_TRIAGE_STORAGE_KEY,
+        JSON.stringify(Array.from(new Set(confirmedForTriage)))
+      );
+    } catch {
+      // Ignore storage quota/private mode errors.
+    }
+  }, [confirmedForTriage]);
 
   const refetchQueue = useCallback(async () => {
     const supabase = createSupabaseBrowser();
