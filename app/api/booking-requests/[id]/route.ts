@@ -5,7 +5,7 @@ import { requireRoles } from "../../../lib/api/auth";
 
 const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
 
-/** PATCH: confirm or reject a booking request (staff only). On confirm, add to queue_items (source=booked). */
+/** PATCH: confirm or reject a booking request (staff only). On confirm, only update status; patient appears in Booked queue (confirmed) until nurse confirms arrival (add-to-queue). */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -67,53 +67,6 @@ export async function PATCH(
     entity_id: req.reference_no ?? id,
     details: { referenceNo: req.reference_no, status },
   });
-
-  if (status === "confirmed") {
-    let patientUserId: string | null = null;
-    let walkInFirstName: string | null = null;
-    let walkInLastName: string | null = null;
-
-    if (req.booking_type === "self") {
-      patientUserId = req.patient_user_id;
-    } else if (req.booking_type === "dependent") {
-      walkInFirstName = req.beneficiary_first_name ?? null;
-      walkInLastName = req.beneficiary_last_name ?? null;
-    }
-
-    const appointmentAt =
-      req.requested_date && req.requested_time
-        ? new Date(`${req.requested_date}T${req.requested_time}`).toISOString()
-        : req.requested_date
-          ? new Date(`${req.requested_date}T00:00:00`).toISOString()
-          : null;
-
-    // assigned_doctor_id omitted so insert works when queue_items.assigned_doctor_id references staff_users (not admin_users)
-    const queueItem = {
-      ticket: req.reference_no,
-      source: "booked" as const,
-      priority: "normal" as const,
-      status: "waiting",
-      wait_time: "",
-      department_id: req.department_id,
-      patient_user_id: patientUserId,
-      walk_in_first_name: walkInFirstName,
-      walk_in_last_name: walkInLastName,
-      walk_in_age_years: null,
-      walk_in_sex: null,
-      walk_in_phone: null,
-      walk_in_email: null,
-      booking_request_id: req.id,
-      assigned_doctor_id: null,
-      appointment_at: appointmentAt,
-      added_at: new Date().toISOString(),
-    };
-    const { error: insertQueueError } = await supabase.from("queue_items").upsert(queueItem, {
-      onConflict: "ticket",
-    });
-    if (insertQueueError) {
-      return NextResponse.json({ error: "Confirmed but failed to add to queue: " + insertQueueError.message }, { status: 500 });
-    }
-  }
 
   return NextResponse.json({ ok: true, status });
 }

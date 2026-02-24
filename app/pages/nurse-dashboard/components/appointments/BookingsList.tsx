@@ -1,10 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { useNurseQueue } from "../../context/NurseQueueContext";
-import type { QueueRow } from "../../context/NurseQueueContext";
 
 type DateFilter = "all" | "today" | "week";
+
+/** Confirmed booking request (from GET /api/booking-requests?status=confirmed). */
+type ConfirmedBooking = {
+  id: string;
+  referenceNo: string;
+  bookingType: string;
+  patientFirstName?: string;
+  patientLastName?: string;
+  beneficiaryFirstName?: string;
+  beneficiaryLastName?: string;
+  department?: string;
+  preferredDoctor?: string;
+  requestedDate?: string;
+  requestedTime?: string;
+};
 
 function formatTime(aptTime?: string): string {
   if (!aptTime) return "—";
@@ -14,13 +29,9 @@ function formatTime(aptTime?: string): string {
   return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
-function getBookingDate(r: QueueRow): Date | null {
-  if (r.appointmentDate) {
-    const d = new Date(r.appointmentDate);
-    if (!Number.isNaN(d.getTime())) return d;
-  }
-  if (r.addedAt) {
-    const d = new Date(r.addedAt);
+function getBookingDate(r: ConfirmedBooking): Date | null {
+  if (r.requestedDate) {
+    const d = new Date(r.requestedDate);
     if (!Number.isNaN(d.getTime())) return d;
   }
   return null;
@@ -40,21 +51,57 @@ function isInWeek(bookingDate: Date, ref: Date): boolean {
   return t >= start.getTime() && t < end.getTime();
 }
 
+function patientName(r: ConfirmedBooking): string {
+  if (r.bookingType === "dependent") {
+    return [r.beneficiaryFirstName, r.beneficiaryLastName].filter(Boolean).join(" ").trim() || "Dependent";
+  }
+  return [r.patientFirstName, r.patientLastName].filter(Boolean).join(" ").trim() || "Patient";
+}
+
 type BookingsListProps = {
+  refreshTrigger?: number;
   onGoToVitals?: () => void;
 };
 
-export function BookingsList({ onGoToVitals }: BookingsListProps) {
-  const { queueRows, removeBookedPatient, confirmBooking, confirmedForTriage } = useNurseQueue();
+export function BookingsList({ refreshTrigger = 0, onGoToVitals }: BookingsListProps) {
+  const { queueRows, removeBookedPatient, confirmBooking, confirmedForTriage, refetchQueue } = useNurseQueue();
+  const [confirmedList, setConfirmedList] = useState<ConfirmedBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [search, setSearch] = useState("");
   const [justConfirmedRef, setJustConfirmedRef] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
 
-  const booked = useMemo(() => queueRows.filter((r) => r.source === "booked"), [queueRows]);
+  const ticketsInQueue = useMemo(() => new Set(queueRows.map((r) => r.ticket)), [queueRows]);
+
+  const loadConfirmed = useCallback(async () => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase?.auth.getSession) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const res = await fetch("/api/booking-requests?status=confirmed", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      setError("Failed to load confirmed bookings");
+      setConfirmedList([]);
+      return;
+    }
+    const data = await res.json();
+    setConfirmedList(Array.isArray(data) ? data : []);
+    setError("");
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    loadConfirmed().finally(() => setLoading(false));
+  }, [loadConfirmed, refreshTrigger]);
 
   const filtered = useMemo(() => {
     const now = new Date();
-    let list = booked;
+    let list = confirmedList;
     if (dateFilter === "today") {
       list = list.filter((r) => {
         const d = getBookingDate(r);
@@ -70,23 +117,52 @@ export function BookingsList({ onGoToVitals }: BookingsListProps) {
     if (q) {
       list = list.filter(
         (r) =>
-          r.patientName.toLowerCase().includes(q) ||
-          r.ticket.toLowerCase().includes(q) ||
-          r.department.toLowerCase().includes(q)
+          patientName(r).toLowerCase().includes(q) ||
+          (r.referenceNo ?? "").toLowerCase().includes(q) ||
+          (r.department ?? "").toLowerCase().includes(q)
       );
     }
     return list;
-  }, [booked, dateFilter, search]);
+  }, [confirmedList, dateFilter, search]);
 
-  const handleCancel = (referenceNo: string) => {
-    if (typeof window !== "undefined" && window.confirm("Cancel this booking? The patient will be removed from the queue.")) {
-      removeBookedPatient(referenceNo);
+  const handleConfirmArrival = async (r: ConfirmedBooking) => {
+    const supabase = createSupabaseBrowser();
+    if (!supabase?.auth.getSession) return;
+    setActingId(r.id);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const res = await fetch(`/api/booking-requests/${r.id}/add-to-queue`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    setActingId(null);
+    if (res.ok) {
+      await refetchQueue();
+      confirmBooking(r.referenceNo);
+      setJustConfirmedRef(r.referenceNo);
+      await loadConfirmed();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError((body.error as string) || "Failed to add to queue");
     }
   };
 
-  const handleConfirm = (ticket: string) => {
-    confirmBooking(ticket);
-    setJustConfirmedRef(ticket);
+  const handleCancel = async (r: ConfirmedBooking) => {
+    if (typeof window !== "undefined" && !window.confirm("Cancel this booking? The patient will be removed from the queue.")) return;
+    if (ticketsInQueue.has(r.referenceNo)) {
+      removeBookedPatient(r.referenceNo);
+      return;
+    }
+    const supabase = createSupabaseBrowser();
+    if (!supabase?.auth.getSession) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const res = await fetch(`/api/booking-requests/${r.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ status: "cancelled" }),
+    });
+    if (res.ok) await loadConfirmed();
   };
 
   return (
@@ -119,6 +195,12 @@ export function BookingsList({ onGoToVitals }: BookingsListProps) {
       <h3 className="border-b border-[#e9ecef] px-4 py-3 text-base font-bold text-[#333333]">
         Patient booking requests
       </h3>
+      {error && (
+        <div className="border-b border-[#e9ecef] px-4 py-2 bg-red-50 text-sm text-red-700 flex items-center justify-between">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError("")} className="underline">Dismiss</button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2 border-b border-[#e9ecef] p-4 sm:gap-3">
         <div className="relative flex-1 min-w-[140px]">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6C757D]">
@@ -158,11 +240,15 @@ export function BookingsList({ onGoToVitals }: BookingsListProps) {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-[#6C757D]">Loading confirmed bookings…</td>
+              </tr>
+            ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-[#6C757D]">
-                  {booked.length === 0
-                    ? "No patient booking requests yet. Bookings from the public book flow will appear here."
+                  {confirmedList.length === 0
+                    ? "No confirmed bookings. Confirm pending requests above to add them here; then confirm arrival when the patient shows up."
                     : "No bookings match the current filters."}
                 </td>
               </tr>
@@ -170,29 +256,34 @@ export function BookingsList({ onGoToVitals }: BookingsListProps) {
               filtered.map((r) => {
                 const bookingDate = getBookingDate(r);
                 const dateStr = bookingDate ? bookingDate.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—";
+                const inQueue = ticketsInQueue.has(r.referenceNo);
+                const alreadyConfirmedForTriage = confirmedForTriage.includes(r.referenceNo);
                 return (
-                  <tr key={r.ticket} className="border-b border-[#e9ecef] last:border-b-0 hover:bg-[#f8f9fa]">
-                    <td className="px-4 py-3 font-medium text-[#333333]">{r.ticket}</td>
-                    <td className="px-4 py-3 text-[#333333]">{r.patientName}</td>
-                    <td className="px-4 py-3 text-[#333333]">{r.department}</td>
-                    <td className="px-4 py-3 text-[#333333]">{r.assignedDoctor ?? "—"}</td>
-                    <td className="px-4 py-3 text-[#333333]">{formatTime(r.appointmentTime)}</td>
+                  <tr key={r.id} className="border-b border-[#e9ecef] last:border-b-0 hover:bg-[#f8f9fa]">
+                    <td className="px-4 py-3 font-medium text-[#333333]">{r.referenceNo}</td>
+                    <td className="px-4 py-3 text-[#333333]">{patientName(r)}</td>
+                    <td className="px-4 py-3 text-[#333333]">{r.department ?? "—"}</td>
+                    <td className="px-4 py-3 text-[#333333]">{r.preferredDoctor ?? "—"}</td>
+                    <td className="px-4 py-3 text-[#333333]">{formatTime(r.requestedTime)}</td>
                     <td className="px-4 py-3 text-[#333333]">{dateStr}</td>
                     <td className="px-4 py-3 text-right">
-                      {confirmedForTriage.includes(r.ticket) ? (
+                      {alreadyConfirmedForTriage ? (
                         <span className="text-xs font-medium text-[#6C757D]">Confirmed</span>
+                      ) : inQueue ? (
+                        <span className="text-xs font-medium text-[#6C757D]">In queue</span>
                       ) : (
                         <div className="flex flex-wrap items-center justify-end gap-2">
                           <button
                             type="button"
-                            onClick={() => handleConfirm(r.ticket)}
-                            className="rounded border border-green-200 bg-green-50 px-2 py-1 text-xs font-medium text-green-800 hover:bg-green-100"
+                            disabled={actingId === r.id}
+                            onClick={() => handleConfirmArrival(r)}
+                            className="rounded border border-green-200 bg-green-50 px-2 py-1 text-xs font-medium text-green-800 hover:bg-green-100 disabled:opacity-50"
                           >
-                            Confirm
+                            {actingId === r.id ? "Adding…" : "Confirm arrival"}
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleCancel(r.ticket)}
+                            onClick={() => handleCancel(r)}
                             className="rounded border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
                           >
                             Cancel booking

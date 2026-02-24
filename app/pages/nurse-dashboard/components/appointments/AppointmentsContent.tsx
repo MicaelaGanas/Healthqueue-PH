@@ -25,7 +25,7 @@ export function AppointmentsContent({ onGoToVitals }: AppointmentsContentProps) 
       <div>
         <h2 className="text-xl font-bold text-[#333333]">Manage bookings</h2>
         <p className="mt-0.5 text-sm text-[#6C757D]">
-          Confirm pending requests to add to the queue. On the appointment day, confirm arrival here, then record vitals in Vitals &amp; Triage; patients then appear in Queue Management.
+          Confirm pending requests to add them to Booked queue (confirmed). When the patient shows up, confirm arrival there to add them to the live queue; then record vitals in Vitals &amp; Triage—they will appear in Queue Management.
         </p>
       </div>
 
@@ -41,7 +41,7 @@ export function AppointmentsContent({ onGoToVitals }: AppointmentsContentProps) 
 
       <div>
         <h3 className="mb-3 text-lg font-semibold text-[#333333]">Booked queue (confirmed)</h3>
-        <BookingsList onGoToVitals={onGoToVitals} />
+        <BookingsList refreshTrigger={pendingRefreshKey} onGoToVitals={onGoToVitals} />
       </div>
     </div>
   );

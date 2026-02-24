@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
-import { useNurseQueue } from "../../context/NurseQueueContext";
 
 type BookingRequest = {
   id: string;
@@ -181,7 +180,6 @@ type PendingBookingRequestsProps = {
 };
 
 export function PendingBookingRequests({ refreshTrigger, onPendingChange }: PendingBookingRequestsProps) {
-  const { refetchQueue, addBookedRowFromConfirm } = useNurseQueue();
   const [list, setList] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -242,25 +240,9 @@ export function PendingBookingRequests({ refreshTrigger, onPendingChange }: Pend
     });
     setActingId(null);
     if (res.ok) {
-      if (request) {
-        const patientName =
-          request.bookingType === "dependent"
-            ? [request.beneficiaryFirstName, request.beneficiaryLastName].filter(Boolean).join(" ") || "Dependent"
-            : [request.patientFirstName, request.patientLastName].filter(Boolean).join(" ") || "Patient";
-        addBookedRowFromConfirm({
-          ticket: request.referenceNo,
-          patientName,
-          department: request.department,
-          requestedDate: request.requestedDate,
-          requestedTime: request.requestedTime ?? null,
-          preferredDoctor: request.preferredDoctor ?? null,
-        });
-      }
       setList((prev) => prev.filter((r) => r.id !== id));
       setSummaryRequest((prev) => (prev?.id === id ? null : prev));
       onPendingChange?.();
-      await refetchQueue();
-      setTimeout(() => refetchQueue(), 600);
     } else {
       const body = await res.json().catch(() => ({}));
       setConfirmError((body.error as string) || "Failed to confirm. Try again.");
@@ -295,7 +277,7 @@ export function PendingBookingRequests({ refreshTrigger, onPendingChange }: Pend
     <div className="rounded-lg border border-[#e9ecef] bg-white shadow-sm">
       <div className="border-b border-[#e9ecef] px-4 py-3">
         <h3 className="font-bold text-[#333333]">Pending requests (awaiting confirmation)</h3>
-        <p className="mt-0.5 text-xs text-[#6C757D]">Confirm to add the patient to the queue. Reject to decline the request.</p>
+        <p className="mt-0.5 text-xs text-[#6C757D]">Confirm to add the booking to Booked queue (confirmed). When the patient arrives, confirm arrival there to add them to the queue. Reject to decline the request.</p>
         {confirmError && (
           <div className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {confirmError}

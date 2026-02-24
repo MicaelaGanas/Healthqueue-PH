@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../lib/supabase/server";
-import type { DbBookingRequest, DbQueueItem } from "../../lib/supabase/types";
+import type { DbQueueItem } from "../../lib/supabase/types";
 import { requireRoles } from "../../lib/api/auth";
 
 type QueueItemWithJoins = DbQueueItem & {
@@ -43,38 +43,6 @@ const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
 
 const NURSE_LIKE_ROLES = ["nurse", "receptionist"] as const;
 
-/** Build queue_items row from a confirmed booking_request (same shape as PATCH confirm). */
-function queueItemFromBookingRequest(req: DbBookingRequest) {
-  const patientUserId = req.booking_type === "self" ? req.patient_user_id : null;
-  const walkInFirstName = req.booking_type === "dependent" ? (req.beneficiary_first_name ?? null) : null;
-  const walkInLastName = req.booking_type === "dependent" ? (req.beneficiary_last_name ?? null) : null;
-  const appointmentAt =
-    req.requested_date && req.requested_time
-      ? new Date(`${req.requested_date}T${req.requested_time}`).toISOString()
-      : req.requested_date
-        ? new Date(`${req.requested_date}T00:00:00`).toISOString()
-        : null;
-  return {
-    ticket: req.reference_no,
-    source: "booked" as const,
-    priority: "normal" as const,
-    status: "waiting",
-    wait_time: "",
-    department_id: req.department_id,
-    patient_user_id: patientUserId,
-    walk_in_first_name: walkInFirstName,
-    walk_in_last_name: walkInLastName,
-    walk_in_age_years: null,
-    walk_in_sex: null,
-    walk_in_phone: null,
-    walk_in_email: null,
-    booking_request_id: req.id,
-    assigned_doctor_id: null,
-    appointment_at: appointmentAt,
-    added_at: req.confirmed_at ?? new Date().toISOString(),
-  };
-}
-
 export async function GET(request: Request) {
   const auth = await requireStaff(request);
   if (auth instanceof Response) return auth;
@@ -94,28 +62,7 @@ export async function GET(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  let rows = (data ?? []) as unknown as QueueItemWithJoins[];
-  const existingBookingRequestIds = new Set(
-    rows.map((r) => r.booking_request_id).filter(Boolean) as string[]
-  );
-  // Backfill: confirmed booking_requests that never got a queue_items row (e.g. confirm failed earlier).
-  const { data: confirmedReqs } = await supabase
-    .from("booking_requests")
-    .select("*")
-    .eq("status", "confirmed");
-  const toBackfill = (confirmedReqs ?? []) as DbBookingRequest[];
-  const missing = toBackfill.filter((r) => r.id && !existingBookingRequestIds.has(r.id));
-  if (missing.length > 0) {
-    for (const req of missing) {
-      const queueItem = queueItemFromBookingRequest(req);
-      await supabase.from("queue_items").upsert(queueItem, { onConflict: "ticket" });
-    }
-    const { data: refetched, error: refetchError } = await supabase
-      .from("queue_items")
-      .select("*, departments(name), patient_users(first_name, last_name), staff_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)")
-      .order("added_at", { ascending: true });
-    if (!refetchError && refetched) rows = refetched as unknown as QueueItemWithJoins[];
-  }
+  const rows = (data ?? []) as unknown as QueueItemWithJoins[];
   return NextResponse.json(rows.map(toAppRow));
 }
 
