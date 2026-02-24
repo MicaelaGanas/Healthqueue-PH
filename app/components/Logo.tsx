@@ -10,7 +10,7 @@ type LogoProps = {
 
 export function Logo({ variant = "default", className = "" }: LogoProps) {
   const isFooter = variant === "footer";
-  const size = isFooter ? 40 : 48;
+  const size = isFooter ? 40 : 36;
   return (
     <Link href="/" className={`inline-flex items-center gap-2 ${className}`}>
       <Image
@@ -18,7 +18,7 @@ export function Logo({ variant = "default", className = "" }: LogoProps) {
         alt=""
         width={size}
         height={size}
-        className={`shrink-0 object-contain ${isFooter ? "h-10 w-10" : "h-12 w-12"}`}
+        className={`shrink-0 object-contain ${isFooter ? "h-10 w-10" : "h-9 w-9"}`}
         aria-hidden
       />
       <span className="flex flex-col items-start leading-tight">
@@ -30,7 +30,7 @@ export function Logo({ variant = "default", className = "" }: LogoProps) {
         </span>
         {!isFooter && (
           <span
-            className="text-sm font-normal"
+            className="text-xs font-normal"
             style={{ fontFamily: "Helvetica, Arial, sans-serif", color: DARK_BLUE }}
           >
             Queue smarter, wait less.

@@ -1,14 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Footer } from '../../components/Footer';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
+
+const DESKTOP_BREAKPOINT = 1024;
 
 export default function EmployeeLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT}px)`);
+    const lock = () => {
+      if (mq.matches) {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
+    };
+    lock();
+    mq.addEventListener('change', lock);
+    return () => {
+      mq.removeEventListener('change', lock);
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, []);
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('');
   const [error, setError] = useState('');
@@ -75,14 +96,24 @@ export default function EmployeeLoginPage() {
     else handleSignInDemo();
   };
 
+  const backgroundImageUrl = 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=1920&q=80';
+
   return (
     <>
-      <div className="min-h-[80vh] bg-gray-100 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto relative">
-          <div className="pt-8 px-4 sm:px-6">
+      <div className="relative min-h-screen overflow-y-auto lg:h-screen lg:max-h-screen lg:overflow-hidden">
+        {/* Fixed full-screen background so it stays steady and fills the viewport */}
+        <div
+          className="fixed inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
+          style={{ backgroundImage: `url(${backgroundImageUrl})` }}
+          aria-hidden
+        />
+        <div className="fixed inset-0 bg-slate-900/40" aria-hidden />
+
+        <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 sm:px-6">
+          <div className="pt-8">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -91,18 +122,18 @@ export default function EmployeeLoginPage() {
             </Link>
           </div>
 
-          <div className="flex items-center justify-center px-10 pb-10 relative z-10">
-            <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-              <div className="flex justify-center mb-6">
-                <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
-                  <svg className="w-12 h-12 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+          <div className="flex flex-1 items-start justify-center pt-6 pb-10">
+            <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg animate-fade-in-up">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                   </svg>
                 </div>
               </div>
 
-              <h1 className="text-3xl font-bold text-center mb-2">Staff Login</h1>
-              <p className="text-gray-600 text-center mb-8">
+              <h1 className="text-2xl font-bold text-center mb-1">Staff Login</h1>
+              <p className="text-gray-600 text-center text-sm mb-6">
                 {useAuth ? 'Sign in with your hospital email' : 'Demo mode: select a role (configure Supabase for real sign-in)'}
               </p>
 
@@ -174,7 +205,6 @@ export default function EmployeeLoginPage() {
           </div>
         </div>
       </div>
-      <Footer />
     </>
   );
 }

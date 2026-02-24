@@ -71,35 +71,37 @@ export function Announcements() {
       <FadeInSection className="mx-auto max-w-7xl px-4 sm:px-6">
         <h2 id="announcements-heading" className="text-2xl font-bold text-[#333333] sm:text-3xl">Announcements</h2>
         <p className="mt-1 text-[#6C757D]">Important updates and notices</p>
-        {loading ? (
-          <p className="mt-8 text-sm text-[#6C757D]">Loading announcements…</p>
-        ) : visibleList.length === 0 ? (
-          <p className="font-medium text-center py-5 text-xl text-[#6C757D]">No announcements at the moment.</p>
-        ) : (
-          <div className="mt-8 space-y-4">
-            {visibleList.map((item, i) => {
-              const style = announcementStyles[item.type] ?? announcementStyles.info;
-              const Icon = style.IconComponent;
-              return (
-                <FadeInSection key={item.id} delay={i * 80}>
-                  <article className="flex gap-4 rounded-xl border border-[#E9ECEF] bg-white p-4 shadow-sm">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 bg-white ${style.iconBg}`}>
-                      <Icon className={`h-5 w-5 ${style.icon}`} />
-                    </div>
-                    <div>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${style.pill}`}>
-                        {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-                      </span>
-                      <p className="mt-1 text-xs text-[#6C757D]">{formatDate(item.created_at)}</p>
-                      <h3 className="mt-1 font-semibold text-[#333333]">{item.title}</h3>
-                      <p className="mt-2 text-sm text-[#6C757D]">{item.description}</p>
-                    </div>
-                  </article>
-                </FadeInSection>
-              );
-            })}
-          </div>
-        )}
+        <div className="mt-8 min-h-[28rem]">
+          {loading ? (
+            <p className="py-12 text-sm text-[#6C757D]">Loading announcements…</p>
+          ) : visibleList.length === 0 ? (
+            <p className="font-medium text-center py-12 text-xl text-[#6C757D]">No announcements at the moment.</p>
+          ) : (
+            <div className="space-y-4">
+              {visibleList.map((item, i) => {
+                const style = announcementStyles[item.type] ?? announcementStyles.info;
+                const Icon = style.IconComponent;
+                return (
+                  <FadeInSection key={item.id} delay={i * 80}>
+                    <article className="flex gap-4 rounded-xl border border-[#E9ECEF] bg-white p-4 shadow-sm">
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 bg-white ${style.iconBg}`}>
+                        <Icon className={`h-5 w-5 ${style.icon}`} />
+                      </div>
+                      <div>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${style.pill}`}>
+                          {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+                        </span>
+                        <p className="mt-1 text-xs text-[#6C757D]">{formatDate(item.created_at)}</p>
+                        <h3 className="mt-1 font-semibold text-[#333333]">{item.title}</h3>
+                        <p className="mt-2 text-sm text-[#6C757D]">{item.description}</p>
+                      </div>
+                    </article>
+                  </FadeInSection>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </FadeInSection>
     </section>
   );

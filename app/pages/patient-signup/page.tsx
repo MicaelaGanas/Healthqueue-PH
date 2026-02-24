@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Footer } from '../../components/Footer';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
 
 export default function PatientSignUpPage() {
@@ -86,14 +85,23 @@ export default function PatientSignUpPage() {
     setLoading(false);
   };
 
+  const backgroundImageUrl = 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1920&q=80';
+
   return (
     <>
-      <div className="min-h-[80vh] bg-gray-100 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto relative">
-          <div className="pt-8 px-4 sm:px-6">
+      <div className="relative min-h-screen">
+        <div
+          className="fixed inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
+          style={{ backgroundImage: `url(${backgroundImageUrl})` }}
+          aria-hidden
+        />
+        <div className="fixed inset-0 bg-slate-900/40" aria-hidden />
+
+        <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 sm:px-6">
+          <div className="pt-8">
             <Link
               href="/pages/patient-login"
-              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -102,8 +110,8 @@ export default function PatientSignUpPage() {
             </Link>
           </div>
 
-          <div className="flex items-center justify-center px-4 pb-10 relative z-10">
-            <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-lg">
+          <div className="flex flex-1 items-start justify-center pt-6 pb-10">
+            <div className="w-full max-w-lg rounded-lg bg-white p-8 shadow-lg animate-fade-in-up">
               <div className="flex justify-center mb-6">
                 <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
                   <svg className="w-10 h-10 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -274,7 +282,6 @@ export default function PatientSignUpPage() {
           </div>
         </div>
       </div>
-      <Footer />
     </>
   );
 }

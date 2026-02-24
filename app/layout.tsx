@@ -24,6 +24,11 @@ const rosario = Rosario({
 export const metadata: Metadata = {
   title: "HealthQueue PH | Public Hospital Queue Management System",
   description: "Smart queue management for public hospitals in the Philippines. Check queue, book appointments, and view wait times.",
+  icons: {
+    icon: "/hqlogo.svg",
+    shortcut: "/hqlogo.svg",
+    apple: "/hqlogo.svg",
+  },
 };
 
 

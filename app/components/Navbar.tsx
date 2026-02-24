@@ -266,7 +266,7 @@ export function Navbar() {
     <>
       <header className="sticky top-0 z-50 border-b border-[#E9ECEF] bg-white">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-center px-4 sm:px-6 relative">
-          <div className="absolute left-4 sm:left-6">
+          <div className="absolute left-4 mt-1 sm:left-6 sm:mt-1">
             <Logo />
           </div>
           <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">

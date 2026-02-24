@@ -23,7 +23,7 @@ export function LiveQueue() {
           <div>
             <p className="font-bold text-[#333333]">Wait times are estimates</p>
             <p className="mt-1 text-sm text-[#333333]">
-              Actual wait times may vary based on emergency cases and patient priority. Emergency cases are always prioritized.
+              Actual wait times may vary based on patient volume and priority.
             </p>
           </div>
         </div>

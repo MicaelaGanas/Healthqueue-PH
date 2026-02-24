@@ -1,14 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Footer } from '../../components/Footer';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
+
+const DESKTOP_BREAKPOINT = 1024;
 
 export default function PatientLoginPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'gadget' | 'account'>('gadget');
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT}px)`);
+    const lock = () => {
+      if (mq.matches) {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
+    };
+    lock();
+    mq.addEventListener('change', lock);
+    return () => {
+      mq.removeEventListener('change', lock);
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, []);
   const [gadgetId, setGadgetId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -71,17 +92,25 @@ export default function PatientLoginPage() {
     }
   };
 
+  const backgroundImageUrl = 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1920&q=80';
+
   return (
     <>
-      <div className="min-h-[80vh] bg-gray-100 relative overflow-hidden">
-        {/* Decorative diagonal lines */}
+      <div className="relative min-h-screen overflow-y-auto lg:h-screen lg:max-h-screen lg:overflow-hidden">
+        {/* Fixed full-screen background so it stays steady and fills the viewport */}
+        <div
+          className="fixed inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
+          style={{ backgroundImage: `url(${backgroundImageUrl})` }}
+          aria-hidden
+        />
+        <div className="fixed inset-0 bg-slate-900/40" aria-hidden />
 
-        <div className="max-w-7xl mx-auto relative">
-          {/* Back to Home */}
-          <div className="pt-8 px-4 sm:px-6">
+        <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 sm:px-6">
+          {/* Back to Home - stays top left */}
+          <div className="pt-8">
             <Link 
               href="/" 
-              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors"
             >
               <svg 
                 className="w-5 h-5" 
@@ -100,14 +129,14 @@ export default function PatientLoginPage() {
             </Link>
           </div>
 
-          {/* Main Content */}
-          <div className="flex items-center justify-center px-10 pb-10 relative z-10">
-            <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+          {/* Login card - entrance animation on page load */}
+          <div className="flex flex-1 items-start justify-center pt-6 pb-10">
+            <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg animate-fade-in-up">
             {/* User Icon */}
-            <div className="flex justify-center mb-6">
-                <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
+            <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center">
                 <svg 
-                    className="w-12 h-12 text-gray-600" 
+                    className="w-8 h-8 text-gray-600" 
                     fill="currentColor" 
                     viewBox="0 0 20 20"
                 >
@@ -121,28 +150,28 @@ export default function PatientLoginPage() {
             </div>
 
             {/* Title */}
-            <h1 className="text-3xl font-bold text-center mb-2">Patient Login</h1>
-            <p className="text-gray-600 text-center mb-6">
+            <h1 className="text-2xl font-bold text-center mb-1">Patient Login</h1>
+            <p className="text-gray-600 text-center text-sm mb-4">
                 Access your queue status and appointments
             </p>
 
             {/* Tabs */}
-            <div className="flex border-b border-gray-200 mb-6">
+            <div className="flex border-b border-gray-200 mb-4">
                 <button
-                className={`flex-1 py-3 text-center font-medium transition-colors ${
+                className={`flex-1 py-3 text-center font-medium transition-all duration-200 ease-out ${
                     activeTab === 'gadget'
                     ? 'border-b-2 border-blue-500 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
+                    : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent'
                 }`}
                 onClick={() => setActiveTab('gadget')}
                 >
                 Gadget ID
                 </button>
                 <button
-                className={`flex-1 py-3 text-center font-medium transition-colors ${
+                className={`flex-1 py-3 text-center font-medium transition-all duration-200 ease-out ${
                     activeTab === 'account'
                     ? 'border-b-2 border-blue-500 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
+                    : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent'
                 }`}
                 onClick={() => setActiveTab('account')}
                 >
@@ -150,9 +179,11 @@ export default function PatientLoginPage() {
                 </button>
             </div>
 
+            {/* Tab content area - animation on switch */}
+            <div className="min-h-[200px] overflow-hidden">
             {/* Gadget ID Tab Content */}
             {activeTab === 'gadget' && (
-                <div className="space-y-6">
+                <div key="gadget" className="space-y-6 animate-tab-in">
                 {/* Info Box */}
                 <div className="flex gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex-shrink-0">
@@ -205,7 +236,7 @@ export default function PatientLoginPage() {
 
             {/* Account Tab Content */}
             {activeTab === 'account' && (
-                <form onSubmit={handleAccountLogin} className="space-y-6">
+                <form key="account" onSubmit={handleAccountLogin} className="space-y-6 animate-tab-in">
                 {error && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
                         {error}
@@ -265,10 +296,10 @@ export default function PatientLoginPage() {
                 </form>
             )}
             </div>
+            </div>
         </div>
         </div>
       </div>
-      <Footer/>
     </>
   );
 }
