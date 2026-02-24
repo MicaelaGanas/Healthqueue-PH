@@ -7,17 +7,42 @@ import type { QueueRow } from "../../../context/NurseQueueContext";
 
 const SEVERITY_OPTIONS = ["Select severity", "Mild", "Moderate", "Severe", "Critical"];
 
-/** Today as YYYY-MM-DD for schedule filtering. */
+/** Today as YYYY-MM-DD in local time (so nurse's "today" matches their timezone). */
 function getTodayDateStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
-/** True if this queue row is scheduled for today (appointment date or added date). */
+/** Parse an ISO or YYYY-MM-DD string to local YYYY-MM-DD for comparison. Uses full timestamp when present so local date is correct in all timezones. */
+function toLocalDateStr(isoOrDate?: string | null): string {
+  if (!isoOrDate || typeof isoOrDate !== "string") return "";
+  const s = isoOrDate.trim();
+  // Full ISO timestamp (has time part): parse as instant so local date is correct (e.g. "2026-02-25T23:30:00Z" in UTC+8 → 2026-02-26).
+  if (s.length > 10 || s.includes("T")) {
+    const date = new Date(s);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+  // Date-only YYYY-MM-DD: parse as local noon to avoid UTC-midnight interpretation (which can shift date in eastern timezones).
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const date = new Date(s + "T12:00:00");
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+  const date = new Date(s);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** True if this queue row is scheduled for today (appointment date or added date) in local time. */
 function isScheduledForToday(r: QueueRow): boolean {
   const today = getTodayDateStr();
-  const aptDate = (r.appointmentDate ?? "").trim().slice(0, 10);
-  const addedDate = (r.addedAt ?? "").slice(0, 10);
-  if (aptDate && /^\d{4}-\d{2}-\d{2}$/.test(aptDate)) return aptDate === today;
+  const aptDate = toLocalDateStr(r.appointmentDate ?? null);
+  const addedDate = toLocalDateStr(r.addedAt ?? null);
+  if (aptDate) return aptDate === today;
   return addedDate === today;
 }
 
@@ -42,13 +67,17 @@ function matchPatient(q: string, p: QueuePatient) {
 
 export function VitalSignsForm() {
   const { queueRows, setPatientPriority, confirmedForTriage, clearConfirmedForTriage } = useNurseQueue();
+  // Only today's patients or just-confirmed: need vitals AND (scheduled for today OR in confirmedForTriage). Avoids old patients accumulating.
+  // Include todayDateStr in deps so the list updates when the date changes (e.g. past midnight while component stays mounted).
+  const todayDateStr = getTodayDateStr();
   const queuePatients = useMemo<QueuePatient[]>(() => {
-    // Include rows scheduled for today OR confirmed in Manage bookings (so they appear in triage regardless of date).
     const included = queueRows.filter(
-      (r) => isScheduledForToday(r) || confirmedForTriage.includes(r.ticket)
+      (r) =>
+        r.hasVitals !== true &&
+        (isScheduledForToday(r) || confirmedForTriage.includes(r.ticket))
     );
     return included.map((r) => ({ ticket: r.ticket, patientName: r.patientName, department: r.department }));
-  }, [queueRows, confirmedForTriage]);
+  }, [queueRows, confirmedForTriage, todayDateStr]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -119,9 +148,10 @@ export function VitalSignsForm() {
   const showSearchResults = searchFocused && searchQuery.trim().length >= 0;
   const checkedTickets = new Set(vitalsCompleted.map((r) => r.ticket));
   const uncheckedPatients = queuePatients.filter((p) => !checkedTickets.has(p.ticket));
-  const confirmedRefsNeedingVitals = useMemo(
-    () => confirmedForTriage.filter((t) => queuePatients.some((p) => p.ticket === t) && !checkedTickets.has(t)),
-    [confirmedForTriage, queuePatients, vitalsCompleted]
+  /** Patients in the list who still need vitals (show in green box so they persist after refresh). */
+  const awaitingTriageRefs = useMemo(
+    () => uncheckedPatients.map((p) => p.ticket),
+    [uncheckedPatients]
   );
 
   useEffect(() => {
@@ -136,10 +166,53 @@ export function VitalSignsForm() {
     setSelectedTicket(p.ticket);
     setSearchQuery("");
     setSearchFocused(false);
+    // Reset form fields to default prefilled values
+    setSystolic("");
+    setDiastolic("");
+    setHeartRate("72");
+    setTemperature("36.5");
+    setO2Sat("98");
+    setRespRate("16");
+    setSeverity("");
+    setSaveError("");
   };
 
   const handleSaveVitals = async () => {
-    if (!selectedPatient) return;
+    if (!selectedPatient) {
+      setSaveError("Please select a patient first.");
+      return;
+    }
+    
+    // Validate all required fields
+    if (!systolic.trim()) {
+      setSaveError("Systolic blood pressure is required.");
+      return;
+    }
+    if (!diastolic.trim()) {
+      setSaveError("Diastolic blood pressure is required.");
+      return;
+    }
+    if (!heartRate.trim()) {
+      setSaveError("Heart rate is required.");
+      return;
+    }
+    if (!temperature.trim()) {
+      setSaveError("Temperature is required.");
+      return;
+    }
+    if (!o2Sat.trim()) {
+      setSaveError("O₂ Saturation is required.");
+      return;
+    }
+    if (!respRate.trim()) {
+      setSaveError("Respiratory rate is required.");
+      return;
+    }
+    if (!severity || severity === "Select severity") {
+      setSaveError("Symptom severity is required.");
+      return;
+    }
+    
     setSaveError("");
     setSaving(true);
     const supabase = createSupabaseBrowser();
@@ -165,13 +238,13 @@ export function VitalSignsForm() {
           ticket: selectedPatient.ticket,
           patientName: selectedPatient.patientName,
           department: selectedPatient.department,
-          systolic: systolic.trim() || undefined,
-          diastolic: diastolic.trim() || undefined,
-          heartRate: heartRate.trim() || undefined,
-          temperature: temperature.trim() || undefined,
-          o2Sat: o2Sat.trim() || undefined,
-          respRate: respRate.trim() || undefined,
-          severity: severity && severity !== "Select severity" ? severity : undefined,
+          systolic: systolic.trim(),
+          diastolic: diastolic.trim(),
+          heartRate: heartRate.trim(),
+          temperature: temperature.trim(),
+          o2Sat: o2Sat.trim(),
+          respRate: respRate.trim(),
+          severity: severity,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -194,20 +267,20 @@ export function VitalSignsForm() {
 
   return (
     <div className="space-y-6">
-      {/* Confirmed appointments from Manage bookings */}
-      {confirmedRefsNeedingVitals.length > 0 && (
+      {/* Patients awaiting triage (in queue, vitals not recorded yet — persists after refresh) */}
+      {awaitingTriageRefs.length > 0 && (
         <div className="rounded-lg border border-green-200 bg-green-50 p-4">
           <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-green-800">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Confirmed appointments — need vitals
+            Patients awaiting triage — record vitals
           </h3>
           <p className="mb-2 text-sm text-green-800">
-            These references were confirmed in Manage bookings. Record their vitals below.
+            These patients are in the queue and need their vitals recorded. They will stay in this list after you refresh until vitals are saved.
           </p>
           <div className="flex flex-wrap gap-2">
-            {confirmedRefsNeedingVitals.map((ref) => {
+            {awaitingTriageRefs.map((ref) => {
               const p = queuePatients.find((x) => x.ticket === ref);
               return p ? (
                 <button
@@ -312,22 +385,11 @@ export function VitalSignsForm() {
 
       {/* Section: Record vitals form */}
       <div className="rounded-lg border border-[#e9ecef] bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <svg className="h-5 w-5 text-[#007bff]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-          <h2 className="text-lg font-bold text-[#333333]">Vital Signs & Triage Assessment</h2>
-        </div>
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-lg border border-[#007bff] bg-white px-4 py-2 text-sm font-medium text-[#007bff] hover:bg-[#007bff] hover:text-white"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Auto-Read from Device
-        </button>
+      <div className="mb-4 flex items-center gap-2">
+        <svg className="h-5 w-5 text-[#007bff]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+        <h2 className="text-lg font-bold text-[#333333]">Vital Signs & Triage Assessment</h2>
       </div>
       <div className="mb-4" ref={searchRef}>
         <label className="block text-sm font-medium text-[#333333]">Search patient for vitals</label>
@@ -380,13 +442,16 @@ export function VitalSignsForm() {
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-[#333333]">Blood Pressure (mmHg)</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            Blood Pressure (mmHg) <span className="text-red-600">*</span>
+          </label>
           <div className="mt-1 flex gap-2">
             <input
               type="text"
               value={systolic}
               onChange={(e) => setSystolic(e.target.value)}
               placeholder="Systolic"
+              required
               className="w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
             />
             <input
@@ -394,51 +459,67 @@ export function VitalSignsForm() {
               value={diastolic}
               onChange={(e) => setDiastolic(e.target.value)}
               placeholder="Diastolic"
+              required
               className="w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
             />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#333333]">Heart Rate (bpm)</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            Heart Rate (bpm) <span className="text-red-600">*</span>
+          </label>
           <input
             type="text"
             value={heartRate}
             onChange={(e) => setHeartRate(e.target.value)}
+            required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#333333]">Temperature (°C)</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            Temperature (°C) <span className="text-red-600">*</span>
+          </label>
           <input
             type="text"
             value={temperature}
             onChange={(e) => setTemperature(e.target.value)}
+            required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#333333]">O₂ Saturation (%)</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            O₂ Saturation (%) <span className="text-red-600">*</span>
+          </label>
           <input
             type="text"
             value={o2Sat}
             onChange={(e) => setO2Sat(e.target.value)}
+            required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#333333]">Respiratory Rate (/min)</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            Respiratory Rate (/min) <span className="text-red-600">*</span>
+          </label>
           <input
             type="text"
             value={respRate}
             onChange={(e) => setRespRate(e.target.value)}
+            required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#333333]">Symptom Severity</label>
+          <label className="block text-sm font-medium text-[#333333]">
+            Symptom Severity <span className="text-red-600">*</span>
+          </label>
           <select
             value={severity}
             onChange={(e) => setSeverity(e.target.value)}
+            required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           >
             {SEVERITY_OPTIONS.map((opt) => (

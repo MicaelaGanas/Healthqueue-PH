@@ -2,6 +2,26 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase/server";
 
+/** Format ISO timestamp to YYYY-MM-DD in local time (avoids UTC date shift for UTC+x timezones). */
+function toLocalDateStr(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Today as YYYY-MM-DD in local time (for filtering bookings). */
+function getTodayLocal(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 /**
  * GET /api/queue/status/me
  * Returns the logged-in patient's active queue entry (if any).
@@ -34,18 +54,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayLocal();
 
   const { data: bookings } = await supabase
     .from("booking_requests")
-    .select("reference_no, requested_date, department_id")
+    .select("reference_no, requested_date, department_id, departments(name)")
     .eq("patient_user_id", user.id)
     .eq("status", "confirmed")
     .gte("requested_date", today)
     .order("requested_date", { ascending: true })
     .limit(1);
 
-  const ref = bookings?.[0]?.reference_no;
+  const firstBooking = bookings?.[0] as { reference_no: string; requested_date?: string; departments?: { name: string } | null } | undefined;
+  const ref = firstBooking?.reference_no;
   if (!ref) {
     return NextResponse.json(null);
   }
@@ -59,21 +80,65 @@ export async function GET(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  if (!row) {
-    return NextResponse.json(null);
+
+  // In queue: return live status (if waiting/scheduled and no vitals yet, patient is awaiting_triage). Use same statusMap as /api/queue/status/[number] for consistent API.
+  if (row) {
+    type Row = { ticket: string; status: string; wait_time: string | null; appointment_at: string | null; departments?: { name: string } | null };
+    const r = row as unknown as Row;
+    const appointmentDate = toLocalDateStr(r.appointment_at);
+    const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
+    const raw = (r.status || "").toLowerCase().trim();
+
+    const statusMap: Record<string, string> = {
+      waiting: "waiting",
+      scheduled: "waiting",
+      called: "almost",
+      "in progress": "almost",
+      in_consultation: "proceed",
+      completed: "completed",
+      cancelled: "completed",
+      no_show: "completed",
+    };
+
+    let status: string;
+    if (raw === "waiting" || raw === "scheduled") {
+      const { data: vitalsRow, error: vitalsError } = await supabase
+        .from("vital_signs")
+        .select("ticket")
+        .eq("ticket", r.ticket)
+        .limit(1)
+        .maybeSingle();
+      if (vitalsError) {
+        return NextResponse.json({ error: vitalsError.message }, { status: 500 });
+      }
+      if (!vitalsRow) {
+        status = "awaiting_triage";
+      } else {
+        status = statusMap[raw] ?? "waiting";
+      }
+    } else {
+      status = statusMap[raw] ?? "waiting";
+    }
+
+    return NextResponse.json({
+      queueNumber: r.ticket,
+      department: r.departments?.name ?? "—",
+      status,
+      waitTime: r.wait_time ?? "",
+      appointmentDate,
+      appointmentTime,
+    });
   }
 
-  type Row = { ticket: string; status: string; wait_time: string | null; appointment_at: string | null; departments?: { name: string } | null };
-  const r = row as unknown as Row;
-  const appointmentDate = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null;
-  const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
-
+  // Confirmed booking but not in queue yet (patient should check in at desk)
+  const appointmentDate = firstBooking.requested_date ?? null;
+  const departmentName = firstBooking.departments?.name ?? "—";
   return NextResponse.json({
-    queueNumber: r.ticket,
-    department: r.departments?.name ?? "—",
-    status: r.status,
-    waitTime: r.wait_time ?? "",
+    queueNumber: ref,
+    department: departmentName,
+    status: "confirmed",
+    waitTime: "",
     appointmentDate,
-    appointmentTime,
+    appointmentTime: null,
   });
 }

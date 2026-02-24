@@ -23,6 +23,8 @@ export type QueueRow = {
   assignedDoctor?: string;
   /** Appointment date e.g. "2/4/2026" for Manage bookings filter (booked only). */
   appointmentDate?: string;
+  /** True if vitals have been recorded for this ticket. Booked patients without vitals stay in Vitals & Triage only (Option A). */
+  hasVitals?: boolean;
 };
 
 export type PendingWalkIn = {

@@ -2,14 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
 
 const DESKTOP_BREAKPOINT = 1024;
 
+function isSafeRedirect(path: string | null): path is string {
+  if (!path || typeof path !== 'string') return false;
+  return path.startsWith('/') && !path.startsWith('//');
+}
+
 export default function PatientLoginPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'gadget' | 'account'>('gadget');
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
+  const safeRedirect = isSafeRedirect(redirectParam) ? redirectParam : null;
+  const [activeTab, setActiveTab] = useState<'account'>('account');
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT}px)`);
@@ -30,7 +38,6 @@ export default function PatientLoginPage() {
       document.documentElement.style.overflow = '';
     };
   }, []);
-  const [gadgetId, setGadgetId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -39,8 +46,7 @@ export default function PatientLoginPage() {
   const supabase = createSupabaseBrowser();
 
   const handleAccessDashboard = () => {
-    // For now: redirect to patient dashboard
-    router.push('/pages/patient-dashboard');
+    router.push(safeRedirect ?? '/pages/patient-dashboard');
   };
 
   const handleAccountLogin = async (e: React.FormEvent) => {
@@ -78,7 +84,10 @@ export default function PatientLoginPage() {
 
       if (res.status === 404) {
         // Account verified but no profile row (e.g. signed up with email confirmation). Complete profile.
-        router.push('/pages/patient-complete-profile');
+        const completeUrl = safeRedirect
+          ? `/pages/patient-complete-profile?redirect=${encodeURIComponent(safeRedirect)}`
+          : '/pages/patient-complete-profile';
+        router.push(completeUrl);
         setLoading(false);
         return;
       }
@@ -105,8 +114,8 @@ export default function PatientLoginPage() {
         // Ignore storage errors
       }
 
-      // Success - redirect to dashboard
-      router.push('/pages/patient-dashboard');
+      // Success - redirect to intended page or dashboard
+      router.push(safeRedirect ?? '/pages/patient-dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setLoading(false);
@@ -176,86 +185,8 @@ export default function PatientLoginPage() {
                 Access your queue status and appointments
             </p>
 
-            {/* Tabs */}
-            <div className="flex border-b border-gray-200 mb-4">
-                <button
-                className={`flex-1 py-3 text-center font-medium transition-all duration-200 ease-out ${
-                    activeTab === 'gadget'
-                    ? 'border-b-2 border-blue-500 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent'
-                }`}
-                onClick={() => setActiveTab('gadget')}
-                >
-                Gadget ID
-                </button>
-                <button
-                className={`flex-1 py-3 text-center font-medium transition-all duration-200 ease-out ${
-                    activeTab === 'account'
-                    ? 'border-b-2 border-blue-500 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent'
-                }`}
-                onClick={() => setActiveTab('account')}
-                >
-                Account
-                </button>
-            </div>
-
-            {/* Tab content area - animation on switch */}
+            {/* Account login */}
             <div className="min-h-[200px] overflow-hidden">
-            {/* Gadget ID Tab Content */}
-            {activeTab === 'gadget' && (
-                <div key="gadget" className="space-y-6 animate-tab-in">
-                {/* Info Box */}
-                <div className="flex gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex-shrink-0">
-                    <svg 
-                        className="w-6 h-6 text-gray-600" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                    >
-                        <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" 
-                        />
-                    </svg>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                    Enter the ID shown on your HealthQueue gadget provided at registration.
-                    </p>
-                </div>
-
-                {/* Input Field */}
-                <div>
-                    <label 
-                    htmlFor="gadgetId" 
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                    Gadget ID
-                    </label>
-                    <input
-                    type="text"
-                    id="gadgetId"
-                    value={gadgetId}
-                    onChange={(e) => setGadgetId(e.target.value)}
-                    placeholder="e.g., HQ-2026-00001"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                    />
-                </div>
-
-                {/* Submit Button */}
-                <button
-                    onClick={handleAccessDashboard}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 rounded-lg transition-colors"
-                >
-                    Access Dashboard
-                </button>
-                </div>
-            )}
-
-            {/* Account Tab Content */}
             {activeTab === 'account' && (
                 <form key="account" onSubmit={handleAccountLogin} className="space-y-6 animate-tab-in">
                 {error && (

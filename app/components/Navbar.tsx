@@ -5,7 +5,7 @@ import {useState, useEffect, useRef} from "react";
 import { useRouter } from "next/navigation";
 import { Logo } from "./Logo";
 import {LoginModal} from "./LoginModal";
-import { createSupabaseBrowser } from "../lib/supabase/client";
+import { createSupabaseBrowser, getSessionOrSignOut } from "../lib/supabase/client";
 import { usePatientProfileFromGuard, type PatientProfile } from "./PatientAuthGuard";
 
 const PROFILE_CACHE_KEY = "patient_profile_cache";
@@ -72,8 +72,8 @@ export function Navbar() {
 
     const checkAuth = async () => {
       try {
-        // Quick session check first
-        const { data: { session } } = await supabase.auth.getSession();
+        // Quick session check first (handles invalid refresh token by signing out)
+        const { session } = await getSessionOrSignOut(supabase);
         if (cancelled) return;
 
         if (!session?.access_token) {

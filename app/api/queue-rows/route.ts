@@ -9,7 +9,7 @@ type QueueItemWithJoins = DbQueueItem & {
   staff_users?: { first_name: string; last_name: string } | null;
 };
 
-function toAppRow(r: QueueItemWithJoins) {
+function toAppRow(r: QueueItemWithJoins, hasVitals: boolean) {
   const patientName =
     r.patient_users?.first_name && r.patient_users?.last_name
       ? `${r.patient_users.first_name} ${r.patient_users.last_name}`
@@ -36,6 +36,7 @@ function toAppRow(r: QueueItemWithJoins) {
     appointmentTime: appointmentTime ?? undefined,
     assignedDoctor: assignedDoctor ?? undefined,
     appointmentDate: appointmentDate ?? undefined,
+    hasVitals,
   };
 }
 
@@ -63,12 +64,41 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   const rows = (data ?? []) as unknown as QueueItemWithJoins[];
-  return NextResponse.json(rows.map(toAppRow));
+  const tickets = rows.map((r) => r.ticket).filter(Boolean);
+  const ticketsWithVitals = new Set<string>();
+  if (tickets.length > 0) {
+    const { data: vitals, error: vitalsError } = await supabase
+      .from("vital_signs")
+      .select("ticket")
+      .in("ticket", tickets);
+    if (vitalsError) {
+      return NextResponse.json(
+        { error: `Failed to load vitals: ${vitalsError.message}` },
+        { status: 500 }
+      );
+    }
+    (vitals ?? []).forEach((v: { ticket: string }) => ticketsWithVitals.add(v.ticket));
+  }
+  return NextResponse.json(
+    rows.map((r) => toAppRow(r, ticketsWithVitals.has(r.ticket)))
+  );
 }
 
 async function resolveDepartmentId(supabase: ReturnType<typeof getSupabaseServer>, deptName: string | null | undefined): Promise<string | null> {
   if (!deptName || !supabase) return null;
   const { data } = await supabase.from("departments").select("id").eq("name", deptName.trim()).maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
+/** Resolve booking_request_id for a booked queue row (ticket = reference_no). */
+async function resolveBookingRequestId(supabase: ReturnType<typeof getSupabaseServer>, ticket: string): Promise<string | null> {
+  if (!ticket?.trim() || !supabase) return null;
+  const { data } = await supabase
+    .from("booking_requests")
+    .select("id")
+    .eq("reference_no", ticket.trim())
+    .eq("status", "confirmed")
+    .maybeSingle();
   return (data?.id as string | undefined) ?? null;
 }
 
@@ -113,12 +143,14 @@ export async function PUT(request: Request) {
   const dbRows = await Promise.all(
     rows.map(async (r: Record<string, unknown>) => {
       const source = r.source === "walk-in" ? "walk_in" : (r.source === "booked" ? "booked" : "walk_in");
+      const ticket = String(r.ticket).trim();
       const priority = r.priority === "urgent" ? "urgent" : "normal";
       const deptId = await resolveDepartmentId(supabase, r.department as string | null | undefined);
       if (!deptId) {
         throw new Error(`Department "${r.department}" not found`);
       }
       const doctorId = await resolveDoctorId(supabase, r.assignedDoctor as string | null | undefined);
+      const bookingRequestId = source === "booked" ? await resolveBookingRequestId(supabase, ticket) : null;
       const patientName = String(r.patientName ?? "").trim();
       const { firstName, lastName } = splitPatientName(patientName);
       const appointmentAt =
@@ -131,7 +163,7 @@ export async function PUT(request: Request) {
       const rawStatus = String(r.status ?? "waiting").trim();
       const statusForDb = rawStatus === "no show" ? "no_show" : rawStatus === "in progress" ? "in_consultation" : rawStatus;
       return {
-        ticket: String(r.ticket).trim(),
+        ticket,
         source,
         priority,
         status: statusForDb,
@@ -144,7 +176,7 @@ export async function PUT(request: Request) {
         walk_in_sex: null,
         walk_in_phone: null,
         walk_in_email: null,
-        booking_request_id: null,
+        booking_request_id: bookingRequestId,
         assigned_doctor_id: doctorId,
         appointment_at: appointmentAt,
         added_at: r.addedAt ? new Date(r.addedAt as string).toISOString() : new Date().toISOString(),
@@ -158,5 +190,33 @@ export async function PUT(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // When a booked patient is rescheduled (new date/time in queue), update booking_requests so the appointment shows the new time everywhere (Booked queue, patient dashboard).
+  for (const r of rows as Record<string, unknown>[]) {
+    const source = r.source === "walk-in" ? "walk_in" : (r.source === "booked" ? "booked" : "walk_in");
+    const ticket = String(r.ticket).trim();
+    const appointmentDate = r.appointmentDate as string | number | undefined;
+    const appointmentTime = r.appointmentTime as string | number | undefined;
+    if (source !== "booked" || appointmentDate == null || appointmentTime == null) continue;
+    const dateStr = String(appointmentDate).trim().slice(0, 10);
+    let timeStr = String(appointmentTime).trim();
+    if (timeStr.includes(":")) {
+      const [h, m] = timeStr.split(":");
+      timeStr = `${String(Number(h)).padStart(2, "0")}:${String(Number(m) || 0).padStart(2, "0")}`;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !/^\d{2}:\d{2}$/.test(timeStr)) continue;
+    const { error: updateError } = await supabase
+      .from("booking_requests")
+      .update({ requested_date: dateStr, requested_time: timeStr })
+      .eq("reference_no", ticket)
+      .eq("status", "confirmed");
+    if (updateError) {
+      return NextResponse.json(
+        { error: `Failed to sync reschedule to appointment: ${updateError.message}` },
+        { status: 500 }
+      );
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }

@@ -23,7 +23,7 @@ The app supports both **booked** and **walk-in** flows; queue and bookings stay 
 |------|----------|
 | **Public** | Book appointment (step 1–3), queue status lookup by ticket/reference |
 | **Staff login** | Email/password (Supabase Auth), role-based redirect (nurse, doctor, admin) |
-| **Nurse dashboard** | Registration (walk-in + IoT gadget assignment), Vitals & Triage, Queue Management, Laboratory Admin, Appointments, Alerts, Settings |
+| **Nurse dashboard** | Registration (walk-in + scan patient QR for live queue status), Vitals & Triage, Queue Management, Laboratory Admin, Appointments, Alerts, Settings |
 | **Doctor dashboard** | Consultation queue (filter by doctor), Laboratory (review/release results), Start consult / Complete |
 | **Laboratory dashboard** | Dedicated lab view: Specimens (search, filter, status workflow), Settings; shared data with nurse/doctor lab tabs |
 | **Admin dashboard** | User management (CRUD, activate/deactivate), Reports (date range, export), Records (consultations + bookings), Settings |

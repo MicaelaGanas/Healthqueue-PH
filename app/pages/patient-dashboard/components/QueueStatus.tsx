@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createSupabaseBrowser } from "../../../lib/supabase/client";
 import Link from "next/link";
+import { QueueStatusQRCode } from "../../../components/QueueStatusQRCode";
 import type { AppointmentForQueue } from "../page";
 
 type QueueStatusData = {
@@ -42,6 +43,8 @@ function formatDate(ymd?: string | null): string {
 
 function statusLabel(status: string): string {
   const labels: Record<string, string> = {
+    confirmed: "Confirmed — check in when you arrive",
+    awaiting_triage: "Triage & vitals — please proceed to triage",
     waiting: "Waiting",
     scheduled: "Scheduled",
     called: "Called",
@@ -71,9 +74,10 @@ function getCurrentStepIndex(status: string): number {
   if (s === "completed" || s === "done") return QUEUE_FLOW_STEPS.length - 1; // Done
   if (s === "in progress" || s === "in_consultation" || s === "proceed") return 5; // With doctor
   if (s === "called" || s === "almost") return 4; // Called
-  if (s === "waiting") return 3; // In queue
-  if (s === "scheduled") return 2; // Triage or check-in
-  return 1; // Default: check-in (assume they're in the system)
+  if (s === "waiting" || s === "scheduled") return 3; // In queue (vitals already done)
+  if (s === "awaiting_triage") return 2; // In queue but vitals not recorded yet — triage current
+  if (s === "confirmed") return 0; // Appointment confirmed; not in queue yet — check in at desk
+  return 1; // Default: check-in
 }
 
 function QueueFlowProgress({ currentStepIndex }: { currentStepIndex: number }) {
@@ -89,35 +93,35 @@ function QueueFlowProgress({ currentStepIndex }: { currentStepIndex: number }) {
       : 0;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm" aria-label="Queue progress">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md ring-1 ring-black/5 sm:p-8" aria-label="Queue progress">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-lg font-bold text-[#333333]">Your queue progress</h3>
-        <span className="text-sm font-medium text-[#333333]">
+        <h3 className="text-lg font-bold text-slate-800">Your queue progress</h3>
+        <span className="text-sm font-medium text-slate-500">
           Step {Math.min(currentStepIndex + 1, QUEUE_FLOW_STEPS.length)} of {QUEUE_FLOW_STEPS.length}
         </span>
       </div>
-      <div className="mb-5 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+      <div className="mb-6 h-2 w-full overflow-hidden rounded-full bg-slate-100">
         <div
           className="h-full rounded-full bg-[#007bff] transition-[width] duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
-      <ul className="divide-y divide-gray-200">
+      <ul className="divide-y divide-slate-100">
         {QUEUE_FLOW_STEPS.map((step, index) => {
           const status = getStatus(index);
           return (
-            <li key={step.id} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
+            <li key={step.id} className="flex items-start gap-4 py-4 first:pt-0 last:pb-0">
               <div
-                className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full ${
+                className={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${
                   status === "completed"
                     ? "bg-emerald-500 text-white"
                     : status === "current"
                       ? "bg-[#007bff] text-white"
-                      : "bg-gray-300 text-gray-500"
+                      : "bg-slate-200 text-slate-400"
                 }`}
               >
                 {status === "completed" ? (
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 ) : (
@@ -127,25 +131,25 @@ function QueueFlowProgress({ currentStepIndex }: { currentStepIndex: number }) {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`font-bold ${
+                    className={`font-semibold ${
                       status === "completed"
-                        ? "text-[#333333]"
+                        ? "text-slate-700"
                         : status === "current"
                           ? "text-[#007bff]"
-                          : "text-gray-500"
+                          : "text-slate-400"
                     }`}
                   >
                     {step.title}
                   </span>
                   {status === "current" && (
-                    <span className="rounded-full bg-[#007bff] px-2 py-0.5 text-xs font-medium text-white">
+                    <span className="rounded-full bg-[#007bff] px-2.5 py-0.5 text-xs font-medium text-white">
                       Current
                     </span>
                   )}
                 </div>
                 <p
                   className={`mt-0.5 text-sm ${
-                    status === "completed" ? "text-[#333333]" : status === "current" ? "text-[#007bff]" : "text-gray-500"
+                    status === "completed" ? "text-slate-600" : status === "current" ? "text-[#007bff]" : "text-slate-400"
                   }`}
                 >
                   {step.description}
@@ -353,7 +357,7 @@ export function QueueStatus({ selectedAppointment = null, onClearSelection }: Qu
   }
 
   return (
-    <div className="bg-white rounded-b-lg shadow-sm p-8 space-y-6">
+    <div className="rounded-b-lg bg-white p-6 shadow-sm sm:p-8 space-y-6">
       {selectedAppointment && onClearSelection && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-gray-600">
@@ -368,44 +372,68 @@ export function QueueStatus({ selectedAppointment = null, onClearSelection }: Qu
           </button>
         </div>
       )}
-      <div className="bg-gray-50 p-8 rounded-lg">
-        <p className="text-sm text-gray-600">Your Queue Number</p>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-5xl font-bold text-[#333333]">{data.queueNumber}</h2>
-            <p className="text-gray-600">{data.department}</p>
-            {(data.appointmentDate || data.appointmentTime) && (
-              <p className="mt-1 text-sm text-gray-500">
-                {formatDate(data.appointmentDate)}
-                {data.appointmentTime ? ` · ${formatTime(data.appointmentTime)}` : ""}
-              </p>
-            )}
+
+      {/* Ticket-style card: QR left, details right */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-lg ring-1 ring-black/5">
+        <div className="flex flex-col sm:flex-row min-h-0">
+          {/* Left: QR stub */}
+          <div className="flex shrink-0 flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 px-6 py-8 sm:w-56 sm:border-r border-slate-200/80">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Show at clinic</p>
+            <QueueStatusQRCode referenceNo={data.queueNumber} size={160} showDownload className="shrink-0" />
           </div>
-          <div className="text-right flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center rounded-full border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-[#333333]">
+
+          {/* Right: queue details */}
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-4 p-6 sm:p-8">
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Queue number</p>
+              <h2 className="font-mono text-3xl font-bold tracking-tight text-slate-800 sm:text-4xl">
+                {data.queueNumber}
+              </h2>
+              <p className="text-base font-medium text-slate-600">{data.department}</p>
+              {(data.appointmentDate || data.appointmentTime) && (
+                <p className="text-sm text-slate-500">
+                  {formatDate(data.appointmentDate)}
+                  {data.appointmentTime ? ` · ${formatTime(data.appointmentTime)}` : ""}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700">
                 {statusLabel(data.status)}
               </span>
-              <button
-                type="button"
-                onClick={() => refetchQueueStatus(true)}
-                className="rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                title="Refresh status"
-              >
-                Refresh
-              </button>
+              <div className="flex items-center gap-2">
+                {data.waitTime && (
+                  <span className="text-sm font-semibold text-[#007bff]">~{data.waitTime}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => refetchQueueStatus(true)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+                  title="Refresh status"
+                >
+                  Refresh
+                </button>
+              </div>
             </div>
-            {data.waitTime && (
-              <p className="text-lg font-semibold text-[#007bff]">Estimate: {data.waitTime}</p>
-            )}
           </div>
         </div>
       </div>
-      <p className="text-sm text-gray-500">
-        Please wait until your number is called. Check the appointments tab for your booking details.
-      </p>
 
-      {/* Flowchart-aligned navigation: current steps and progress */}
+      {/* Status message */}
+      {String(data.status).toLowerCase() === "confirmed" ? (
+        <p className="text-sm font-medium text-[#007bff]">
+          Your appointment is confirmed. Please check in at the desk when you arrive. Your queue status will update once you’re checked in.
+        </p>
+      ) : String(data.status).toLowerCase() === "awaiting_triage" ? (
+        <p className="text-sm font-medium text-[#007bff]">
+          You’re checked in. Please proceed to triage for your vital signs. Your queue position will update once vitals are recorded.
+        </p>
+      ) : (
+        <p className="text-sm text-slate-500">
+          Please wait until your number is called. Check the appointments tab for your booking details.
+        </p>
+      )}
+
       <QueueFlowProgress currentStepIndex={getCurrentStepIndex(data.status)} />
     </div>
   );
