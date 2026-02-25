@@ -9,10 +9,14 @@ type Props = {
   date: string;
   time: string;
   preferredDoctor?: string;
+  age?: string;
+  sex?: string;
 };
 
 const rows: { key: keyof Props; label: string }[] = [
   { key: "name", label: "Name" },
+  { key: "age", label: "Age" },
+  { key: "sex", label: "Sex" },
   { key: "phone", label: "Phone" },
   { key: "email", label: "Email" },
   { key: "department", label: "Department" },
@@ -30,9 +34,13 @@ export function ConfirmationDetails({
   date,
   time,
   preferredDoctor,
+  age = "—",
+  sex = "—",
 }: Props) {
   const values: Record<string, string> = {
     name,
+    age: age || "—",
+    sex: sex || "—",
     phone,
     email: email || "—",
     department: department || "—",

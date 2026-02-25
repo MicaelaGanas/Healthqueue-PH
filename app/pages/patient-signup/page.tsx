@@ -6,6 +6,27 @@ import { useRouter } from 'next/navigation';
 import { createSupabaseBrowser } from '../../lib/supabase/client';
 
 const OTP_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 8;
+
+const PASSWORD_RULES = [
+  { id: 'length', label: `At least ${MIN_PASSWORD_LENGTH} characters`, test: (p: string) => p.length >= MIN_PASSWORD_LENGTH },
+  { id: 'lower', label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { id: 'upper', label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { id: 'number', label: 'One number', test: (p: string) => /\d/.test(p) },
+  { id: 'special', label: 'One special character (!@#$%^&* etc.)', test: (p: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
+] as const;
+
+function getPasswordRequirements(password: string) {
+  return PASSWORD_RULES.map((rule) => ({ ...rule, met: rule.test(password) }));
+}
+
+function getPasswordStrength(password: string): 'weak' | 'fair' | 'strong' | 'none' {
+  if (!password.length) return 'none';
+  const met = getPasswordRequirements(password).filter((r) => r.met).length;
+  if (met < 3) return 'weak';
+  if (met < 5) return 'fair';
+  return 'strong';
+}
 
 export default function PatientSignUpPage() {
   const router = useRouter();
@@ -17,6 +38,7 @@ export default function PatientSignUpPage() {
   const [form, setForm] = useState({
     email: '',
     password: '',
+    confirm_password: '',
     first_name: '',
     last_name: '',
     date_of_birth: '',
@@ -58,10 +80,23 @@ export default function PatientSignUpPage() {
     }
   };
 
+  const passwordsMismatch = form.password.length > 0 && form.confirm_password.length > 0 && form.password !== form.confirm_password;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) {
       setError('Sign up is not configured. Please set up Supabase.');
+      return;
+    }
+    if (form.password !== form.confirm_password) {
+      setError('Unable to sign up. Passwords do not match.');
+      return;
+    }
+    const requirements = getPasswordRequirements(form.password);
+    const allMet = requirements.every((r) => r.met);
+    if (!allMet) {
+      const missing = requirements.filter((r) => !r.met).map((r) => r.label);
+      setError(`Please create a stronger password. Missing: ${missing.join('; ')}.`);
       return;
     }
     setError('');
@@ -290,10 +325,79 @@ export default function PatientSignUpPage() {
                     value={form.password}
                     onChange={handleChange}
                     placeholder="••••••••"
-                    minLength={6}
+                    minLength={MIN_PASSWORD_LENGTH}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    required
+                    aria-describedby="password-requirements"
+                  />
+                  <div id="password-requirements" className="mt-2 space-y-1.5" aria-live="polite">
+                    {form.password.length > 0 && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-600">Strength:</span>
+                          <span
+                            className={`text-xs font-medium ${
+                              getPasswordStrength(form.password) === 'strong'
+                                ? 'text-green-600'
+                                : getPasswordStrength(form.password) === 'fair'
+                                  ? 'text-amber-600'
+                                  : getPasswordStrength(form.password) === 'weak'
+                                    ? 'text-red-600'
+                                    : 'text-gray-500'
+                            }`}
+                          >
+                            {getPasswordStrength(form.password) === 'none'
+                              ? ''
+                              : getPasswordStrength(form.password).charAt(0).toUpperCase() +
+                                getPasswordStrength(form.password).slice(1)}
+                          </span>
+                          {getPasswordStrength(form.password) !== 'none' && (
+                            <div className="flex-1 h-1.5 rounded-full bg-gray-200 overflow-hidden max-w-[80px]">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  getPasswordStrength(form.password) === 'strong'
+                                    ? 'w-full bg-green-500'
+                                    : getPasswordStrength(form.password) === 'fair'
+                                      ? 'w-2/3 bg-amber-500'
+                                      : 'w-1/3 bg-red-500'
+                                }`}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <ul className="text-xs text-gray-600 space-y-0.5">
+                          {getPasswordRequirements(form.password).map(({ id, label, met }) => (
+                            <li key={id} className="flex items-center gap-2">
+                              {met ? (
+                                <span className="text-green-600" aria-hidden>✓</span>
+                              ) : (
+                                <span className="text-gray-400" aria-hidden>○</span>
+                              )}
+                              <span className={met ? 'text-green-700' : 'text-gray-500'}>{label}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm Password
+                  </label>
+                  <input
+                    type="password"
+                    id="confirm_password"
+                    name="confirm_password"
+                    value={form.confirm_password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    minLength={MIN_PASSWORD_LENGTH}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                     required
                   />
+                  {passwordsMismatch && <p className="text-sm text-red-600 mt-1 p-2 rounded">Passwords do not match</p>}
                 </div>
 
                 <div>
