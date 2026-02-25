@@ -32,7 +32,7 @@ export function StaffProfileModal({ isOpen, onClose, onProfileUpdated }: StaffPr
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarVersion, setAvatarVersion] = useState(0);
+  const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -49,6 +49,7 @@ export function StaffProfileModal({ isOpen, onClose, onProfileUpdated }: StaffPr
       if (!res.ok) throw new Error(data.error || "Failed to load profile.");
       setProfile(data);
       setAvatarUrl(data.avatar_url ?? null);
+      setAvatarVersion(Date.now());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load profile.");
     } finally {

@@ -70,6 +70,7 @@ export async function POST(request: Request) {
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const safeExt = ["jpeg", "jpg", "png", "gif", "webp"].includes(ext) ? ext : "jpg";
   const path = `${prefix}_${user.id}.${safeExt}`;
+  const fileBaseName = `${prefix}_${user.id}`;
 
   try {
     const { data: buckets } = await supabase.storage.listBuckets();
@@ -79,6 +80,22 @@ export async function POST(request: Request) {
     }
   } catch (createErr) {
     // Bucket may already exist or name taken; try upload anyway
+  }
+
+  try {
+    const { data: existingFiles } = await supabase.storage
+      .from(AVATARS_BUCKET)
+      .list("", { limit: 100, search: fileBaseName });
+
+    const oldPaths = (existingFiles ?? [])
+      .map((entry) => entry.name)
+      .filter((name) => name === path || name.startsWith(`${fileBaseName}.`));
+
+    if (oldPaths.length > 0) {
+      await supabase.storage.from(AVATARS_BUCKET).remove(oldPaths);
+    }
+  } catch {
+    // Ignore cleanup errors and continue with upload.
   }
 
   const { data, error } = await supabase.storage

@@ -41,7 +41,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarVersion, setAvatarVersion] = useState(0);
+  const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -61,6 +61,7 @@ export default function ProfilePage() {
         setProfile(data);
         setForm({ ...data });
         setAvatarUrl(data.avatar_url ?? null);
+        setAvatarVersion(Date.now());
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load profile.");
       } finally {
