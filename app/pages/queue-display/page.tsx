@@ -27,6 +27,36 @@ function formatVoiceTicket(ticket: string): string {
   return ticket.replace(/-/g, " ");
 }
 
+function pickPreferredVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  if (!voices.length) return null;
+  const femaleHints = [
+    "female",
+    "zira",
+    "samantha",
+    "karen",
+    "hazel",
+    "aria",
+    "jenny",
+    "joanna",
+    "serena",
+    "michelle",
+    "linda",
+    "eva",
+    "catherine",
+    "anna",
+  ];
+
+  const englishVoices = voices.filter((voice) => voice.lang.toLowerCase().startsWith("en"));
+  const femaleEnglish = englishVoices.find((voice) => {
+    const name = voice.name.toLowerCase();
+    return femaleHints.some((hint) => name.includes(hint));
+  });
+  if (femaleEnglish) return femaleEnglish;
+
+  if (englishVoices.length > 0) return englishVoices[0];
+  return voices[0];
+}
+
 function QueueDisplayClient() {
   const params = useSearchParams();
   const department = (params.get("department") ?? "").trim();
@@ -108,10 +138,12 @@ function QueueDisplayClient() {
     if (previous === current) return;
     previousNowServingRef.current = current;
 
-    const text = `Next patient ${formatVoiceTicket(current)}, please proceed to ${data.doctorOnDuty ?? "the doctor"}, ${data.department}.`;
+    const text = `Next patient ${formatVoiceTicket(current)}, please proceed to ${data.doctorOnDuty ?? `${data.department} consultation desk`}.`;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "en-PH";
     utterance.rate = 0.95;
+    const preferredVoice = pickPreferredVoice(window.speechSynthesis.getVoices());
+    if (preferredVoice) utterance.voice = preferredVoice;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   }, [data, voiceEnabled]);
@@ -155,7 +187,7 @@ function QueueDisplayClient() {
           </div>
         </div>
         <div className="mt-5 grid gap-3 text-lg text-[#6C757D] sm:grid-cols-3">
-          <div className="rounded-xl bg-[#f8f9fa] px-5 py-4">Doctor: <strong className="text-xl text-[#333333]">{data?.doctorOnDuty ?? "On duty"}</strong></div>
+          <div className="rounded-xl bg-[#f8f9fa] px-5 py-4">Doctor: <strong className="text-xl text-[#333333]">{data?.doctorOnDuty ?? "No doctor on duty yet"}</strong></div>
           <div className="rounded-xl bg-[#f8f9fa] px-5 py-4">Waiting: <strong className="text-xl text-[#333333]">{data?.waitingCount ?? 0}</strong></div>
           <div className="rounded-xl bg-[#f8f9fa] px-5 py-4">Updated: <strong className="text-xl text-[#333333]">{formatUpdateTime(data?.updatedAt ?? null)}</strong></div>
         </div>
@@ -178,13 +210,13 @@ function QueueDisplayClient() {
           <div className="grid gap-4 lg:grid-cols-2">
             <article className="rounded-2xl border border-[#e9ecef] bg-white p-6 shadow-sm sm:p-10">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#28a745]">Now Serving</p>
-              <p className="mt-2 text-5xl font-extrabold text-[#333333] sm:text-7xl">{data.nowServing?.ticket ?? "—"}</p>
+              <p className="mt-2 text-4xl font-extrabold text-[#333333] sm:text-6xl">{data.nowServing?.ticket ?? "—"}</p>
               <p className="mt-2 text-sm text-[#6C757D]">Status: {data.nowServing?.status ?? "Waiting"}</p>
             </article>
 
             <article className="rounded-2xl border border-[#e9ecef] bg-white p-6 shadow-sm sm:p-10">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#007bff]">Next Patient</p>
-              <p className="mt-2 text-5xl font-extrabold text-[#333333] sm:text-7xl">{data.nextUp?.ticket ?? "—"}</p>
+              <p className="mt-2 text-4xl font-extrabold text-[#333333] sm:text-6xl">{data.nextUp?.ticket ?? "—"}</p>
               <p className="mt-2 text-sm text-[#6C757D]">Estimated wait: {data.nextUp?.estimatedWait ?? "—"}</p>
             </article>
 
