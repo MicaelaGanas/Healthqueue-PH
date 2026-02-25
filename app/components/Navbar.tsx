@@ -4,7 +4,8 @@ import Link from "next/link";
 import {useState, useEffect, useRef} from "react";
 import { useRouter } from "next/navigation";
 import { Logo } from "./Logo";
-import {LoginModal} from "./LoginModal";
+import { LoginModal } from "./LoginModal";
+import { ProfileAvatar } from "./ProfileAvatar";
 import { createSupabaseBrowser, getSessionOrSignOut } from "../lib/supabase/client";
 import { usePatientProfileFromGuard, type PatientProfile } from "./PatientAuthGuard";
 
@@ -25,7 +26,7 @@ export function Navbar() {
   // Returns null if not inside PatientAuthGuard provider
   const profileFromGuard = usePatientProfileFromGuard();
 
-  // Helper to update profile and cache
+  // Helper to update profile and cache (clearing both keys on logout so login always fetches fresh profile)
   const updateProfile = (newProfile: PatientProfile | null) => {
     setProfile(newProfile);
     if (typeof window !== "undefined") {
@@ -34,31 +35,35 @@ export function Navbar() {
         sessionStorage.setItem(USER_TYPE_CACHE_KEY, "patient");
       } else {
         sessionStorage.removeItem(PROFILE_CACHE_KEY);
+        sessionStorage.removeItem(USER_TYPE_CACHE_KEY);
       }
     }
   };
 
   useEffect(() => {
-    // If we have profile from guard, use it immediately - no API call needed!
+    // If we have profile from guard, use it but prefer cached avatar_url (user may have updated photo on profile page)
     if (profileFromGuard) {
-      updateProfile(profileFromGuard);
+      let merged = profileFromGuard;
+      if (typeof window !== "undefined") {
+        try {
+          const raw = sessionStorage.getItem(PROFILE_CACHE_KEY);
+          if (raw) {
+            const cached = JSON.parse(raw) as PatientProfile;
+            if (cached?.id === profileFromGuard.id) {
+              merged = {
+                ...profileFromGuard,
+                avatar_url: cached.avatar_url ?? profileFromGuard.avatar_url,
+                _avatarUpdatedAt: cached._avatarUpdatedAt ?? profileFromGuard._avatarUpdatedAt,
+              };
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      updateProfile(merged);
       setIsLoading(false);
       return;
-    }
-
-    // Restore from cache synchronously so login/profile shows on first client paint
-    // (avoids flash of empty placeholder then button appearing after async auth)
-    if (typeof window !== "undefined") {
-      try {
-        const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached) as PatientProfile;
-          setProfile(parsed);
-          setIsLoading(false);
-        }
-      } catch {
-        // Ignore cache errors, fall through to session check
-      }
     }
 
     // Only fetch if not inside PatientAuthGuard (e.g., on landing page)
@@ -102,13 +107,6 @@ export function Navbar() {
           }
         }
 
-        // If we have valid session + cached patient profile, trust cache (no API calls)
-        if (cachedUserType === "patient" && cachedProfile) {
-          updateProfile(cachedProfile);
-          setIsLoading(false);
-          return;
-        }
-
         // If we know user is staff from cache, skip patient check (no 404!)
         if (cachedUserType === "staff") {
           updateProfile(null);
@@ -127,7 +125,7 @@ export function Navbar() {
         }
 
         if (res.ok) {
-          // User is a patient - cache this info and update profile
+          // User is a patient - cache this info and update profile (include avatar so it shows after login)
           if (typeof window !== "undefined") {
             try {
               sessionStorage.setItem(USER_TYPE_CACHE_KEY, "patient");
@@ -137,11 +135,14 @@ export function Navbar() {
           }
           const data = await res.json();
           if (!cancelled) {
+            const now = Date.now();
             updateProfile({
               id: data.id,
               email: data.email,
               first_name: data.first_name,
               last_name: data.last_name,
+              avatar_url: data.avatar_url ?? null,
+              _avatarUpdatedAt: now,
             });
           }
           setIsLoading(false);
@@ -210,9 +211,10 @@ export function Navbar() {
           }
           setIsLoading(false);
         } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          // Clear cache on sign in to re-check user type
+          // Clear all profile/user-type cache so we always fetch fresh data after login (avoids old avatar/profile)
           if (typeof window !== "undefined") {
             try {
+              sessionStorage.removeItem(PROFILE_CACHE_KEY);
               sessionStorage.removeItem(USER_TYPE_CACHE_KEY);
             } catch {
               // Ignore cache errors
@@ -229,6 +231,16 @@ export function Navbar() {
       subscription.unsubscribe();
     };
   }, [profileFromGuard]);
+
+  // When patient updates profile (e.g. avatar) on profile page, update navbar immediately
+  useEffect(() => {
+    const handleProfileUpdated = (e: Event) => {
+      const next = (e as CustomEvent<PatientProfile>).detail;
+      if (next?.id) updateProfile(next);
+    };
+    window.addEventListener("patient-profile-updated", handleProfileUpdated);
+    return () => window.removeEventListener("patient-profile-updated", handleProfileUpdated);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -286,9 +298,7 @@ export function Navbar() {
               // so the navbar never flashes empty (avoids "button disappears then appears")
               profile ? (
                 <div className="flex items-center gap-2 px-2 py-1">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-semibold shadow-sm">
-                    {profile.first_name.charAt(0).toUpperCase()}
-                  </div>
+                  <ProfileAvatar avatarUrl={profile.avatar_url} firstName={profile.first_name} lastName={profile.last_name} size="sm" imageKey={profile._avatarUpdatedAt} />
                   <span className="text-sm font-medium text-[#333333] hidden sm:inline">
                     {profile.first_name} {profile.last_name}
                   </span>
@@ -307,15 +317,26 @@ export function Navbar() {
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer"
                 >
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-semibold shadow-sm">
-                    {profile.first_name.charAt(0).toUpperCase()}
-                  </div>
+                  <ProfileAvatar avatarUrl={profile.avatar_url} firstName={profile.first_name} lastName={profile.last_name} size="sm" imageKey={profile._avatarUpdatedAt} />
                   <span className="text-sm font-medium text-[#333333] hidden sm:inline">
                     {profile.first_name} {profile.last_name}
                   </span>
                 </button>
                 {isDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-[#E9ECEF] py-1 z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-[#E9ECEF] py-1 z-50">
+                    {/* Profile section */}
+                    <Link
+                      href="/pages/profile"
+                      onClick={() => setIsDropdownOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] rounded-t-lg transition-colors cursor-pointer border-b border-[#E9ECEF]"
+                    >
+                      <ProfileAvatar avatarUrl={profile.avatar_url} firstName={profile.first_name} lastName={profile.last_name} size="md" imageKey={profile._avatarUpdatedAt} />
+                      <div className="flex flex-col">
+                        <span className="font-medium text-[#333333] text-sm">{profile.first_name} {profile.last_name}</span>
+                        <span className="text-xs text-[#888888]">View Profile</span>
+                      </div>
+                    </Link>
+                    {/* Dashboard link */}
                     <Link
                       href="/pages/patient-dashboard"
                       onClick={() => setIsDropdownOpen(false)}
@@ -336,6 +357,7 @@ export function Navbar() {
                       </svg>
                       Dashboard
                     </Link>
+                    {/* Logout button */}
                     <button
                       onClick={handleLogout}
                       className="w-full text-left px-4 py-2 text-sm text-[#333333] hover:bg-[#F5F5F5] transition-colors flex items-center gap-2"

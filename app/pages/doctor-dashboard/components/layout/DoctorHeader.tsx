@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { ROLE_LABELS, type StaffRole } from "../../../../lib/api/auth";
+import { ProfileAvatar } from "../../../../components/ProfileAvatar";
+import { StaffProfileModal } from "../../../../components/StaffProfileModal";
 
 type PendingNotification = {
   id: string;
@@ -14,21 +16,15 @@ type PendingNotification = {
   createdAt: string;
 };
 
-function initials(name: string | null, email: string): string {
-  if (name && name.trim()) {
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    return name.slice(0, 2).toUpperCase();
-  }
-  const local = email.split("@")[0] || "";
-  return local.slice(0, 2).toUpperCase() || "?";
-}
-
 export function DoctorHeader() {
   const [name, setName] = useState<string | null>(null);
   const [role, setRole] = useState<StaffRole | null>(null);
   const [email, setEmail] = useState<string>("");
-  const [initialsStr, setInitialsStr] = useState("??");
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUpdatedAt, setAvatarUpdatedAt] = useState(0);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [pendingNotifications, setPendingNotifications] = useState<PendingNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
@@ -41,15 +37,17 @@ export function DoctorHeader() {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (cancelled || !session?.access_token) return;
-      const res = await fetch("/api/auth/me", { headers: { Authorization: `Bearer ${session.access_token}` } });
+      const res = await fetch("/api/staff-profile", { headers: { Authorization: `Bearer ${session.access_token}` } });
       if (cancelled || !res.ok) return;
       const body = await res.json().catch(() => ({}));
       const r = body.role in ROLE_LABELS ? (body.role as StaffRole) : null;
-      const em = body.email ?? "";
       setName(body.name ?? null);
       setRole(r);
-      setEmail(em);
-      setInitialsStr(initials(body.name ?? null, em));
+      setEmail(body.email ?? "");
+      setFirstName(body.first_name ?? "");
+      setLastName(body.last_name ?? "");
+      setAvatarUrl(body.avatar_url ?? null);
+      setAvatarUpdatedAt(Date.now());
     })();
     return () => { cancelled = true; };
   }, []);
@@ -182,11 +180,20 @@ export function DoctorHeader() {
           )}
         </div>
         <div className="h-8 w-px shrink-0 bg-[#e9ecef]" aria-hidden />
-        <div className="flex items-center gap-3 pl-2 sm:pl-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#007bff] text-sm font-bold text-white">
-            {initialsStr}
-          </div>
-          <div className="min-w-0 max-w-[140px] sm:max-w-[180px]">
+        <button
+          type="button"
+          onClick={() => setProfileModalOpen(true)}
+          className="flex items-center gap-3 pl-2 sm:pl-3 rounded-lg hover:bg-[#f8f9fa] transition-colors cursor-pointer"
+          aria-label="Open profile"
+        >
+          <ProfileAvatar
+            avatarUrl={avatarUrl}
+            firstName={firstName || name || "Doctor"}
+            lastName={lastName}
+            size="sm"
+            imageKey={avatarUpdatedAt}
+          />
+          <div className="min-w-0 max-w-[140px] sm:max-w-[180px] text-left">
             <p className="truncate text-sm font-medium leading-tight text-[#333333]">
               {displayName}
             </p>
@@ -194,8 +201,16 @@ export function DoctorHeader() {
               {roleLabel}
             </p>
           </div>
-        </div>
+        </button>
       </div>
+      <StaffProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        onProfileUpdated={(url, updatedAt) => {
+          setAvatarUrl(url);
+          if (updatedAt != null) setAvatarUpdatedAt(updatedAt);
+        }}
+      />
     </header>
   );
 }
