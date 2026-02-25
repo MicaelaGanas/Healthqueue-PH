@@ -33,6 +33,7 @@ export default function PatientSignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState<'form' | 'otp'>('form');
+  const [formStep, setFormStep] = useState<1 | 2>(1);
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [form, setForm] = useState({
@@ -82,23 +83,74 @@ export default function PatientSignUpPage() {
 
   const passwordsMismatch = form.password.length > 0 && form.confirm_password.length > 0 && form.password !== form.confirm_password;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) {
-      setError('Sign up is not configured. Please set up Supabase.');
-      return;
+  const validateAccountStep = () => {
+    if (!form.email.trim()) {
+      setError('Please enter your email.');
+      return false;
+    }
+    if (!form.password || !form.confirm_password) {
+      setError('Please enter and confirm your password.');
+      return false;
     }
     if (form.password !== form.confirm_password) {
-      setError('Unable to sign up. Passwords do not match.');
-      return;
+      setError('Unable to continue. Passwords do not match.');
+      return false;
     }
     const requirements = getPasswordRequirements(form.password);
     const allMet = requirements.every((r) => r.met);
     if (!allMet) {
       const missing = requirements.filter((r) => !r.met).map((r) => r.label);
       setError(`Please create a stronger password. Missing: ${missing.join('; ')}.`);
+      return false;
+    }
+    setError('');
+    return true;
+  };
+
+  const validateProfileStep = () => {
+    if (!form.first_name.trim()) {
+      setError('Please enter your first name.');
+      return false;
+    }
+    if (!form.last_name.trim()) {
+      setError('Please enter your last name.');
+      return false;
+    }
+    if (!form.date_of_birth) {
+      setError('Please enter your date of birth.');
+      return false;
+    }
+    if (!form.gender) {
+      setError('Please select your gender.');
+      return false;
+    }
+    if (!form.number.trim()) {
+      setError('Please enter your phone number.');
+      return false;
+    }
+    if (!form.address.trim()) {
+      setError('Please enter your address.');
+      return false;
+    }
+    setError('');
+    return true;
+  };
+
+  const goToProfileStep = () => {
+    if (!validateAccountStep()) return;
+    setFormStep(2);
+  };
+
+  const currentSignupStep = step === 'otp' ? 3 : formStep;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) {
+      setError('Sign up is not configured. Please set up Supabase.');
       return;
     }
+    if (!validateAccountStep()) return;
+    if (!validateProfileStep()) return;
     setError('');
     setLoading(true);
     try {
@@ -211,7 +263,7 @@ export default function PatientSignUpPage() {
           </div>
 
           <div className="flex flex-1 items-start justify-center pt-6 pb-10">
-            <div className="w-full max-w-lg rounded-lg bg-white p-8 shadow-lg animate-fade-in-up">
+            <div className={`w-full ${step === 'form' ? 'max-w-2xl' : 'max-w-lg'} rounded-lg bg-white p-6 sm:p-8 shadow-lg animate-fade-in-up`}>
               <div className="flex justify-center mb-6">
                 <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
                   <svg className="w-10 h-10 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -228,6 +280,40 @@ export default function PatientSignUpPage() {
                   ? 'Create an account to access your queue status and appointments'
                   : `We sent a 6-digit code to ${form.email}. Enter it below.`}
               </p>
+
+              <div className="mb-6">
+                <div className="flex items-center justify-center gap-2">
+                  {[1, 2, 3].map((index) => {
+                    const active = currentSignupStep === index;
+                    const done = currentSignupStep > index;
+                    return (
+                      <React.Fragment key={index}>
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition-colors ${
+                            done
+                              ? 'border-blue-600 bg-blue-600 text-white'
+                              : active
+                                ? 'border-blue-600 bg-blue-600 text-white'
+                                : 'border-gray-300 bg-white text-gray-500'
+                          }`}
+                        >
+                          {done ? '✓' : index}
+                        </div>
+                        {index < 3 && (
+                          <div
+                            className={`h-0.5 w-10 rounded ${currentSignupStep > index ? 'bg-blue-500' : 'bg-gray-300'}`}
+                          />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 grid grid-cols-3 text-center text-[11px] text-gray-600">
+                  <span className={currentSignupStep === 1 ? 'font-semibold text-blue-700' : ''}>Account</span>
+                  <span className={currentSignupStep === 2 ? 'font-semibold text-blue-700' : ''}>Personal Info</span>
+                  <span className={currentSignupStep === 3 ? 'font-semibold text-blue-700' : ''}>Verify Email</span>
+                </div>
+              </div>
 
               {step === 'otp' ? (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
@@ -257,227 +343,261 @@ export default function PatientSignUpPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setStep('form'); setError(''); }}
+                    onClick={() => { setStep('form'); setFormStep(2); setError(''); }}
                     className="w-full text-gray-600 hover:text-gray-800 text-sm"
                   >
                     Back to form
                   </button>
                 </form>
               ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
-                      First name
-                    </label>
-                    <input
-                      type="text"
-                      id="first_name"
-                      name="first_name"
-                      value={form.first_name}
-                      onChange={handleChange}
-                      placeholder="Juan"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Last name
-                    </label>
-                    <input
-                      type="text"
-                      id="last_name"
-                      name="last_name"
-                      value={form.last_name}
-                      onChange={handleChange}
-                      placeholder="Dela Cruz"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      required
-                    />
-                  </div>
-                </div>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {formStep === 1 ? (
+                  <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 space-y-4">
+                    <h2 className="text-sm font-semibold text-gray-800">Step 1: Account security</h2>
 
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    placeholder="you@example.com"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    required
-                  />
-                </div>
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value={form.email}
+                        onChange={handleChange}
+                        placeholder="you@example.com"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        required
+                      />
+                    </div>
 
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={form.password}
-                    onChange={handleChange}
-                    placeholder="••••••••"
-                    minLength={MIN_PASSWORD_LENGTH}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    required
-                    aria-describedby="password-requirements"
-                  />
-                  <div id="password-requirements" className="mt-2 space-y-1.5" aria-live="polite">
-                    {form.password.length > 0 && (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-gray-600">Strength:</span>
-                          <span
-                            className={`text-xs font-medium ${
-                              getPasswordStrength(form.password) === 'strong'
-                                ? 'text-green-600'
-                                : getPasswordStrength(form.password) === 'fair'
-                                  ? 'text-amber-600'
-                                  : getPasswordStrength(form.password) === 'weak'
-                                    ? 'text-red-600'
-                                    : 'text-gray-500'
-                            }`}
-                          >
-                            {getPasswordStrength(form.password) === 'none'
-                              ? ''
-                              : getPasswordStrength(form.password).charAt(0).toUpperCase() +
-                                getPasswordStrength(form.password).slice(1)}
-                          </span>
-                          {getPasswordStrength(form.password) !== 'none' && (
-                            <div className="flex-1 h-1.5 rounded-full bg-gray-200 overflow-hidden max-w-[80px]">
-                              <div
-                                className={`h-full rounded-full transition-all ${
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        value={form.password}
+                        onChange={handleChange}
+                        placeholder="••••••••"
+                        minLength={MIN_PASSWORD_LENGTH}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        required
+                        aria-describedby="password-requirements"
+                      />
+                      <div id="password-requirements" className="mt-2 space-y-1.5" aria-live="polite">
+                        {form.password.length > 0 && (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-gray-600">Strength:</span>
+                              <span
+                                className={`text-xs font-medium ${
                                   getPasswordStrength(form.password) === 'strong'
-                                    ? 'w-full bg-green-500'
+                                    ? 'text-green-600'
                                     : getPasswordStrength(form.password) === 'fair'
-                                      ? 'w-2/3 bg-amber-500'
-                                      : 'w-1/3 bg-red-500'
+                                      ? 'text-amber-600'
+                                      : getPasswordStrength(form.password) === 'weak'
+                                        ? 'text-red-600'
+                                        : 'text-gray-500'
                                 }`}
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <ul className="text-xs text-gray-600 space-y-0.5">
-                          {getPasswordRequirements(form.password).map(({ id, label, met }) => (
-                            <li key={id} className="flex items-center gap-2">
-                              {met ? (
-                                <span className="text-green-600" aria-hidden>✓</span>
-                              ) : (
-                                <span className="text-gray-400" aria-hidden>○</span>
+                              >
+                                {getPasswordStrength(form.password) === 'none'
+                                  ? ''
+                                  : getPasswordStrength(form.password).charAt(0).toUpperCase() +
+                                    getPasswordStrength(form.password).slice(1)}
+                              </span>
+                              {getPasswordStrength(form.password) !== 'none' && (
+                                <div className="flex-1 h-1.5 rounded-full bg-gray-200 overflow-hidden max-w-[120px]">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      getPasswordStrength(form.password) === 'strong'
+                                        ? 'w-full bg-green-500'
+                                        : getPasswordStrength(form.password) === 'fair'
+                                          ? 'w-2/3 bg-amber-500'
+                                          : 'w-1/3 bg-red-500'
+                                    }`}
+                                  />
+                                </div>
                               )}
-                              <span className={met ? 'text-green-700' : 'text-gray-500'}>{label}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                  </div>
-                </div>
+                            </div>
+                            <ul className="text-xs text-gray-600 space-y-0.5">
+                              {getPasswordRequirements(form.password).map(({ id, label, met }) => (
+                                <li key={id} className="flex items-center gap-2">
+                                  {met ? (
+                                    <span className="text-green-600" aria-hidden>✓</span>
+                                  ) : (
+                                    <span className="text-gray-400" aria-hidden>○</span>
+                                  )}
+                                  <span className={met ? 'text-green-700' : 'text-gray-500'}>{label}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                    </div>
 
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                    Confirm Password
-                  </label>
-                  <input
-                    type="password"
-                    id="confirm_password"
-                    name="confirm_password"
-                    value={form.confirm_password}
-                    onChange={handleChange}
-                    placeholder="••••••••"
-                    minLength={MIN_PASSWORD_LENGTH}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    required
-                  />
-                  {passwordsMismatch && <p className="text-sm text-red-600 mt-1 p-2 rounded">Passwords do not match</p>}
-                </div>
+                    <div>
+                      <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-1">
+                        Confirm Password
+                      </label>
+                      <input
+                        type="password"
+                        id="confirm_password"
+                        name="confirm_password"
+                        value={form.confirm_password}
+                        onChange={handleChange}
+                        placeholder="••••••••"
+                        minLength={MIN_PASSWORD_LENGTH}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        required
+                      />
+                      {passwordsMismatch && <p className="text-sm text-red-600 mt-1 p-2 rounded">Passwords do not match</p>}
+                    </div>
+                  </section>
+                ) : (
+                  <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 space-y-4">
+                    <h2 className="text-sm font-semibold text-gray-800">Step 2: Personal information</h2>
 
-                <div>
-                  <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-1">
-                    Date of birth
-                  </label>
-                  <input
-                    type="date"
-                    id="date_of_birth"
-                    name="date_of_birth"
-                    value={form.date_of_birth}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    required
-                  />
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
+                          First name
+                        </label>
+                        <input
+                          type="text"
+                          id="first_name"
+                          name="first_name"
+                          value={form.first_name}
+                          onChange={handleChange}
+                          placeholder="Juan"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">
+                          Last name
+                        </label>
+                        <input
+                          type="text"
+                          id="last_name"
+                          name="last_name"
+                          value={form.last_name}
+                          onChange={handleChange}
+                          placeholder="Dela Cruz"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          required
+                        />
+                      </div>
+                    </div>
 
-                <div>
-                  <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender
-                  </label>
-                  <select
-                    id="gender"
-                    name="gender"
-                    value={form.gender}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
-                    required
-                  >
-                    <option value="">Select gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
-                  </select>
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-1">
+                          Date of birth
+                        </label>
+                        <input
+                          type="date"
+                          id="date_of_birth"
+                          name="date_of_birth"
+                          value={form.date_of_birth}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          required
+                        />
+                      </div>
 
-                <div>
-                  <label htmlFor="number" className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone number
-                  </label>
-                  <input
-                    type="tel"
-                    id="number"
-                    name="number"
-                    value={form.number}
-                    onChange={handleChange}
-                    placeholder="+63 912 345 6789"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    required
-                  />
-                </div>
+                      <div>
+                        <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">
+                          Gender
+                        </label>
+                        <select
+                          id="gender"
+                          name="gender"
+                          value={form.gender}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                          required
+                        >
+                          <option value="">Select gender</option>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                          <option value="prefer_not_to_say">Prefer not to say</option>
+                        </select>
+                      </div>
+                    </div>
 
-                <div>
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
-                  </label>
-                  <textarea
-                    id="address"
-                    name="address"
-                    value={form.address}
-                    onChange={handleChange}
-                    placeholder="Street, Barangay, City, Province"
-                    rows={2}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
-                    required
-                  />
-                </div>
+                    <div>
+                      <label htmlFor="number" className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone number
+                      </label>
+                      <input
+                        type="tel"
+                        id="number"
+                        name="number"
+                        value={form.number}
+                        onChange={handleChange}
+                        placeholder="+63 912 345 6789"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                        Address
+                      </label>
+                      <textarea
+                        id="address"
+                        name="address"
+                        value={form.address}
+                        onChange={handleChange}
+                        placeholder="Street, Barangay, City, Province"
+                        rows={3}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                        required
+                      />
+                    </div>
+                  </section>
+                )}
 
                 {error && (
                   <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium py-3 rounded-lg transition-colors mt-2"
-                >
-                  {loading ? 'Sending code…' : 'Sign Up'}
-                </button>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
+                  {formStep === 2 && (
+                    <button
+                      type="button"
+                      onClick={() => setFormStep(1)}
+                      className="w-full sm:w-auto rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Back
+                    </button>
+                  )}
+
+                  {formStep === 1 ? (
+                    <button
+                      type="button"
+                      onClick={goToProfileStep}
+                      className="w-full sm:w-auto sm:min-w-[220px] rounded-lg bg-blue-500 px-6 py-3 text-white font-medium hover:bg-blue-600 transition-colors"
+                    >
+                      Continue
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full sm:w-auto sm:min-w-[220px] bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium py-3 px-6 rounded-lg transition-colors"
+                    >
+                      {loading ? 'Sending code…' : 'Sign Up'}
+                    </button>
+                  )}
+                </div>
               </form>
               )}
 
