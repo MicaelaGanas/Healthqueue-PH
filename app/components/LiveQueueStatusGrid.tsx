@@ -98,6 +98,7 @@ export function LiveQueueStatusGrid({ variant = "page", sectionId = "live-queue"
           <h2
             id="live-queue-heading"
             className={isLanding ? "text-2xl font-bold text-[#333333] sm:text-3xl" : "text-lg font-bold text-[#333333]"}
+            style={{ fontFamily: "var(--font-rosario), sans-serif" }}
           >
             Live Queue Status
           </h2>
@@ -127,7 +128,7 @@ export function LiveQueueStatusGrid({ variant = "page", sectionId = "live-queue"
               key={dept.name}
               className="rounded-xl border border-[#e9ecef] bg-white p-4 shadow-sm"
             >
-              <h3 className="font-semibold text-[#333333]">{dept.name}</h3>
+              <h3 className="font-semibold text-[#333333]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>{dept.name}</h3>
               <div className="mt-3 flex items-center gap-2 text-sm text-[#6C757D]">
                 <UsersIcon className="h-4 w-4 shrink-0" />
                 <span>Waiting</span>

@@ -91,7 +91,7 @@ export function FeatureCards() {
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#f1f5f9] text-[#007bff]">
                 <Icon className="h-6 w-6" />
               </div>
-              <h3 className="mt-4 text-lg font-semibold text-[#0f172a]">
+              <h3 className="mt-4 text-lg font-semibold text-[#0f172a]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
                 {card.title}
               </h3>
               <p className="mt-1.5 text-sm text-[#64748b] leading-snug line-clamp-2 min-h-[2.75rem]">

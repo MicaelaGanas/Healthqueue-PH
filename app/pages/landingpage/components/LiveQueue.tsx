@@ -21,7 +21,7 @@ export function LiveQueue() {
         <div className="mt-8 flex gap-4 rounded-xl bg-[#FFF3E0] p-4">
           <ExclamationIcon className="h-6 w-6 shrink-0 text-[#FFC107]" />
           <div>
-            <p className="font-bold text-[#333333]">Wait times are estimates</p>
+            <p className="font-bold text-[#333333]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Wait times are estimates</p>
             <p className="mt-1 text-sm text-[#333333]">
               Actual wait times may vary based on patient volume and priority.
             </p>

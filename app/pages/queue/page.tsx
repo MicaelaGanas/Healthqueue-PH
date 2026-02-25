@@ -10,7 +10,7 @@ export default function CheckQueueStatusPage() {
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <BackToHome />
 
-        <h1 className="mt-6 text-3xl font-bold text-[#333333]">Check Queue Status</h1>
+        <h1 className="mt-6 text-3xl font-bold text-[#333333]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Check Queue Status</h1>
         <p className="mt-2 text-[#6C757D]">
           Enter your queue number or view live wait times by department
         </p>

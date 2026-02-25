@@ -69,7 +69,7 @@ export function Announcements() {
   return (
     <section className="border-t border-[#E9ECEF] bg-[#F8F9FB] py-12 sm:py-16" aria-labelledby="announcements-heading">
       <FadeInSection className="mx-auto max-w-7xl px-4 sm:px-6">
-        <h2 id="announcements-heading" className="text-2xl font-bold text-[#333333] sm:text-3xl">Announcements</h2>
+        <h2 id="announcements-heading" className="text-2xl font-bold text-[#333333] sm:text-3xl" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Announcements</h2>
         <p className="mt-1 text-[#6C757D]">Important updates and notices</p>
         <div className="mt-8 min-h-[28rem]">
           {loading ? (
@@ -92,7 +92,7 @@ export function Announcements() {
                           {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
                         </span>
                         <p className="mt-1 text-xs text-[#6C757D]">{formatDate(item.created_at)}</p>
-                        <h3 className="mt-1 font-semibold text-[#333333]">{item.title}</h3>
+                        <h3 className="mt-1 font-semibold text-[#333333]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>{item.title}</h3>
                         <p className="mt-2 text-sm text-[#6C757D]">{item.description}</p>
                       </div>
                     </article>

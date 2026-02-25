@@ -15,7 +15,7 @@ export function FindYourQueue() {
 
   return (
     <section className="mt-8" aria-labelledby="find-queue-heading">
-      <h2 id="find-queue-heading" className="text-lg font-bold text-[#333333]">
+      <h2 id="find-queue-heading" className="text-lg font-bold text-[#333333]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         Find Your Queue
       </h2>
       <form onSubmit={handleSearch} className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">

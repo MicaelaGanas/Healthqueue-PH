@@ -28,7 +28,7 @@ function LocationIcon({ className }: { className?: string }) {
 
 export function Footer() {
   return (
-    <footer className="border-t border-[#E9ECEF] bg-white text-[#6C757D]">
+    <footer className="mt-20 border-t border-[#E9ECEF] bg-white text-[#6C757D]">
       <div className="mx-auto max-w-7xl px-8 py-12 sm:px-12 lg:px-16">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-[minmax(28rem,1fr)_repeat(3,minmax(0,1fr))]">
           <div className="min-w-0 overflow-hidden">
