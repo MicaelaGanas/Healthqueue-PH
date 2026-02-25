@@ -9,6 +9,7 @@ const navItems: { href: string; label: string; icon: string; tabId?: string }[] 
   { href: "#overview", label: "Overview", icon: "overview", tabId: "overview" },
   { href: "#insights", label: "AI Insights", icon: "insights", tabId: "insights" },
   { href: "#announcements", label: "Announcements", icon: "announcements", tabId: "announcements" },
+  { href: "#queue-display", label: "Queue Display", icon: "queue", tabId: "queue-display" },
   { href: "#users", label: "Users", icon: "people", tabId: "users" },
   { href: "#reports", label: "Reports", icon: "chart", tabId: "reports" },
   { href: "#records", label: "Records", icon: "folder", tabId: "records" },
@@ -65,6 +66,13 @@ function AnnouncementsIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function QueueIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+    </svg>
+  );
+}
 function LogoutIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,13 +99,14 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   overview: OverviewIcon,
   insights: InsightsIcon,
   announcements: AnnouncementsIcon,
+  queue: QueueIcon,
   people: PeopleIcon,
   chart: ChartIcon,
   folder: FolderIcon,
   gear: GearIcon,
 };
 
-export type AdminTabId = "overview" | "insights" | "announcements" | "users" | "reports" | "records" | "settings";
+export type AdminTabId = "overview" | "insights" | "announcements" | "queue-display" | "users" | "reports" | "records" | "settings";
 
 type AdminSidebarProps = {
   activeTab?: string;

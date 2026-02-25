@@ -11,6 +11,7 @@ import { RecordsContent } from "./components/records/RecordsContent";
 import { AdminSettingsContent } from "./components/settings/AdminSettingsContent";
 import { InsightsContent } from "./components/insights/InsightsContent";
 import { AnnouncementsContent } from "./components/announcements/AnnouncementsContent";
+import { QueueDisplayContent } from "./components/queue-display/QueueDisplayContent";
 
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<AdminTabId>("overview");
@@ -62,6 +63,12 @@ export default function AdminDashboardPage() {
             {activeTab === "settings" && (
               <div className="mt-4 sm:mt-6">
                 <AdminSettingsContent />
+              </div>
+            )}
+
+            {activeTab === "queue-display" && (
+              <div className="mt-4 sm:mt-6">
+                <QueueDisplayContent />
               </div>
             )}
           </div>

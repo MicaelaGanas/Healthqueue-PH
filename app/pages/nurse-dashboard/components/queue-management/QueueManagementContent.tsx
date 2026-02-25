@@ -78,6 +78,12 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
   const showSelectors = !staffDepartment;
   const canShowQueue = managedDepartment && (showSelectors ? doctorOnDuty : true);
 
+  const openDepartmentDisplay = (fullscreen: boolean) => {
+    if (!managedDepartment) return;
+    const url = `/pages/queue-display?department=${encodeURIComponent(managedDepartment)}${fullscreen ? "&fullscreen=1&autovoice=1" : ""}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   // Queue is polled globally in NurseQueueContext; when queue updates, detect new completions (in progress → completed) and notify nurse
   useEffect(() => {
     const prev = previousQueueRef.current;
@@ -101,16 +107,36 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
             Booked patients appear here after vitals are recorded. Use Registration to add walk-ins.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onAddWalkIn}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#28a745] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#218838]"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-          </svg>
-          Add walk-in
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => openDepartmentDisplay(false)}
+            disabled={!managedDepartment}
+            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[#007bff] bg-white px-4 py-2.5 text-sm font-medium text-[#007bff] hover:bg-[#f0f7ff] disabled:cursor-not-allowed disabled:opacity-60"
+            title={managedDepartment ? "Open patient display" : "Select department first"}
+          >
+            Open display
+          </button>
+          <button
+            type="button"
+            onClick={() => openDepartmentDisplay(true)}
+            disabled={!managedDepartment}
+            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[#007bff] bg-white px-4 py-2.5 text-sm font-medium text-[#007bff] hover:bg-[#f0f7ff] disabled:cursor-not-allowed disabled:opacity-60"
+            title={managedDepartment ? "Open full screen display" : "Select department first"}
+          >
+            Full screen display
+          </button>
+          <button
+            type="button"
+            onClick={onAddWalkIn}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#28a745] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#218838]"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            Add walk-in
+          </button>
+        </div>
       </div>
 
       {staffLoading ? (

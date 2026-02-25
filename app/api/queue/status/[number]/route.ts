@@ -206,7 +206,7 @@ export async function GET(
             : computeAgeFromDateOfBirth(fallbackPatient?.date_of_birth);
         }
         if (!resolvedSex) {
-          resolvedSex = fallbackDependent ? bookingFallback.beneficiary_gender : fallbackPatient?.gender;
+          resolvedSex = (fallbackDependent ? bookingFallback.beneficiary_gender : fallbackPatient?.gender) ?? null;
         }
         if (!resolvedPhone) {
           resolvedPhone = bookingFallback.contact_phone ?? fallbackPatient?.number ?? null;
