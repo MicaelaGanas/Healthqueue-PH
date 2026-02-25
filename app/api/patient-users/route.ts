@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
   const { data: patient, error } = await supabase
     .from("patient_users")
-    .select("id, email, first_name, last_name, date_of_birth, gender, number, address")
+    .select("id, email, first_name, last_name, date_of_birth, gender, number, address, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -48,6 +48,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Patient profile not found" }, { status: 404 });
   }
 
+  const row = patient as Record<string, unknown>;
   return NextResponse.json({
     id: patient.id,
     email: patient.email,
@@ -57,6 +58,7 @@ export async function GET(request: Request) {
     gender: patient.gender,
     number: patient.number,
     address: patient.address,
+    avatar_url: row.avatar_url ?? null,
   });
 }
 

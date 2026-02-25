@@ -10,6 +10,9 @@ export interface PatientProfile {
   email: string;
   first_name: string;
   last_name: string;
+  avatar_url?: string | null;
+  /** Set when profile photo is updated (e.g. from profile page) so avatar can be cache-busted. */
+  _avatarUpdatedAt?: number;
 }
 
 // Context to share profile data with Navbar (avoids duplicate API calls)
@@ -106,6 +109,8 @@ export function PatientAuthGuard({ children }: PatientAuthGuardProps) {
             email: data.email,
             first_name: data.first_name,
             last_name: data.last_name,
+            avatar_url: data.avatar_url ?? null,
+            _avatarUpdatedAt: Date.now(),
           });
           setStatus("allowed");
         }
