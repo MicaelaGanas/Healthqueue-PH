@@ -82,8 +82,8 @@ export type DbVitalSign = {
   diastolic: number | null;
   heart_rate: number | null;
   temperature: number | null;
-  o2_sat: number | null;
-  resp_rate: number | null;
+  weight: number | null;
+  height: number | null;
   severity: string | null;
   recorded_at: string;
   recorded_by: string | null;

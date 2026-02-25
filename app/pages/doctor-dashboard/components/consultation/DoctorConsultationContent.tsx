@@ -5,6 +5,7 @@ import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { getQueueRowsFromStorage, setQueueRowsInStorage } from "../../../../lib/queueSyncStorage";
 import type { QueueRowSync } from "../../../../lib/queueSyncStorage";
 import { DOCTORS_BY_DEPARTMENT } from "../../../../lib/departments";
+import { PatientModal } from "./PatientModal";
 
 const ALL_DOCTORS = Object.values(DOCTORS_BY_DEPARTMENT).flat();
 
@@ -40,6 +41,8 @@ export function DoctorConsultationContent() {
   const [staffDoctor, setStaffDoctor] = useState<string | null>(null);
   const [staffDepartment, setStaffDepartment] = useState<string | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
+  const [patientModalOpen, setPatientModalOpen] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<QueueRowSync | null>(null);
 
   const fetchQueue = useCallback(async () => {
     const supabase = createSupabaseBrowser();
@@ -151,6 +154,16 @@ export function DoctorConsultationContent() {
     });
     if (res.ok) await fetchQueue();
   }, [fetchQueue]);
+
+  const openPatientModal = useCallback((row: QueueRowSync) => {
+    setSelectedPatient(row);
+    setPatientModalOpen(true);
+  }, []);
+
+  const closePatientModal = useCallback(() => {
+    setPatientModalOpen(false);
+    setSelectedPatient(null);
+  }, []);
 
   const inProgress = myQueue.filter((r) => r.status.toLowerCase() === "in progress");
   const completed = myQueue.filter((r) => r.status.toLowerCase() === "completed");
@@ -301,15 +314,24 @@ export function DoctorConsultationContent() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right text-sm sm:px-6">
-                      {r.status.toLowerCase() === "in progress" && (
+                      <div className="inline-flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => completeConsult(r.ticket)}
-                          className="rounded bg-[#28a745] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#218838]"
+                          onClick={() => openPatientModal(r)}
+                          className="rounded border border-[#dee2e6] bg-white px-3 py-1.5 text-xs font-medium text-[#333333] hover:bg-[#f8f9fa]"
                         >
-                          Complete
+                          View
                         </button>
-                      )}
+                        {r.status.toLowerCase() === "in progress" && (
+                          <button
+                            type="button"
+                            onClick={() => completeConsult(r.ticket)}
+                            className="rounded bg-[#28a745] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#218838]"
+                          >
+                            Complete
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -319,6 +341,12 @@ export function DoctorConsultationContent() {
           )}
         </div>
       )}
+      <PatientModal
+        open={patientModalOpen}
+        ticket={selectedPatient?.ticket ?? null}
+        patientName={selectedPatient?.patientName ?? ""}
+        onClose={closePatientModal}
+      />
     </div>
   );
 }

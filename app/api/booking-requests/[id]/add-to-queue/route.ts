@@ -36,9 +36,12 @@ export async function POST(
     );
   }
 
-  const patientUserId = req.booking_type === "self" ? req.patient_user_id : null;
-  const walkInFirstName = req.booking_type === "dependent" ? (req.beneficiary_first_name ?? null) : null;
-  const walkInLastName = req.booking_type === "dependent" ? (req.beneficiary_last_name ?? null) : null;
+  // Always link patient_user_id (account holder)
+  const patientUserId = req.patient_user_id;
+  // For dependent/beneficiary, do NOT use walk_in fields. Only use for true walk-ins.
+  // For queue_items, keep walk_in_first_name/last_name null for both self and dependent bookings.
+  const walkInFirstName = null;
+  const walkInLastName = null;
   const appointmentAt =
     req.requested_date && req.requested_time
       ? new Date(`${req.requested_date}T${req.requested_time}`).toISOString()
