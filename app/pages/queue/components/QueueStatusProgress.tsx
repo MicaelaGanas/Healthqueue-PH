@@ -19,7 +19,7 @@ export function QueueStatusProgress({ currentStep = "waiting" }: Props) {
       className="mt-8 rounded-xl border border-[#e9ecef] bg-white p-5 shadow-sm"
       aria-labelledby="queue-status-heading"
     >
-      <h2 id="queue-status-heading" className="text-lg font-bold text-[#333333]">
+      <h2 id="queue-status-heading" className="text-lg font-bold text-[#333333]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         Queue Status
       </h2>
 

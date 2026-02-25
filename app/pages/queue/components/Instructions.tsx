@@ -6,7 +6,7 @@ const instructions = [
 export function Instructions() {
   return (
     <section className="mt-8" aria-labelledby="instructions-heading">
-      <h2 id="instructions-heading" className="text-lg font-bold text-[#333333]">
+      <h2 id="instructions-heading" className="text-lg font-bold text-[#333333]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         Instructions
       </h2>
       <ul className="mt-3 list-inside list-disc space-y-2 text-[#333333]">
