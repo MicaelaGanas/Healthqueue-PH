@@ -90,8 +90,8 @@ export function VitalSignsForm() {
   const [diastolic, setDiastolic] = useState("");
   const [heartRate, setHeartRate] = useState("72");
   const [temperature, setTemperature] = useState("36.5");
-  const [o2Sat, setO2Sat] = useState("98");
-  const [respRate, setRespRate] = useState("16");
+  const [weight, setWeight] = useState("");
+  const [height, setHeight] = useState("");
   const [severity, setSeverity] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -171,8 +171,8 @@ export function VitalSignsForm() {
     setDiastolic("");
     setHeartRate("72");
     setTemperature("36.5");
-    setO2Sat("98");
-    setRespRate("16");
+    setWeight("");
+    setHeight("");
     setSeverity("");
     setSaveError("");
   };
@@ -200,12 +200,12 @@ export function VitalSignsForm() {
       setSaveError("Temperature is required.");
       return;
     }
-    if (!o2Sat.trim()) {
-      setSaveError("O₂ Saturation is required.");
+    if (!weight.trim()) {
+      setSaveError("Weight is required.");
       return;
     }
-    if (!respRate.trim()) {
-      setSaveError("Respiratory rate is required.");
+    if (!height.trim()) {
+      setSaveError("Height is required.");
       return;
     }
     if (!severity || severity === "Select severity") {
@@ -242,8 +242,8 @@ export function VitalSignsForm() {
           diastolic: diastolic.trim(),
           heartRate: heartRate.trim(),
           temperature: temperature.trim(),
-          o2Sat: o2Sat.trim(),
-          respRate: respRate.trim(),
+          weight: weight.trim(),
+          height: height.trim(),
           severity: severity,
         }),
       });
@@ -490,24 +490,24 @@ export function VitalSignsForm() {
         </div>
         <div>
           <label className="block text-sm font-medium text-[#333333]">
-            O₂ Saturation (%) <span className="text-red-600">*</span>
+            Weight (kg) <span className="text-red-600">*</span>
           </label>
           <input
             type="text"
-            value={o2Sat}
-            onChange={(e) => setO2Sat(e.target.value)}
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
             required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-[#333333]">
-            Respiratory Rate (/min) <span className="text-red-600">*</span>
+            Height (cm) <span className="text-red-600">*</span>
           </label>
           <input
             type="text"
-            value={respRate}
-            onChange={(e) => setRespRate(e.target.value)}
+            value={height}
+            onChange={(e) => setHeight(e.target.value)}
             required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
