@@ -65,7 +65,7 @@ const cards = [
   {
     title: "Directory",
     description: "Departments and service locations.",
-    href: "directory",
+    href: "/pages/directory",
     cta: "View Map",
     primary: false,
     icon: MapPinIcon,
