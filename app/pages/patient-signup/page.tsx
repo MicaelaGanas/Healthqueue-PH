@@ -283,35 +283,39 @@ export default function PatientSignUpPage() {
 
               <div className="mb-6">
                 <div className="flex items-center justify-center gap-2">
-                  {[1, 2, 3].map((index) => {
-                    const active = currentSignupStep === index;
-                    const done = currentSignupStep > index;
+                  {[
+                    { num: 1, label: 'Account' },
+                    { num: 2, label: 'Personal Info' },
+                    { num: 3, label: 'Verify Email' }
+                  ].map((item, idx) => {
+                    const active = currentSignupStep === item.num;
+                    const done = currentSignupStep > item.num;
                     return (
-                      <React.Fragment key={index}>
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition-colors ${
-                            done
-                              ? 'border-blue-600 bg-blue-600 text-white'
-                              : active
-                                ? 'border-blue-600 bg-blue-600 text-white'
-                                : 'border-gray-300 bg-white text-gray-500'
-                          }`}
-                        >
-                          {done ? '✓' : index}
-                        </div>
-                        {index < 3 && (
+                      <React.Fragment key={item.num}>
+                        <div className="flex flex-col items-center gap-1">
                           <div
-                            className={`h-0.5 w-10 rounded ${currentSignupStep > index ? 'bg-blue-500' : 'bg-gray-300'}`}
+                            className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition-colors ${
+                              done
+                                ? 'border-blue-600 bg-blue-600 text-white'
+                                : active
+                                  ? 'border-blue-600 bg-blue-600 text-white'
+                                  : 'border-gray-300 bg-white text-gray-500'
+                            }`}
+                          >
+                            {done ? '✓' : item.num}
+                          </div>
+                          <span className={`text-[11px] whitespace-nowrap ${active ? 'font-semibold text-blue-700' : 'text-gray-600'}`}>
+                            {item.label}
+                          </span>
+                        </div>
+                        {idx < 2 && (
+                          <div
+                            className={`h-0.5 w-10 rounded mb-4 ${currentSignupStep > item.num ? 'bg-blue-500' : 'bg-gray-300'}`}
                           />
                         )}
                       </React.Fragment>
                     );
                   })}
-                </div>
-                <div className="mt-2 grid grid-cols-3 text-center text-[11px] text-gray-600">
-                  <span className={currentSignupStep === 1 ? 'font-semibold text-blue-700' : ''}>Account</span>
-                  <span className={currentSignupStep === 2 ? 'font-semibold text-blue-700' : ''}>Personal Info</span>
-                  <span className={currentSignupStep === 3 ? 'font-semibold text-blue-700' : ''}>Verify Email</span>
                 </div>
               </div>
 
