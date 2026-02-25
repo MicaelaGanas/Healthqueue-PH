@@ -71,11 +71,11 @@ export default function BookStep2Page() {
     }
   }, []);
 
-  // When "For yourself", auto-fill your information from the logged-in patient profile (once per visit).
-  // Depends on summary.date/requestedDate so we run after storage has been loaded (bookingType alone doesn't change after load).
+  // Auto-fill "Your contact information" from the logged-in patient profile (once per visit), for both "for yourself" and "for another patient".
+  // Depends on summary.date/requestedDate so we run after storage has been loaded.
   useEffect(() => {
     const hasLoadedFromStorage = summary.date !== "" || summary.requestedDate !== "";
-    if (!hasLoadedFromStorage || summary.bookingType !== "self" || hasAutoFilledSelf.current || typeof window === "undefined") return;
+    if (!hasLoadedFromStorage || hasAutoFilledSelf.current || typeof window === "undefined") return;
     const supabase = createSupabaseBrowser();
     if (!supabase) return;
 

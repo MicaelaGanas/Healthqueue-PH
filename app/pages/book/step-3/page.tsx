@@ -36,6 +36,30 @@ type BookingData = {
 
 const DEFAULT_CONFIRMATION = { referenceNo: "", department: "", date: "", time: "" };
 
+function getAgeFromDateOfBirth(dob: string | null | undefined): number | null {
+  const trimmed = (dob ?? "").trim();
+  if (!trimmed) return null;
+  const birth = new Date(trimmed);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+function formatGender(gender: string | null | undefined): string {
+  const g = (gender ?? "").trim().toLowerCase();
+  if (!g) return "";
+  const map: Record<string, string> = {
+    male: "Male",
+    female: "Female",
+    other: "Other",
+    prefer_not_to_say: "Prefer not to say",
+  };
+  return map[g] ?? g.charAt(0).toUpperCase() + g.slice(1);
+}
+
 function getDisplayName(booking: BookingData | null): string {
   if (!booking) return "—";
   if (booking.bookingType === "dependent" && booking.beneficiaryFirstName != null && booking.beneficiaryLastName != null) {
@@ -52,7 +76,34 @@ export default function BookStep3Page() {
   const [referenceNo, setReferenceNo] = useState(DEFAULT_CONFIRMATION.referenceNo);
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [patientAge, setPatientAge] = useState<string>("—");
+  const [patientSex, setPatientSex] = useState<string>("—");
   const hasSubmitted = useRef(false);
+
+  // For dependent: derive age/sex from booking. For self: fetch from patient profile.
+  useEffect(() => {
+    if (!booking || typeof window === "undefined") return;
+    if (booking.bookingType === "dependent") {
+      const age = getAgeFromDateOfBirth(booking.beneficiaryDateOfBirth);
+      setPatientAge(age != null ? String(age) : "—");
+      setPatientSex(formatGender(booking.beneficiaryGender) || "—");
+      return;
+    }
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch("/api/patient-users", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      const age = getAgeFromDateOfBirth(data.date_of_birth);
+      setPatientAge(age != null ? String(age) : "—");
+      setPatientSex(formatGender(data.gender) || "—");
+    })();
+  }, [booking]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -220,6 +271,8 @@ export default function BookStep3Page() {
                     date={date}
                     time={time}
                     preferredDoctor={preferredDoctor}
+                    age={patientAge}
+                    sex={patientSex}
                   />
                 </div>
               </div>
