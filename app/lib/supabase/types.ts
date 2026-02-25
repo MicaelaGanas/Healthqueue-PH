@@ -61,6 +61,17 @@ export type DbAlert = {
   created_at?: string;
 };
 
+export type DbPatientNotification = {
+  id: string;
+  patient_user_id: string;
+  booking_request_id: string | null;
+  type: string;
+  title: string;
+  detail: string;
+  is_read: boolean;
+  created_at: string;
+};
+
 export type DbPatientUser = {
   id: string;
   first_name: string;

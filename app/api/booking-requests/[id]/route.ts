@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase/server";
 import type { DbBookingRequest } from "../../../lib/supabase/types";
 import { requireRoles } from "../../../lib/api/auth";
+import { createBookingNotification, sendBookingStatusEmail } from "../../../lib/bookingNotifications";
 
 const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
 
@@ -55,6 +56,47 @@ export async function PATCH(
     .update(update)
     .eq("id", id);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+
+  const patientName = [req.patient_first_name, req.patient_last_name].filter(Boolean).join(" ") || "Patient";
+  const notificationTitle =
+    status === "confirmed"
+      ? "Appointment confirmed"
+      : status === "rejected"
+        ? "Appointment rejected"
+        : "Appointment cancelled";
+  const notificationDetail =
+    status === "rejected" && update.rejection_reason
+      ? `Your booking ${req.reference_no} was rejected. Reason: ${String(update.rejection_reason)}`
+      : `Your booking ${req.reference_no} is now ${status}.`;
+
+  await createBookingNotification(supabase, {
+    patientUserId: req.patient_user_id,
+    bookingRequestId: req.id,
+    type: `appointment_${status}`,
+    title: notificationTitle,
+    detail: notificationDetail,
+  });
+
+  const { data: patient } = await supabase
+    .from("patient_users")
+    .select("email, first_name, last_name")
+    .eq("id", req.patient_user_id)
+    .maybeSingle();
+
+  const toEmail =
+    req.contact_email?.trim() ||
+    (typeof patient?.email === "string" ? patient.email.trim() : "");
+
+  await sendBookingStatusEmail({
+    to: toEmail,
+    patientName:
+      [patient?.first_name, patient?.last_name].filter(Boolean).join(" ") || patientName,
+    referenceNo: req.reference_no,
+    requestedDate: req.requested_date,
+    requestedTime: req.requested_time,
+    status,
+    reason: status === "rejected" ? (update.rejection_reason as string | null) : null,
+  });
 
   const actionName = status === "confirmed" ? "booking_confirmed" : status === "rejected" ? "booking_rejected" : "booking_cancelled";
   await supabase.from("staff_activity_log").insert({
