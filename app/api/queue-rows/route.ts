@@ -71,6 +71,41 @@ const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
 
 const NURSE_LIKE_ROLES = ["nurse", "receptionist"] as const;
 
+function buildConsultationTimestampUpdate(
+  previousStatus: string | null,
+  nextStatus: string,
+  existingStartedAt: string | null
+): {
+  consultation_started_at?: string | null;
+  consultation_completed_at?: string | null;
+} {
+  const prev = (previousStatus ?? "").trim().toLowerCase();
+  const next = (nextStatus ?? "").trim().toLowerCase();
+  const nowIso = new Date().toISOString();
+
+  if (next === "in_consultation") {
+    if (prev !== "in_consultation") {
+      return {
+        consultation_started_at: nowIso,
+        consultation_completed_at: null,
+      };
+    }
+    return {};
+  }
+
+  if (next === "completed") {
+    if (prev !== "completed") {
+      return {
+        consultation_started_at: existingStartedAt ?? nowIso,
+        consultation_completed_at: nowIso,
+      };
+    }
+    return {};
+  }
+
+  return {};
+}
+
 export async function GET(request: Request) {
   const auth = await requireStaff(request);
   if (auth instanceof Response) return auth;
@@ -176,6 +211,38 @@ export async function PUT(request: Request) {
     rows = rows.filter((r: Record<string, unknown>) => (r.department as string) === dept);
   }
 
+  const tickets = rows
+    .map((r: Record<string, unknown>) => String(r.ticket ?? "").trim())
+    .filter(Boolean);
+
+  const existingByTicket = new Map<
+    string,
+    { status: string | null; consultation_started_at: string | null; consultation_completed_at: string | null }
+  >();
+
+  if (tickets.length > 0) {
+    const { data: existingRows, error: existingError } = await supabase
+      .from("queue_items")
+      .select("ticket, status, consultation_started_at, consultation_completed_at")
+      .in("ticket", tickets);
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 500 });
+    }
+    for (const row of existingRows ?? []) {
+      const existing = row as {
+        ticket: string;
+        status: string | null;
+        consultation_started_at: string | null;
+        consultation_completed_at: string | null;
+      };
+      existingByTicket.set(existing.ticket, {
+        status: existing.status,
+        consultation_started_at: existing.consultation_started_at,
+        consultation_completed_at: existing.consultation_completed_at,
+      });
+    }
+  }
+
   const dbRows = await Promise.all(
     rows.map(async (r: Record<string, unknown>) => {
       const source = r.source === "walk-in" ? "walk_in" : (r.source === "booked" ? "booked" : "walk_in");
@@ -203,6 +270,12 @@ export async function PUT(request: Request) {
 
       const rawStatus = String(r.status ?? "waiting").trim();
       const statusForDb = rawStatus === "no show" ? "no_show" : rawStatus === "in progress" ? "in_consultation" : rawStatus;
+      const existing = existingByTicket.get(ticket);
+      const timestampUpdate = buildConsultationTimestampUpdate(
+        existing?.status ?? null,
+        statusForDb,
+        existing?.consultation_started_at ?? null
+      );
       const walkInAgeYears =
         source === "walk_in" && (r as { walkInAgeYears?: number | null }).walkInAgeYears != null
           ? Number((r as { walkInAgeYears?: number | null }).walkInAgeYears)
@@ -227,6 +300,14 @@ export async function PUT(request: Request) {
         walk_in_email: null,
         booking_request_id: bookingRequestId,
         assigned_doctor_id: doctorId,
+        consultation_started_at:
+          timestampUpdate.consultation_started_at !== undefined
+            ? timestampUpdate.consultation_started_at
+            : (existing?.consultation_started_at ?? null),
+        consultation_completed_at:
+          timestampUpdate.consultation_completed_at !== undefined
+            ? timestampUpdate.consultation_completed_at
+            : (existing?.consultation_completed_at ?? null),
         appointment_at: appointmentAt,
         added_at: r.addedAt ? new Date(r.addedAt as string).toISOString() : new Date().toISOString(),
       };

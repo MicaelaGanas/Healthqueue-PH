@@ -1,5 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase/server";
+import {
+  estimateWaitMinutesFromPosition,
+  formatEstimatedWaitFromMinutes,
+  getRollingAverageConsultationMinutes,
+  getWaitingAheadForTicket,
+  type QueueEtaRow,
+} from "../../../../lib/queue/eta";
+
+const ETA_ACTIVE_STATUSES = new Set(["waiting", "scheduled", "called", "in_consultation"]);
 
 /** Format ISO timestamp to YYYY-MM-DD in local time (avoids UTC date shift for UTC+x timezones). */
 function toLocalDateStr(iso: string | null | undefined): string | null {
@@ -47,7 +56,7 @@ export async function GET(
   const { data: row, error } = await supabase
     .from("queue_items")
     .select(`
-      ticket, status, wait_time, priority, source, appointment_at, added_at, patient_user_id, dependent_id, booking_request_id,
+      ticket, status, wait_time, priority, source, appointment_at, added_at, patient_user_id, dependent_id, booking_request_id, department_id, assigned_doctor_id,
       walk_in_first_name, walk_in_last_name, walk_in_age_years, walk_in_sex, walk_in_phone, walk_in_email,
       departments(name),
       patient_dependents(date_of_birth, gender),
@@ -75,6 +84,8 @@ export async function GET(
       patient_user_id: string | null;
       dependent_id: string | null;
       booking_request_id: string | null;
+      department_id: string | null;
+      assigned_doctor_id: string | null;
       walk_in_first_name: string | null;
       walk_in_last_name: string | null;
       walk_in_age_years: number | null;
@@ -98,6 +109,30 @@ export async function GET(
     };
     const r = row as unknown as Row;
     const raw = (r.status || "").toLowerCase().trim();
+    let estimatedWaitTime = r.wait_time ?? "—";
+
+    if (ETA_ACTIVE_STATUSES.has(raw) && r.department_id) {
+      const { data: sameDepartmentRows, error: sameDepartmentRowsError } = await supabase
+        .from("queue_items")
+        .select("ticket, status, appointment_at, added_at")
+        .eq("department_id", r.department_id)
+        .in("status", ["waiting", "scheduled", "called", "in_consultation"]);
+
+      if (!sameDepartmentRowsError && Array.isArray(sameDepartmentRows)) {
+        const queueRows = sameDepartmentRows as QueueEtaRow[];
+        const waitingAhead = getWaitingAheadForTicket(queueRows, r.ticket);
+        if (waitingAhead != null) {
+          const avgMinutes = await getRollingAverageConsultationMinutes(
+            supabase,
+            r.department_id,
+            r.assigned_doctor_id
+          );
+          const estimatedMinutes = estimateWaitMinutesFromPosition(waitingAhead, avgMinutes);
+          estimatedWaitTime = formatEstimatedWaitFromMinutes(estimatedMinutes);
+        }
+      }
+    }
+
     const isDependentBooking = r.booking_requests?.booking_type === "dependent";
     let resolvedAge =
       r.walk_in_age_years ??
@@ -303,7 +338,7 @@ export async function GET(
         return NextResponse.json({
           queueNumber: r.ticket,
           assignedDepartment: r.departments?.name ?? "—",
-          estimatedWaitTime: r.wait_time ?? "—",
+          estimatedWaitTime,
           status: "awaiting_triage",
           patientName,
           age: resolvedAge,
@@ -357,7 +392,7 @@ export async function GET(
     return NextResponse.json({
       queueNumber: r.ticket,
       assignedDepartment: r.departments?.name ?? "—",
-      estimatedWaitTime: r.wait_time ?? "—",
+      estimatedWaitTime,
       status: statusMap[raw] ?? "waiting",
       patientName,
       age: resolvedAge,

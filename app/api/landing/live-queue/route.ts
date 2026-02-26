@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase/server";
-
-/** ~minutes per patient for estimated wait when we don't have per-row wait_time */
-const EST_MINS_PER_PATIENT = 5;
+import {
+  estimateWaitMinutesFromPosition,
+  formatEstimatedWaitFromMinutes,
+  getRollingAverageConsultationMinutes,
+} from "../../../lib/queue/eta";
 
 /** Statuses that mean "patient is currently being seen". DB stores in_consultation; UI may use "in progress". */
 const NOW_SERVING_STATUSES = ["in consultation", "in_consultation", "in progress", "called"];
-
-function formatEstWait(minutes: number): string {
-  if (minutes >= 60) {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return m === 0 ? `${h} hr` : `${h} hr ${m} min`;
-  }
-  return `${minutes} min`;
-}
 
 /** GET: public live queue summary by department. No auth. Query ?date=YYYY-MM-DD for a specific day. */
 export async function GET(request: Request) {
@@ -68,22 +61,29 @@ export async function GET(request: Request) {
     return apt === effectiveDate || added === effectiveDate;
   });
 
-  const byDept: Record<string, { waiting: number; waitTimes: string[]; nowServing: string | null }> = {};
+  const byDept: Record<string, { waiting: number; nowServing: string | null }> = {};
   for (const d of departments) {
-    byDept[d.name] = { waiting: 0, waitTimes: [], nowServing: null };
+    byDept[d.name] = { waiting: 0, nowServing: null };
   }
+
+  const avgMinutesByDepartmentName = new Map<string, number>();
+  await Promise.all(
+    departments.map(async (dept) => {
+      const avg = await getRollingAverageConsultationMinutes(supabase, dept.id);
+      avgMinutesByDepartmentName.set(dept.name, avg);
+    })
+  );
 
   for (const r of rows) {
     const status = (r.status ?? "").trim().toLowerCase();
     const dept = (r.departments?.name ?? "").trim() || "General";
-    if (!byDept[dept]) byDept[dept] = { waiting: 0, waitTimes: [], nowServing: null };
+    if (!byDept[dept]) byDept[dept] = { waiting: 0, nowServing: null };
 
     if (status === "completed") continue;
 
     const isInConsultation = NOW_SERVING_STATUSES.includes(status);
     if (!isInConsultation) {
       byDept[dept].waiting += 1;
-      if (r.wait_time && r.wait_time.trim()) byDept[dept].waitTimes.push(r.wait_time.trim());
     }
     if (!byDept[dept].nowServing && isInConsultation && r.ticket) {
       byDept[dept].nowServing = r.ticket;
@@ -91,17 +91,13 @@ export async function GET(request: Request) {
   }
 
   const result = departments.map((d) => {
-    const stats = byDept[d.name] ?? { waiting: 0, waitTimes: [], nowServing: null };
+    const stats = byDept[d.name] ?? { waiting: 0, nowServing: null };
     const waiting = stats.waiting;
     let waitTime = "—";
     if (waiting > 0) {
-      if (stats.waitTimes.length > 0) {
-        const first = stats.waitTimes[0];
-        waitTime = /hr|min/i.test(first) ? first : `~${first}`;
-      } else {
-        const est = waiting * EST_MINS_PER_PATIENT;
-        waitTime = formatEstWait(est);
-      }
+      const avgMinutes = avgMinutesByDepartmentName.get(d.name) ?? 10;
+      const est = estimateWaitMinutesFromPosition(waiting, avgMinutes);
+      waitTime = formatEstimatedWaitFromMinutes(est);
     }
     const status: "Normal" | "Busy" = waiting > 10 ? "Busy" : "Normal";
     return {
