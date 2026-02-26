@@ -99,7 +99,7 @@ export function DoctorSidebar({ activeTab, onTabChange }: DoctorSidebarProps) {
       )}
       <aside
         className={`flex shrink-0 flex-col overflow-hidden bg-[#1e3a5f] text-white transition-[width] duration-200 ${
-          collapsed ? "w-[4.5rem]" : "w-56"
+          collapsed ? "w-12 md:w-[4.5rem]" : "w-40 md:w-56"
         }`}
       >
       <div
