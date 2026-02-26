@@ -4,18 +4,6 @@ import { createClient, SupabaseClient, Session } from "@supabase/supabase-js";
 
 let supabaseClient: SupabaseClient | null = null;
 
-type SessionResponse = {
-  data: { session: Session | null };
-  error: null;
-};
-
-function createNullSessionResponse(): SessionResponse {
-  return {
-    data: { session: null },
-    error: null,
-  };
-}
-
 /**
  * Browser Supabase client for client components. Use for optional realtime subscriptions.
  * For most data, the app uses API routes that call the server Supabase client.
@@ -48,8 +36,9 @@ function isInvalidRefreshTokenError(e: unknown): boolean {
 
 function hardenSupabaseAuth(client: SupabaseClient): void {
   const originalGetSession = client.auth.getSession.bind(client.auth);
+  type GetSessionResponse = Awaited<ReturnType<typeof originalGetSession>>;
 
-  client.auth.getSession = async () => {
+  client.auth.getSession = async (): Promise<GetSessionResponse> => {
     try {
       return await originalGetSession();
     } catch (e) {
@@ -63,7 +52,10 @@ function hardenSupabaseAuth(client: SupabaseClient): void {
         // Ignore: we still return a null session to callers.
       }
 
-      return createNullSessionResponse();
+      return {
+        data: { session: null },
+        error: null,
+      } as GetSessionResponse;
     }
   };
 }
