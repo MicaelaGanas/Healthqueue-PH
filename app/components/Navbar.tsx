@@ -20,7 +20,10 @@ export function Navbar() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileDropdownRef = useRef<HTMLDivElement>(null);
   
   // Get profile from PatientAuthGuard context if available (instant - no API call!)
   // Returns null if not inside PatientAuthGuard provider
@@ -250,19 +253,24 @@ export function Navbar() {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setIsDropdownOpen(false);
+      }
+      const insideMobile = mobileMenuRef.current?.contains(target) || mobileDropdownRef.current?.contains(target);
+      if (!insideMobile) {
+        setIsMobileMenuOpen(false);
       }
     };
 
-    if (isDropdownOpen) {
+    if (isDropdownOpen || isMobileMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isDropdownOpen]);
+  }, [isDropdownOpen, isMobileMenuOpen]);
 
   const handleLogout = async () => {
     const supabase = createSupabaseBrowser();
@@ -297,16 +305,89 @@ export function Navbar() {
               About
             </Link>
           </nav>
-          <div className="absolute right-4 sm:right-6 flex items-center gap-3">
-            {isLoading ? (
-              // While loading: show profile if we have it (e.g. from cache), otherwise show Login
-              // so the navbar never flashes empty (avoids "button disappears then appears")
-              profile ? (
-                <div className="flex items-center gap-2 px-2 py-1">
-                  <ProfileAvatar avatarUrl={profile.avatar_url} firstName={profile.first_name} lastName={profile.last_name} size="sm" imageKey={profile._avatarUpdatedAt} />
-                  <span className="text-sm font-medium text-[#333333] hidden sm:inline">
-                    {profile.first_name} {profile.last_name}
-                  </span>
+          {/* Desktop: profile/Login. Mobile: burger button (ref wraps this + mobile dropdown for outside-click) */}
+          <div className="absolute right-4 sm:right-6 flex items-center gap-3" ref={mobileMenuRef}>
+            {/* Mobile burger button (replaces profile/avatar area on small screens) */}
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen((o) => !o)}
+              className="md:hidden flex items-center justify-center w-10 h-10 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer touch-manipulation"
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isMobileMenuOpen}
+            >
+              {isMobileMenuOpen ? (
+                <svg className="w-6 h-6 text-[#333333]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6 text-[#333333]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+            {/* Desktop only: profile avatar + dropdown or Login */}
+            <div className="hidden md:block">
+              {isLoading ? (
+                profile ? (
+                  <div className="flex items-center gap-2 px-2 py-1">
+                    <ProfileAvatar avatarUrl={profile.avatar_url} firstName={profile.first_name} lastName={profile.last_name} size="sm" imageKey={profile._avatarUpdatedAt} />
+                    <span className="text-sm font-medium text-[#333333]">
+                      {profile.first_name} {profile.last_name}
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="rounded-lg border border-[#CCCCCC] bg-white px-4 py-2 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5]"
+                  >
+                    Login
+                  </button>
+                )
+              ) : profile ? (
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer"
+                  >
+                    <ProfileAvatar avatarUrl={profile.avatar_url} firstName={profile.first_name} lastName={profile.last_name} size="sm" imageKey={profile._avatarUpdatedAt} />
+                    <span className="text-sm font-medium text-[#333333]">
+                      {profile.first_name} {profile.last_name}
+                    </span>
+                  </button>
+                  {isDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-[#E9ECEF] py-1 z-50">
+                      <Link
+                        href="/pages/profile"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] rounded-t-lg transition-colors cursor-pointer border-b border-[#E9ECEF]"
+                      >
+                        <ProfileAvatar avatarUrl={profile.avatar_url} firstName={profile.first_name} lastName={profile.last_name} size="md" imageKey={profile._avatarUpdatedAt} />
+                        <div className="flex flex-col">
+                          <span className="font-medium text-[#333333] text-sm">{profile.first_name} {profile.last_name}</span>
+                          <span className="text-xs text-[#888888]">View Profile</span>
+                        </div>
+                      </Link>
+                      <Link
+                        href="/pages/patient-dashboard"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="w-full text-left px-4 py-2 text-sm text-[#333333] hover:bg-[#F5F5F5] transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        </svg>
+                        Dashboard
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-sm text-[#333333] hover:bg-[#F5F5F5] transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Logout
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <button
@@ -315,25 +396,41 @@ export function Navbar() {
                 >
                   Login
                 </button>
-              )
-            ) : profile ? (
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer"
+              )}
+            </div>
+          </div>
+          {/* Mobile dropdown: all nav links + profile dropdown items (or Login) */}
+          {isMobileMenuOpen && (
+            <div ref={mobileDropdownRef} className="absolute left-0 right-0 top-full mt-0 bg-white border-b border-[#E9ECEF] shadow-lg z-40 md:hidden">
+              <nav className="px-4 py-4 flex flex-col gap-1" aria-label="Mobile navigation">
+                <Link
+                  href="/pages/queue"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-3 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5] rounded-lg transition-colors"
                 >
-                  <ProfileAvatar avatarUrl={profile.avatar_url} firstName={profile.first_name} lastName={profile.last_name} size="sm" imageKey={profile._avatarUpdatedAt} />
-                  <span className="text-sm font-medium text-[#333333] hidden sm:inline">
-                    {profile.first_name} {profile.last_name}
-                  </span>
-                </button>
-                {isDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-[#E9ECEF] py-1 z-50">
-                    {/* Profile section */}
+                  Check Queue
+                </Link>
+                <Link
+                  href="/pages/book"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-3 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5] rounded-lg transition-colors"
+                >
+                  Book Appointment
+                </Link>
+                <Link
+                  href="/pages/about"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-3 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5] rounded-lg transition-colors"
+                >
+                  About
+                </Link>
+                {profile ? (
+                  <>
+                    <div className="border-t border-[#E9ECEF] my-2" />
                     <Link
                       href="/pages/profile"
-                      onClick={() => setIsDropdownOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] rounded-t-lg transition-colors cursor-pointer border-b border-[#E9ECEF]"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-3 hover:bg-[#F5F5F5] rounded-lg transition-colors"
                     >
                       <ProfileAvatar avatarUrl={profile.avatar_url} firstName={profile.first_name} lastName={profile.last_name} size="md" imageKey={profile._avatarUpdatedAt} />
                       <div className="flex flex-col">
@@ -341,59 +438,46 @@ export function Navbar() {
                         <span className="text-xs text-[#888888]">View Profile</span>
                       </div>
                     </Link>
-                    {/* Dashboard link */}
                     <Link
                       href="/pages/patient-dashboard"
-                      onClick={() => setIsDropdownOpen(false)}
-                      className="w-full text-left px-4 py-2 text-sm text-[#333333] hover:bg-[#F5F5F5] transition-colors flex items-center gap-2"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="px-3 py-3 text-sm text-[#333333] hover:bg-[#F5F5F5] rounded-lg transition-colors flex items-center gap-2"
                     >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                        />
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                       </svg>
                       Dashboard
                     </Link>
-                    {/* Logout button */}
                     <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-[#333333] hover:bg-[#F5F5F5] transition-colors flex items-center gap-2"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full text-left px-3 py-3 text-sm text-[#333333] hover:bg-[#F5F5F5] rounded-lg transition-colors flex items-center gap-2"
                     >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                        />
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                       </svg>
                       Logout
                     </button>
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="border-t border-[#E9ECEF] my-2" />
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        setIsModalOpen(true);
+                      }}
+                      className="w-full text-left px-3 py-3 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5] rounded-lg border border-[#CCCCCC] bg-white transition-colors"
+                    >
+                      Login
+                    </button>
+                  </>
                 )}
-              </div>
-            ) : (
-              <button
-                onClick={()=> setIsModalOpen(true)}
-                className="rounded-lg border border-[#CCCCCC] bg-white px-4 py-2 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5]"
-              >
-                Login
-              </button>
-            )}
-          </div>
+              </nav>
+            </div>
+          )}
         </div>
       </header>
       <LoginModal 

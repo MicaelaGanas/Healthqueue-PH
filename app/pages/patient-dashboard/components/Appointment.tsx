@@ -99,25 +99,25 @@ function BookingDetailsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="booking-details-title"
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-xl sm:rounded-lg border border-gray-200 bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 border-b border-gray-200 bg-white px-4 py-3 flex items-center justify-between">
-          <div>
-            <h2 id="booking-details-title" className="text-lg font-bold text-[#333333]">Booking details</h2>
-            <p className="mt-0.5 text-sm text-gray-500">Reference: {request.referenceNo}</p>
+        <div className="sticky top-0 border-b border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="min-w-0">
+            <h2 id="booking-details-title" className="text-base sm:text-lg font-bold text-[#333333]">Booking details</h2>
+            <p className="mt-0.5 text-xs sm:text-sm text-gray-500 truncate">Reference: {request.referenceNo}</p>
           </div>
           <StatusBadgeComponent status={request.status} />
         </div>
         <div className="space-y-4 px-4 py-4 text-sm">
-          <dl className="grid grid-cols-[minmax(0,8rem)_1fr] gap-x-3 gap-y-2">
+          <dl className="grid grid-cols-1 sm:grid-cols-[minmax(0,8rem)_1fr] gap-x-3 gap-y-2">
             <dt className="text-gray-500">Booking for</dt>
             <dd className="text-[#333333]">{isSelf ? "Yourself" : "Someone else"}</dd>
             <dt className="text-gray-500">Patient name</dt>
@@ -246,24 +246,24 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-8">
-        <p className="text-gray-600">Loading your appointments…</p>
+      <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8">
+        <p className="text-gray-600 text-sm sm:text-base">Loading your appointments…</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-8">
-        <p className="text-red-600">{error}</p>
+      <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8">
+        <p className="text-red-600 text-sm sm:text-base">{error}</p>
       </div>
     );
   }
 
   if (requests.length === 0) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-8">
-        <p className="text-gray-600 mb-4">You don’t have any appointments yet.</p>
+      <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8">
+        <p className="text-gray-600 mb-4 text-sm sm:text-base">You don’t have any appointments yet.</p>
         <Link
           href="/pages/book/step-1"
           className="inline-flex items-center gap-2 rounded-lg bg-[#007bff] px-4 py-2 text-sm font-medium text-white hover:bg-[#0069d9]"
@@ -275,27 +275,27 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
   }
 
   return (
-    <div className="bg-white rounded-b-lg shadow-sm p-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-lg font-bold text-[#333333]">Your appointments</h2>
+    <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8">
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <h2 className="text-base sm:text-lg font-bold text-[#333333]">Your appointments</h2>
         <Link
           href="/pages/book/step-1"
-          className="inline-flex items-center gap-2 rounded-lg border border-[#007bff] px-4 py-2 text-sm font-medium text-[#007bff] hover:bg-[#e7f1ff]"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#007bff] px-4 py-2 text-sm font-medium text-[#007bff] hover:bg-[#e7f1ff] w-full sm:w-auto"
         >
           Book another
         </Link>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label htmlFor="appointment-status-filter" className="text-sm font-medium text-gray-700">
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 min-w-0">
+          <label htmlFor="appointment-status-filter" className="text-xs sm:text-sm font-medium text-gray-700">
             Status
           </label>
           <select
             id="appointment-status-filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff] w-full sm:w-auto min-w-0"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value || "all"} value={opt.value}>
@@ -304,15 +304,15 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
             ))}
           </select>
         </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="appointment-date-filter" className="text-sm font-medium text-gray-700">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 min-w-0">
+          <label htmlFor="appointment-date-filter" className="text-xs sm:text-sm font-medium text-gray-700">
             Date
           </label>
           <select
             id="appointment-date-filter"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value as "all" | "upcoming" | "past")}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff] w-full sm:w-auto min-w-0"
           >
             {DATE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -321,12 +321,12 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
             ))}
           </select>
         </div>
-        <p className="text-sm text-gray-500">
+        <p className="text-xs sm:text-sm text-gray-500">
           Showing {filteredRequests.length} of {requests.length}
         </p>
       </div>
 
-      <ul className="space-y-4">
+      <ul className="space-y-3 sm:space-y-4">
         {filteredRequests.map((req) => {
           const patientLabel =
             req.bookingType === "dependent" && (req.beneficiaryFirstName || req.beneficiaryLastName)
@@ -335,24 +335,24 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
           return (
             <li
               key={req.id}
-              className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 transition-colors hover:bg-gray-50"
+              className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 sm:p-4 transition-colors hover:bg-gray-50"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex flex-col gap-3 sm:gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[#333333]">Ref: {req.referenceNo}</p>
-                  <p className="mt-0.5 text-sm text-gray-600">
+                  <p className="font-semibold text-[#333333] text-sm sm:text-base truncate">Ref: {req.referenceNo}</p>
+                  <p className="mt-0.5 text-xs sm:text-sm text-gray-600">
                     {formatDate(req.requestedDate)} · {formatTime(req.requestedTime)}
                   </p>
-                  <p className="mt-1 text-sm text-gray-600">
+                  <p className="mt-1 text-xs sm:text-sm text-gray-600 break-words">
                     {req.department}
                     {req.preferredDoctor ? ` · ${req.preferredDoctor}` : ""}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-500">For: {patientLabel}</p>
                   {req.status === "rejected" && req.rejectionReason && (
-                    <p className="mt-2 text-sm text-red-600">Reason: {req.rejectionReason}</p>
+                    <p className="mt-2 text-xs sm:text-sm text-red-600 break-words">Reason: {req.rejectionReason}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-2 flex-shrink-0 border-t border-gray-200/80 pt-3 sm:border-0 sm:pt-0">
                   <StatusBadge status={req.status} />
                   {onViewQueueStatus && req.status === "confirmed" && (
                     <button
@@ -365,7 +365,7 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
                           department: req.department,
                         })
                       }
-                      className="rounded-lg bg-[#007bff] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0069d9]"
+                      className="rounded-lg bg-[#007bff] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0069d9] flex-1 sm:flex-none min-w-0"
                     >
                       View queue status
                     </button>
@@ -373,7 +373,7 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
                   <button
                     type="button"
                     onClick={() => setDetailsRequest(req)}
-                    className="rounded-lg border border-[#007bff] bg-white px-3 py-1.5 text-xs font-medium text-[#007bff] hover:bg-[#e7f1ff]"
+                    className="rounded-lg border border-[#007bff] bg-white px-3 py-1.5 text-xs font-medium text-[#007bff] hover:bg-[#e7f1ff] flex-1 sm:flex-none min-w-0"
                   >
                     View details
                   </button>

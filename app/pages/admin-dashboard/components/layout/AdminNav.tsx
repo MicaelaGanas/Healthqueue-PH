@@ -13,6 +13,7 @@ const navItems: { href: string; label: string; icon: string; tabId?: string }[] 
   { href: "#users", label: "Users", icon: "people", tabId: "users" },
   { href: "#reports", label: "Reports", icon: "chart", tabId: "reports" },
   { href: "#records", label: "Records", icon: "folder", tabId: "records" },
+  { href: "#schedule", label: "Schedule", icon: "schedule", tabId: "schedule" },
   { href: "#settings", label: "Settings", icon: "gear", tabId: "settings" },
 ];
 
@@ -44,11 +45,10 @@ function FolderIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-function GearIcon({ className }: { className?: string }) {
+function ScheduleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
   );
 }
@@ -103,17 +103,17 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   people: PeopleIcon,
   chart: ChartIcon,
   folder: FolderIcon,
-  gear: GearIcon,
+  schedule: ScheduleIcon,
 };
 
-export type AdminTabId = "overview" | "insights" | "announcements" | "queue-display" | "users" | "reports" | "records" | "settings";
+export type AdminTabId = "overview" | "insights" | "announcements" | "queue-display" | "users" | "reports" | "records" | "schedule" | "settings";
 
-type AdminSidebarProps = {
+type AdminNavProps = {
   activeTab?: string;
   onTabChange?: (tab: AdminTabId) => void;
 };
 
-export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
+export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
@@ -127,10 +127,10 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
     try {
       // Sign out from Supabase
       await supabase.auth.signOut();
-      
+
       // Small delay to ensure logout completes
       await new Promise(resolve => setTimeout(resolve, 300));
-      
+
       // Redirect to landing page after logout
       router.push("/");
     } catch (error) {
@@ -153,7 +153,7 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
       )}
       <aside
         className={`flex shrink-0 flex-col overflow-hidden bg-[#1e3a5f] text-white transition-[width] duration-200 ${
-          collapsed ? "w-[4.5rem]" : "w-56"
+          collapsed ? "w-12 md:w-[4.5rem]" : "w-40 md:w-56"
         }`}
       >
       <div
