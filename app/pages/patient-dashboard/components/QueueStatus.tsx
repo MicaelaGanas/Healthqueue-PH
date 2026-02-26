@@ -93,7 +93,7 @@ function QueueFlowProgress({ currentStepIndex }: { currentStepIndex: number }) {
       : 0;
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md ring-1 ring-black/5 sm:p-8" aria-label="Queue progress">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md ring-1 ring-black/5 sm:p-8" aria-label="Queue progress" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-lg font-bold text-slate-800">Your queue progress</h3>
         <span className="text-sm font-medium text-slate-500">
@@ -303,7 +303,7 @@ export function QueueStatus({ selectedAppointment = null, onClearSelection }: Qu
 
   if (loading) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-8">
+      <div className="bg-white rounded-b-lg shadow-sm p-8" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         <p className="text-gray-600">Loading your queue status…</p>
       </div>
     );
@@ -311,7 +311,7 @@ export function QueueStatus({ selectedAppointment = null, onClearSelection }: Qu
 
   if (error) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-8">
+      <div className="bg-white rounded-b-lg shadow-sm p-8" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         <p className="text-red-600">{error}</p>
       </div>
     );
@@ -319,7 +319,7 @@ export function QueueStatus({ selectedAppointment = null, onClearSelection }: Qu
 
   if (!data) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-8">
+      <div className="bg-white rounded-b-lg shadow-sm p-8" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-8 text-center">
           {selectedAppointment && onClearSelection ? (
             <>
@@ -357,7 +357,7 @@ export function QueueStatus({ selectedAppointment = null, onClearSelection }: Qu
   }
 
   return (
-    <div className="rounded-b-lg bg-white p-6 shadow-sm sm:p-8 space-y-6">
+    <div className="rounded-b-lg bg-white p-6 shadow-sm sm:p-8 space-y-6" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
       {selectedAppointment && onClearSelection && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-gray-600">
@@ -386,7 +386,7 @@ export function QueueStatus({ selectedAppointment = null, onClearSelection }: Qu
           <div className="flex min-w-0 flex-1 flex-col justify-between gap-4 p-6 sm:p-8">
             <div className="space-y-1">
               <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Queue number</p>
-              <h2 className="font-mono text-3xl font-bold tracking-tight text-slate-800 sm:text-4xl">
+              <h2 className="text-3xl font-bold tracking-tight text-slate-800 sm:text-4xl">
                 {data.queueNumber}
               </h2>
               <p className="text-base font-medium text-slate-600">{data.department}</p>

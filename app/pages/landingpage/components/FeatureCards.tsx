@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { FadeInSection } from "../../../components/FadeInSection";
+import { createSupabaseBrowser, getSessionOrSignOut } from "../../../lib/supabase/client";
 
 function SearchIcon({ className }: { className?: string }) {
   return (
@@ -37,42 +39,92 @@ function MapPinIcon({ className }: { className?: string }) {
   );
 }
 
-const cards = [
-  {
-    title: "Check Queue",
-    description: "View your current queue position and wait time.",
-    href: "/pages/queue",
-    cta: "Check Now",
-    primary: true,
-    icon: SearchIcon,
-  },
-  {
-    title: "Book Appointment",
-    description: "Schedule a visit to reduce wait time.",
-    href: "/pages/book",
-    cta: "Book Now",
-    primary: false,
-    icon: CalendarPlusIcon,
-  },
-  {
-    title: "Wait Times",
-    description: "Estimated wait times by department.",
-    href: "#live-queue",
-    cta: "View Times",
-    primary: false,
-    icon: ClockIcon,
-  },
-  {
-    title: "Directory",
-    description: "Departments and service locations.",
-    href: "/pages/directory",
-    cta: "View Map",
-    primary: false,
-    icon: MapPinIcon,
-  },
-];
-
 export function FeatureCards() {
+  const [checkQueueHref, setCheckQueueHref] = useState("/pages/queue");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveCheckQueueHref = async () => {
+      try {
+        const cachedUserType = sessionStorage.getItem("user_type_cache");
+        if (cachedUserType === "patient") {
+          if (!cancelled) setCheckQueueHref("/pages/patient-dashboard?tab=queue");
+          return;
+        }
+
+        if (cachedUserType === "staff") {
+          if (!cancelled) setCheckQueueHref("/pages/queue");
+          return;
+        }
+
+        const supabase = createSupabaseBrowser();
+        const { session } = await getSessionOrSignOut(supabase);
+
+        if (!session?.access_token) {
+          if (!cancelled) setCheckQueueHref("/pages/queue");
+          return;
+        }
+
+        const res = await fetch("/api/patient-users", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+
+        if (res.ok) {
+          sessionStorage.setItem("user_type_cache", "patient");
+          if (!cancelled) setCheckQueueHref("/pages/patient-dashboard?tab=queue");
+          return;
+        }
+
+        sessionStorage.setItem("user_type_cache", "staff");
+        if (!cancelled) setCheckQueueHref("/pages/queue");
+      } catch {
+        if (!cancelled) setCheckQueueHref("/pages/queue");
+      }
+    };
+
+    resolveCheckQueueHref();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const cards = [
+    {
+      title: "Check Queue",
+      description: "View your current queue position and wait time.",
+      href: checkQueueHref,
+      cta: "Check Now",
+      primary: true,
+      icon: SearchIcon,
+    },
+    {
+      title: "Book Appointment",
+      description: "Schedule a visit to reduce wait time.",
+      href: "/pages/book",
+      cta: "Book Now",
+      primary: false,
+      icon: CalendarPlusIcon,
+    },
+    {
+      title: "Wait Times",
+      description: "Estimated wait times by department.",
+      href: "#live-queue",
+      cta: "View Times",
+      primary: false,
+      icon: ClockIcon,
+    },
+    {
+      title: "Directory",
+      description: "Departments and service locations.",
+      href: "/pages/directory",
+      cta: "View Map",
+      primary: false,
+      icon: MapPinIcon,
+    },
+  ];
+
   return (
     <FadeInSection className="relative z-10 mx-auto -mt-8 max-w-7xl px-4 pb-14 sm:px-6">
       <section aria-labelledby="actions-heading">

@@ -100,6 +100,7 @@ function BookingDetailsModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
+      style={{ fontFamily: "var(--font-rosario), sans-serif" }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -246,7 +247,7 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8">
+      <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         <p className="text-gray-600 text-sm sm:text-base">Loading your appointments…</p>
       </div>
     );
@@ -254,7 +255,7 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8">
+      <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         <p className="text-red-600 text-sm sm:text-base">{error}</p>
       </div>
     );
@@ -262,7 +263,7 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
 
   if (requests.length === 0) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8">
+      <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         <p className="text-gray-600 mb-4 text-sm sm:text-base">You don’t have any appointments yet.</p>
         <Link
           href="/pages/book/step-1"
@@ -275,7 +276,7 @@ export function Appointment({ onViewQueueStatus }: AppointmentProps) {
   }
 
   return (
-    <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8">
+    <div className="bg-white rounded-b-lg shadow-sm p-4 sm:p-6 md:p-8" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3 sm:gap-4">
         <h2 className="text-base sm:text-lg font-bold text-[#333333]">Your appointments</h2>
         <Link

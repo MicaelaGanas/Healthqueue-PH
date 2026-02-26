@@ -76,7 +76,7 @@ export function Notification() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-8">
+      <div className="bg-white rounded-b-lg shadow-sm p-8" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         <p className="text-gray-600">Loading notifications…</p>
       </div>
     );
@@ -84,14 +84,14 @@ export function Notification() {
 
   if (error) {
     return (
-      <div className="bg-white rounded-b-lg shadow-sm p-8">
+      <div className="bg-white rounded-b-lg shadow-sm p-8" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         <p className="text-red-600">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-b-lg shadow-sm p-8">
+    <div className="bg-white rounded-b-lg shadow-sm p-8" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-[#333333]">Your notifications</h2>
         <span className="text-sm text-gray-500">Unread: {unreadCount}</span>

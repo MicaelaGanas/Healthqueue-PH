@@ -219,7 +219,7 @@ export default function BookStep3Page() {
 
   return (
     <PatientAuthGuard>
-      <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
+      <div className="min-h-screen bg-[#f8f9fa] text-[#212529]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <BackToHome />
 

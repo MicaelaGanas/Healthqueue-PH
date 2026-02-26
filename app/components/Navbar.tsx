@@ -287,6 +287,8 @@ export function Navbar() {
     router.push("/");
   };
 
+  const checkQueueHref = profile ? "/pages/patient-dashboard?tab=queue" : "/pages/queue";
+
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-[#E9ECEF] bg-white">
@@ -295,7 +297,7 @@ export function Navbar() {
             <Logo />
           </div>
           <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">
-            <Link href="/pages/queue" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
+            <Link href={checkQueueHref} className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
               Check Queue
             </Link>
             <Link href="/pages/book" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
@@ -404,7 +406,7 @@ export function Navbar() {
             <div ref={mobileDropdownRef} className="absolute left-0 right-0 top-full mt-0 bg-white border-b border-[#E9ECEF] shadow-lg z-40 md:hidden">
               <nav className="px-4 py-4 flex flex-col gap-1" aria-label="Mobile navigation">
                 <Link
-                  href="/pages/queue"
+                  href={checkQueueHref}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="px-3 py-3 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5] rounded-lg transition-colors"
                 >

@@ -57,7 +57,7 @@ function PatientDashboardContent() {
 
   return (
     <PatientAuthGuard>
-      <div className="min-h-[80vh] bg-gray-100 relative overflow-hidden">
+      <div className="min-h-[80vh] bg-gray-100 relative overflow-hidden" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
         <div className="max-w-7xl mx-auto relative">
           {/* Back to Home */}
           <div className="pt-8 px-4 sm:px-6">
