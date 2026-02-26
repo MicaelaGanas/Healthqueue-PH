@@ -10,24 +10,30 @@ type QueueItemWithPatient = {
   walk_in_last_name: string | null;
   walk_in_age_years: number | null;
   walk_in_sex: string | null;
-  patient_users?: { first_name: string; last_name: string; date_of_birth: string; gender: string }[] | { first_name: string; last_name: string; date_of_birth: string; gender: string } | null;
-  booking_requests?: {
-    booking_type: "self" | "dependent";
-    beneficiary_first_name: string | null;
-    beneficiary_last_name: string | null;
-    patient_first_name: string | null;
-    patient_last_name: string | null;
-    beneficiary_date_of_birth: string | null;
-    beneficiary_gender: string | null;
-  }[] | {
-    booking_type: "self" | "dependent";
-    beneficiary_first_name: string | null;
-    beneficiary_last_name: string | null;
-    patient_first_name: string | null;
-    patient_last_name: string | null;
-    beneficiary_date_of_birth: string | null;
-    beneficiary_gender: string | null;
-  } | null;
+  patient_users?:
+    | { first_name: string; last_name: string; date_of_birth: string; gender: string }
+    | { first_name: string; last_name: string; date_of_birth: string; gender: string }[]
+    | null;
+  booking_requests?:
+    | {
+        booking_type: "self" | "dependent";
+        patient_first_name: string | null;
+        patient_last_name: string | null;
+        beneficiary_first_name: string | null;
+        beneficiary_last_name: string | null;
+        beneficiary_date_of_birth: string | null;
+        beneficiary_gender: string | null;
+      }
+    | {
+        booking_type: "self" | "dependent";
+        patient_first_name: string | null;
+        patient_last_name: string | null;
+        beneficiary_first_name: string | null;
+        beneficiary_last_name: string | null;
+        beneficiary_date_of_birth: string | null;
+        beneficiary_gender: string | null;
+      }[]
+    | null;
 };
 
 function normalizePatient(row: QueueItemWithPatient) {
@@ -67,22 +73,19 @@ function computeAgeYears(dob?: string | null): number | null {
 }
 
 function resolvePatientName(row: QueueItemWithPatient): string {
-  const patient = normalizePatient(row);
   const booking = normalizeBooking(row);
-  const beneficiaryName = [booking?.beneficiary_first_name, booking?.beneficiary_last_name]
-    .filter((value): value is string => Boolean(value && value.trim()))
-    .join(" ")
-    .trim();
-  if (booking?.booking_type === "dependent" && beneficiaryName) {
-    return beneficiaryName;
+  if (booking) {
+    if (booking.booking_type === "dependent") {
+      const first = (booking.beneficiary_first_name ?? "").trim();
+      const last = (booking.beneficiary_last_name ?? "").trim();
+      if (first || last) return `${first} ${last}`.trim() || "Unknown";
+    } else {
+      const first = (booking.patient_first_name ?? "").trim();
+      const last = (booking.patient_last_name ?? "").trim();
+      if (first || last) return `${first} ${last}`.trim() || "Unknown";
+    }
   }
-  const selfSnapshotName = [booking?.patient_first_name, booking?.patient_last_name]
-    .filter((value): value is string => Boolean(value && value.trim()))
-    .join(" ")
-    .trim();
-  if (selfSnapshotName) {
-    return selfSnapshotName;
-  }
+  const patient = normalizePatient(row);
   if (patient?.first_name && patient?.last_name) {
     return `${patient.first_name} ${patient.last_name}`;
   }
@@ -109,7 +112,9 @@ export async function GET(request: Request) {
 
   const { data: queueItem, error } = await supabase
     .from("queue_items")
-    .select("ticket, walk_in_first_name, walk_in_last_name, walk_in_age_years, walk_in_sex, patient_users(first_name, last_name, date_of_birth, gender), booking_requests(booking_type, beneficiary_first_name, beneficiary_last_name, patient_first_name, patient_last_name, beneficiary_date_of_birth, beneficiary_gender)")
+    .select(
+      "ticket, walk_in_first_name, walk_in_last_name, walk_in_age_years, walk_in_sex, patient_users(first_name, last_name, date_of_birth, gender), booking_requests(booking_type, patient_first_name, patient_last_name, beneficiary_first_name, beneficiary_last_name, beneficiary_date_of_birth, beneficiary_gender)"
+    )
     .eq("ticket", ticket.trim())
     .maybeSingle();
 
@@ -124,15 +129,17 @@ export async function GET(request: Request) {
   const patientName = resolvePatientName(row);
   const patient = normalizePatient(row);
   const booking = normalizeBooking(row);
-  const useBeneficiary = booking?.booking_type === "dependent";
-  const age = useBeneficiary
+  const isDependentBooking = booking?.booking_type === "dependent";
+  // For self bookings: age and gender come from patient_users (date_of_birth, gender).
+  // For dependent bookings: use booking_requests.beneficiary_date_of_birth and beneficiary_gender.
+  const age = isDependentBooking
     ? computeAgeYears(booking?.beneficiary_date_of_birth ?? null)
     : patient?.date_of_birth
-      ? computeAgeYears(patient.date_of_birth)
-      : row.walk_in_age_years ?? null;
-  const gender = useBeneficiary
+        ? computeAgeYears(patient.date_of_birth)
+        : row.walk_in_age_years ?? null;
+  const gender = isDependentBooking
     ? booking?.beneficiary_gender ?? null
-    : patient?.gender ?? row.walk_in_sex ?? null;
+    : (patient?.gender ?? row.walk_in_sex) ?? null;
 
   const { data: vitals, error: vitalsError } = await supabase
     .from("vital_signs")

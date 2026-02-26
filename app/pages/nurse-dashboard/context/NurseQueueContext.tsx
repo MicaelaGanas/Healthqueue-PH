@@ -26,6 +26,10 @@ export type QueueRow = {
   appointmentDate?: string;
   /** True if vitals have been recorded for this ticket. Booked patients without vitals stay in Vitals & Triage only (Option A). */
   hasVitals?: boolean;
+  /** Walk-in only: age in years (stored in queue_items.walk_in_age_years). */
+  walkInAgeYears?: number | null;
+  /** Walk-in only: gender (stored in queue_items.walk_in_sex). */
+  walkInGender?: string | null;
 };
 
 export type PendingWalkIn = {
@@ -141,6 +145,16 @@ function formatRegisteredAt(): string {
 
 function nextOpenSlotId(): string {
   return "slot-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+}
+
+/** Parse walk-in age text (e.g. "25", "25 years") to number of years for queue_items.walk_in_age_years. */
+function parseWalkInAge(ageText: string): number | null {
+  const s = String(ageText ?? "").trim();
+  if (!s) return null;
+  const match = s.match(/\d+/);
+  if (!match) return null;
+  const n = parseInt(match[0], 10);
+  return Number.isNaN(n) || n < 0 || n > 150 ? null : n;
 }
 
 function logStaffActivity(payload: { action: string; entityType?: string; entityId?: string; details?: Record<string, unknown> }) {
@@ -372,6 +386,7 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
       addedAt = slotDate.toISOString();
       appointmentTime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     }
+    const ageYears = parseWalkInAge(pending.age);
     const newRow: QueueRow = {
       ticket,
       patientName,
@@ -384,6 +399,8 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
       appointmentTime,
       appointmentDate: dateStr,
       assignedDoctor: assignedDoctor?.trim() || undefined,
+      walkInAgeYears: ageYears ?? undefined,
+      walkInGender: pending.sex?.trim() || undefined,
     };
     setQueueRows((prev) => [...prev, newRow]);
     setPendingWalkIns((prev) => prev.filter((p) => p.id !== pendingId));

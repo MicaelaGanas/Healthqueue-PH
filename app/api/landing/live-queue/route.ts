@@ -4,7 +4,8 @@ import { getSupabaseServer } from "../../../lib/supabase/server";
 /** ~minutes per patient for estimated wait when we don't have per-row wait_time */
 const EST_MINS_PER_PATIENT = 5;
 
-const NOW_SERVING_STATUSES = ["in consultation", "in progress", "called"];
+/** Statuses that mean "patient is currently being seen". DB stores in_consultation; UI may use "in progress". */
+const NOW_SERVING_STATUSES = ["in consultation", "in_consultation", "in progress", "called"];
 
 function formatEstWait(minutes: number): string {
   if (minutes >= 60) {
@@ -79,9 +80,12 @@ export async function GET(request: Request) {
 
     if (status === "completed") continue;
 
-    byDept[dept].waiting += 1;
-    if (r.wait_time && r.wait_time.trim()) byDept[dept].waitTimes.push(r.wait_time.trim());
-    if (!byDept[dept].nowServing && NOW_SERVING_STATUSES.includes(status) && r.ticket) {
+    const isInConsultation = NOW_SERVING_STATUSES.includes(status);
+    if (!isInConsultation) {
+      byDept[dept].waiting += 1;
+      if (r.wait_time && r.wait_time.trim()) byDept[dept].waitTimes.push(r.wait_time.trim());
+    }
+    if (!byDept[dept].nowServing && isInConsultation && r.ticket) {
       byDept[dept].nowServing = r.ticket;
     }
   }
