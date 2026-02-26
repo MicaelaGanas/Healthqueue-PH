@@ -7,6 +7,7 @@ export type Department = {
   name: string;
   sort_order: number;
   is_active: boolean;
+  default_slot_interval_minutes: number;
 };
 
 export function useDepartments(): { departments: Department[]; loading: boolean; error: string | null } {

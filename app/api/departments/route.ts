@@ -6,6 +6,7 @@ export type DepartmentRow = {
   name: string;
   sort_order: number;
   is_active: boolean;
+  default_slot_interval_minutes: number;
 };
 
 /** GET: list active departments, ordered by sort_order then name. Public (used by booking, queue filters, admin forms). */
@@ -20,7 +21,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("departments")
-    .select("id, name, sort_order, is_active")
+    .select("id, name, sort_order, is_active, default_slot_interval_minutes")
     .eq("is_active", true)
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });

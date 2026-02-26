@@ -35,6 +35,15 @@ function syntheticDoctorString(name: string, department: string): string {
   return n ? `Dr. ${n} - ${department}` : "";
 }
 
+function normalizeDoctorName(value: string | null | undefined): string {
+  if (!value || typeof value !== "string") return "";
+  return value
+    .replace(/^Dr\.\s*/i, "")
+    .replace(/\s*-\s*.*$/, "")
+    .trim()
+    .toLowerCase();
+}
+
 export function DoctorConsultationContent() {
   const [rows, setRows] = useState<QueueRowSync[]>([]);
   const [queueLoading, setQueueLoading] = useState(true);
@@ -128,13 +137,13 @@ export function DoctorConsultationContent() {
         if (!deptMatch(r)) return false;
         const assigned = (r.assignedDoctor ?? "").trim();
         if (assigned === "") return true;
-        return r.assignedDoctor === effectiveDoctor;
+        return normalizeDoctorName(assigned) === normalizeDoctorName(effectiveDoctor);
       });
     } else if (effectiveDoctor) {
       scope = scope.filter((r) => {
         const assigned = (r.assignedDoctor ?? "").trim();
         if (assigned === "") return true;
-        return r.assignedDoctor === effectiveDoctor;
+        return normalizeDoctorName(assigned) === normalizeDoctorName(effectiveDoctor);
       });
     } else if (staffDepartment) {
       scope = scope.filter((r) => (r.department || "").trim() === staffDepartment);

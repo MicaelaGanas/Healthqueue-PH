@@ -3,6 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../lib/supabase/server";
 import type { DbBookingRequest } from "../../lib/supabase/types";
 import { getStaffFromRequest } from "../../lib/api/auth";
+import {
+  compareYmd,
+  generateTimeSlots24,
+  getWeekStartYYYYMMDD,
+  normalizeSlotIntervalMinutes,
+  toYYYYMMDDLocal,
+} from "../../lib/departmentBooking";
 
 function generateReferenceNo(): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -146,11 +153,49 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Requested date and time are required" }, { status: 400 });
   }
 
-  const { data: dept } = await supabase.from("departments").select("id").eq("name", departmentName).maybeSingle();
+  const { data: dept } = await supabase
+    .from("departments")
+    .select("id, default_slot_interval_minutes")
+    .eq("name", departmentName)
+    .eq("is_active", true)
+    .maybeSingle();
   if (!dept?.id) {
     return NextResponse.json({ error: `Department "${departmentName}" not found` }, { status: 400 });
   }
   const departmentId = dept.id as string;
+
+  const requestedWeekStart = getWeekStartYYYYMMDD(requestedDate);
+  const currentWeekStart = getWeekStartYYYYMMDD(toYYYYMMDDLocal(new Date()));
+  const { data: weekSetup } = await supabase
+    .from("department_booking_weeks")
+    .select("slot_interval_minutes, is_open")
+    .eq("department_id", departmentId)
+    .eq("week_start_date", requestedWeekStart)
+    .maybeSingle();
+
+  const isFutureWeek = compareYmd(requestedWeekStart, currentWeekStart) > 0;
+  if (isFutureWeek && (!weekSetup || weekSetup.is_open !== true)) {
+    return NextResponse.json(
+      {
+        error:
+          "This department is not yet available for the selected week. Please choose another date or contact the clinic.",
+      },
+      { status: 409 }
+    );
+  }
+
+  const slotIntervalMinutes = normalizeSlotIntervalMinutes(
+    weekSetup?.slot_interval_minutes ?? dept.default_slot_interval_minutes ?? 30
+  );
+  const validSlots = generateTimeSlots24(slotIntervalMinutes);
+  if (!validSlots.includes(requestedTime)) {
+    return NextResponse.json(
+      {
+        error: `Selected time is not valid for this department schedule (${slotIntervalMinutes}-minute interval).`,
+      },
+      { status: 400 }
+    );
+  }
 
   let preferredDoctorId: string | null = null;
   const preferredDoctor = body.preferredDoctor?.trim();

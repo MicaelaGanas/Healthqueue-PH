@@ -2,13 +2,6 @@
 
 import { useState } from "react";
 
-/** 15 time slots in 3-column grid (per design). Exported for availability check. */
-export const TIME_SLOTS = [
-  "8:00 AM", "8:30 AM", "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM",
-  "11:00 AM", "11:30 AM", "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM",
-  "3:00 PM", "3:30 PM", "4:00 PM",
-];
-
 function ClockIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -20,13 +13,21 @@ function ClockIcon({ className }: { className?: string }) {
 type Props = {
   value?: string;
   onChange?: (time: string) => void;
+  /** Available time slots for current department/date in display format e.g. "8:20 AM" */
+  timeSlots?: string[];
   /** Time slots that are already booked (display format e.g. "8:00 AM"). Not selectable. */
   disabledSlots?: string[];
   /** When true, no time can be selected (e.g. select department first). */
   selectionDisabled?: boolean;
 };
 
-export function SelectTimeCard({ value = "", onChange, disabledSlots = [], selectionDisabled = false }: Props) {
+export function SelectTimeCard({
+  value = "",
+  onChange,
+  timeSlots = [],
+  disabledSlots = [],
+  selectionDisabled = false,
+}: Props) {
   const [internal, setInternal] = useState("");
   const selected = onChange && value !== undefined ? value : internal;
   const setSelected = (t: string) => {
@@ -48,7 +49,7 @@ export function SelectTimeCard({ value = "", onChange, disabledSlots = [], selec
         <p className="mt-1 text-sm text-[#6C757D]">Select a department first.</p>
       )}
       <div className={`mt-4 grid grid-cols-3 gap-2 ${allDisabled ? "pointer-events-none opacity-70" : ""}`}>
-        {TIME_SLOTS.map((time) => {
+        {timeSlots.map((time) => {
           const isDisabled = allDisabled || disabledSet.has(time);
           return (
             <button
@@ -69,6 +70,9 @@ export function SelectTimeCard({ value = "", onChange, disabledSlots = [], selec
           );
         })}
       </div>
+      {!selectionDisabled && timeSlots.length === 0 && (
+        <p className="mt-3 text-sm text-[#6C757D]">No available slots for this date.</p>
+      )}
     </div>
   );
 }

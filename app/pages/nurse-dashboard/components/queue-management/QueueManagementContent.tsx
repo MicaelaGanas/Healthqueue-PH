@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { QueueSummaryCards } from "./QueueSummaryCards";
 import { QueueFilters, type QueueFiltersState } from "./QueueFilters";
-import { DOCTORS_BY_DEPARTMENT } from "../../../../lib/departments";
 import { useDepartments } from "../../../../lib/useDepartments";
 import { PatientQueueTable } from "./PatientQueueTable";
 import { useNurseQueue } from "../../context/NurseQueueContext";
@@ -30,6 +29,8 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
   const [filters, setFilters] = useState<QueueFiltersState>(DEFAULT_FILTERS);
   const [completionNotification, setCompletionNotification] = useState<{ patientName: string; ticket: string } | null>(null);
   const previousQueueRef = useRef<typeof queueRows>([]);
+  const [doctorsForSpecialty, setDoctorsForSpecialty] = useState<string[]>([]);
+  const [doctorsLoading, setDoctorsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,10 +66,35 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
     return () => { cancelled = true; };
   }, []);
 
-  const doctorsForSpecialty = useMemo(
-    () => (managedDepartment ? (DOCTORS_BY_DEPARTMENT[managedDepartment] ?? []) : []),
-    [managedDepartment]
-  );
+  useEffect(() => {
+    if (!managedDepartment) {
+      setDoctorsForSpecialty([]);
+      return;
+    }
+    let cancelled = false;
+    setDoctorsLoading(true);
+    fetch(`/api/doctors?department=${encodeURIComponent(managedDepartment)}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: { displayLabel?: string; name?: string }[]) => {
+        if (cancelled) return;
+        const labels = Array.isArray(list)
+          ? list
+              .map((d) => d.displayLabel || d.name || "")
+              .map((value) => String(value).trim())
+              .filter((value) => value.length > 0)
+          : [];
+        setDoctorsForSpecialty(labels);
+      })
+      .catch(() => {
+        if (!cancelled) setDoctorsForSpecialty([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDoctorsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [managedDepartment]);
 
   const handleSpecialtyChange = (value: string) => {
     setManagedDepartment(value);
@@ -179,14 +205,16 @@ export function QueueManagementContent({ onAddWalkIn }: QueueManagementContentPr
                 id="doctor-on-duty"
                 value={doctorOnDuty}
                 onChange={(e) => setDoctorOnDuty(e.target.value)}
-                disabled={!managedDepartment}
+                disabled={!managedDepartment || doctorsLoading}
                 className="w-full rounded-lg border border-[#dee2e6] bg-white px-3 py-2.5 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff] disabled:bg-[#f8f9fa] disabled:text-[#6C757D]"
               >
                 <option value="">
                   {managedDepartment
-                    ? doctorsForSpecialty.length
-                      ? "Select doctor on duty..."
-                      : "No doctors listed for this specialty"
+                    ? doctorsLoading
+                      ? "Loading doctors..."
+                      : doctorsForSpecialty.length
+                        ? "Select doctor on duty..."
+                        : "No doctors listed for this specialty"
                     : "Select specialty first"}
                 </option>
                 {doctorsForSpecialty.map((doc) => (

@@ -32,9 +32,11 @@ const MONTHS = "January,February,March,April,May,June,July,August,September,Octo
 type Props = {
   value?: Date | null;
   onChange?: (date: Date | null) => void;
+  isDateSelectable?: (date: Date) => boolean;
+  helperText?: string;
 };
 
-export function SelectDateCard({ value, onChange }: Props) {
+export function SelectDateCard({ value, onChange, isDateSelectable, helperText }: Props) {
   const [viewDate, setViewDate] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -69,7 +71,9 @@ export function SelectDateCard({ value, onChange }: Props) {
     if (!day) return true;
     const cellDate = new Date(year, month, day);
     cellDate.setHours(0, 0, 0, 0);
-    return cellDate < tomorrow;
+    if (cellDate < tomorrow) return true;
+    if (isDateSelectable && !isDateSelectable(cellDate)) return true;
+    return false;
   };
 
   const isSelected = (day: number | null) => {
@@ -132,6 +136,7 @@ export function SelectDateCard({ value, onChange }: Props) {
           })}
         </div>
       </div>
+      {helperText && <p className="mt-2 text-sm text-[#6C757D]">{helperText}</p>}
     </div>
   );
 }

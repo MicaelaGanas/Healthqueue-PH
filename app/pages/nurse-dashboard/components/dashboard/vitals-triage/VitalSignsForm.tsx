@@ -74,7 +74,12 @@ export function VitalSignsForm() {
     const included = queueRows.filter(
       (r) =>
         r.hasVitals !== true &&
-        (isScheduledForToday(r) || confirmedForTriage.includes(r.ticket))
+        (
+          isScheduledForToday(r) ||
+          confirmedForTriage.includes(r.ticket) ||
+          (r.source === "booked" && r.status === "waiting") ||
+          (r.source === "walk-in" && r.status === "waiting")
+        )
     );
     return included.map((r) => ({ ticket: r.ticket, patientName: r.patientName, department: r.department }));
   }, [queueRows, confirmedForTriage, todayDateStr]);

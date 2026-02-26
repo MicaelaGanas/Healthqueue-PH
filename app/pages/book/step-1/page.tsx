@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toYYYYMMDD } from "../../../lib/schedule";
 import { parseTimeTo24 } from "../../../lib/queueBookedStorage";
+import { formatSlotDisplay } from "../../../lib/slotTimes";
+import { compareYmd, getWeekStartYYYYMMDD } from "../../../lib/departmentBooking";
 import { Footer } from "../../../components/Footer";
 import { PatientAuthGuard } from "../../../components/PatientAuthGuard";
 import { BackToHome } from "../components/BackToHome";
@@ -12,7 +14,7 @@ import { BookingTypeCard, type BookingType } from "./components/BookingTypeCard"
 import { SelectDateCard } from "./components/SelectDateCard";
 import { SelectDepartmentCard } from "./components/SelectDepartmentCard";
 import { PreferDoctorCard } from "./components/PreferDoctorCard";
-import { SelectTimeCard, TIME_SLOTS } from "./components/SelectTimeCard";
+import { SelectTimeCard } from "./components/SelectTimeCard";
 
 const BOOKING_STORAGE_KEY = "healthqueue_booking";
 const BOOKING_SUBMITTED_KEY = "healthqueue_booking_submitted";
@@ -31,45 +33,116 @@ export default function BookStep1Page() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
   const [preferredDoctor, setPreferredDoctor] = useState("");
-  const [takenTimes, setTakenTimes] = useState<string[]>([]);
+  const [takenTimes24, setTakenTimes24] = useState<string[]>([]);
+  const [timeSlotsDisplay, setTimeSlotsDisplay] = useState<string[]>([]);
+  const [departmentRules, setDepartmentRules] = useState<{
+    currentWeekStart: string;
+    openWeekStarts: string[];
+  } | null>(null);
+  const [rulesLoading, setRulesLoading] = useState(false);
+  const [rulesError, setRulesError] = useState<string | null>(null);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   const dateStr = selectedDate ? toYYYYMMDD(selectedDate) : null;
-  const disabledSlots =
-    dateStr == null
-      ? []
-      : TIME_SLOTS.filter((display) => takenTimes.includes(parseTimeTo24(display)));
+  const disabledSlots = useMemo(
+    () =>
+      dateStr == null || timeSlotsDisplay.length === 0
+        ? []
+        : timeSlotsDisplay.filter((display) => takenTimes24.includes(parseTimeTo24(display))),
+    [dateStr, timeSlotsDisplay, takenTimes24]
+  );
+
+  const handleDepartmentChange = (nextDepartment: string) => {
+    setDepartment(nextDepartment);
+    setSelectedDate(null);
+    setSelectedTime("");
+    setTakenTimes24([]);
+    setTimeSlotsDisplay([]);
+    setDepartmentRules(null);
+    setRulesError(null);
+    setAvailabilityError(null);
+    setRulesLoading(Boolean(nextDepartment && nextDepartment !== "—"));
+  };
+
+  const handleDateChange = (nextDate: Date | null) => {
+    setSelectedDate(nextDate);
+    setSelectedTime("");
+    setAvailabilityError(null);
+    setTakenTimes24([]);
+    setTimeSlotsDisplay([]);
+  };
 
   useEffect(() => {
-    if (!dateStr) {
-      setTakenTimes([]);
-      return;
-    }
+    if (!department || department === "—") return;
     let cancelled = false;
-    fetch(`/api/availability/slots?date=${encodeURIComponent(dateStr)}`)
-      .then((res) => (res.ok ? res.json() : { takenTimes: [] }))
+
+    fetch(`/api/availability/department-rules?department=${encodeURIComponent(department)}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to load department schedule."))))
       .then((data) => {
-        if (!cancelled && Array.isArray(data.takenTimes)) setTakenTimes(data.takenTimes);
+        if (cancelled) return;
+        setDepartmentRules({
+          currentWeekStart: String(data.currentWeekStart ?? ""),
+          openWeekStarts: Array.isArray(data.openWeekStarts)
+            ? data.openWeekStarts.map((v: unknown) => String(v))
+            : [],
+        });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setDepartmentRules(null);
+        setRulesError(error instanceof Error ? error.message : "Failed to load department schedule.");
+      })
+      .finally(() => {
+        if (!cancelled) setRulesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [department]);
+
+  const isDateAllowedForDepartment = (d: Date) => {
+    if (!department || department === "—") return true;
+    if (!departmentRules) return false;
+    const dateYmd = toYYYYMMDD(d);
+    const weekStart = getWeekStartYYYYMMDD(dateYmd);
+    if (!weekStart) return false;
+    if (compareYmd(weekStart, departmentRules.currentWeekStart) === 0) return true;
+    return departmentRules.openWeekStarts.includes(weekStart);
+  };
+
+  useEffect(() => {
+    if (!dateStr || !department || department === "—") return;
+    let cancelled = false;
+    fetch(
+      `/api/availability/slots?date=${encodeURIComponent(dateStr)}&department=${encodeURIComponent(department)}`
+    )
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to load available slots."))))
+      .then((data) => {
+        if (cancelled) return;
+        const slots24 = Array.isArray(data.timeSlots24)
+          ? data.timeSlots24.map((v: unknown) => String(v))
+          : [];
+        const taken24 = Array.isArray(data.takenTimes)
+          ? data.takenTimes.map((v: unknown) => String(v))
+          : [];
+        setTimeSlotsDisplay(slots24.map((t: string) => formatSlotDisplay(t)));
+        setTakenTimes24(taken24);
+        setAvailabilityError(data.isDepartmentReady === false ? String(data.reason ?? "") : null);
       })
       .catch(() => {
-        if (!cancelled) setTakenTimes([]);
+        if (cancelled) return;
+        setTakenTimes24([]);
+        setTimeSlotsDisplay([]);
+        setAvailabilityError("Failed to load available slots.");
       });
     return () => {
       cancelled = true;
     };
-  }, [dateStr]);
-
-  // Clear selected time if it becomes disabled after date or availability change
-  useEffect(() => {
-    if (selectedTime && disabledSlots.includes(selectedTime)) setSelectedTime("");
-  }, [disabledSlots, selectedTime]);
-
-  // Clear selected time when department is cleared (must select department before time)
-  useEffect(() => {
-    if ((!department || department === "—") && selectedTime) setSelectedTime("");
-  }, [department, selectedTime]);
+  }, [dateStr, department]);
 
   const handleContinue = () => {
-    if (!selectedDate || !selectedTime) return;
+    if (!selectedDate || !selectedTime || disabledSlots.includes(selectedTime)) return;
     if (bookingType === "dependent" && !relationship) return;
     const dateStr = formatDateForSummary(selectedDate);
     const requestedDate = toYYYYMMDD(selectedDate);
@@ -92,6 +165,7 @@ export default function BookStep1Page() {
   const canContinue =
     selectedDate != null &&
     selectedTime !== "" &&
+    !disabledSlots.includes(selectedTime) &&
     (bookingType === "self" || (bookingType === "dependent" && relationship !== ""));
 
   return (
@@ -117,9 +191,22 @@ export default function BookStep1Page() {
         <div className="mt-8 rounded-xl border border-[#e9ecef] bg-white p-6 shadow-sm sm:p-8">
           <div className="flex flex-col gap-8 md:flex-row md:items-stretch md:gap-10">
             <div className="md:w-1/2 md:min-w-0">
-              <SelectDepartmentCard value={department} onChange={setDepartment} />
+              <SelectDepartmentCard value={department} onChange={handleDepartmentChange} />
               <div className="mt-8">
-                <SelectDateCard value={selectedDate} onChange={setSelectedDate} />
+                <SelectDateCard
+                  value={selectedDate}
+                  onChange={handleDateChange}
+                  isDateSelectable={isDateAllowedForDepartment}
+                  helperText={
+                    !department || department === "—"
+                      ? "Choose a department to check which future weeks are open."
+                      : rulesLoading
+                        ? "Loading department schedule…"
+                        : rulesError
+                          ? rulesError
+                          : "Current week is available. Future weeks must be opened by admin first."
+                  }
+                />
               </div>
             </div>
             <div className="flex flex-1 flex-col gap-6 md:w-1/2 md:min-w-0">
@@ -131,9 +218,13 @@ export default function BookStep1Page() {
               <SelectTimeCard
                 value={selectedTime}
                 onChange={setSelectedTime}
+                timeSlots={timeSlotsDisplay}
                 disabledSlots={disabledSlots}
                 selectionDisabled={!department || department === "—"}
               />
+              {availabilityError && (
+                <p className="-mt-2 text-sm text-[#6C757D]">{availabilityError}</p>
+              )}
               <button
                 type="button"
                 onClick={handleContinue}

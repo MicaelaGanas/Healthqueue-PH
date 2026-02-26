@@ -69,7 +69,7 @@ export function WalkInSlotPickerPanel({
   const dateLabel = useMemo(() => formatDateDisplay(dateStr, { useTodayLabel: true }), [dateStr]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" aria-hidden onClick={onClose} />
       <div
         className="relative z-10 w-full max-w-3xl rounded-xl border border-[#e9ecef] bg-white px-8 py-6 shadow-xl sm:px-10 sm:py-8"
