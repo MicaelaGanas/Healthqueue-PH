@@ -64,7 +64,7 @@ export async function POST(
     walk_in_phone: null,
     walk_in_email: null,
     booking_request_id: req.id,
-    assigned_doctor_id: null,
+    assigned_doctor_id: req.preferred_doctor_id,
     appointment_at: appointmentAt,
     added_at: new Date().toISOString(),
   };

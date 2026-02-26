@@ -115,18 +115,14 @@ type PatientQueueTableProps = {
   doctorOnDuty?: string;
 };
 
-/** Booked patients need vitals before they can be "waiting for doctor". Walk-ins are ready once in queue. */
+/** Patients need vitals before they can be "waiting for doctor". */
 function isReadyForDoctor(r: QueueRow, ticketsWithVitals: Set<string>): boolean {
-  return r.source === "walk-in" || ticketsWithVitals.has(r.ticket);
+  return ticketsWithVitals.has(r.ticket);
 }
 
-/** Display status: show "Needs vitals" for booked patients without vitals who are scheduled/waiting. */
+/** Display status: show "Needs vitals" for patients without vitals who are scheduled/waiting. */
 function displayStatus(r: QueueRow, ticketsWithVitals: Set<string>): string {
-  if (
-    r.source === "booked" &&
-    !ticketsWithVitals.has(r.ticket) &&
-    (r.status === "scheduled" || r.status === "waiting")
-  ) {
+  if (!ticketsWithVitals.has(r.ticket) && (r.status === "scheduled" || r.status === "waiting")) {
     return "needs_vitals";
   }
   return r.status;
@@ -208,8 +204,8 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
     if (doctorOnDuty) {
       scope = scope.filter((r) => r.assignedDoctor === doctorOnDuty);
     }
-    // Do not show booked patients in Queue Management until vitals are recorded (Option A: they stay in Vitals & Triage first).
-    scope = scope.filter((r) => r.source === "walk-in" || r.hasVitals === true || ticketsWithVitals.has(r.ticket));
+    // Do not show patients in Queue Management until vitals are recorded.
+    scope = scope.filter((r) => r.hasVitals === true || ticketsWithVitals.has(r.ticket));
     const sorted = [...scope].sort((a, b) => {
       const ka = sortKey(a);
       const kb = sortKey(b);

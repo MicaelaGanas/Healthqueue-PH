@@ -6,13 +6,41 @@ import { requireRoles } from "../../lib/api/auth";
 type QueueItemWithJoins = DbQueueItem & {
   departments?: { name: string } | null;
   patient_users?: { first_name: string; last_name: string } | null;
+  booking_requests?: {
+    booking_type: "self" | "dependent";
+    beneficiary_first_name: string | null;
+    beneficiary_last_name: string | null;
+    patient_first_name: string | null;
+    patient_last_name: string | null;
+  } | {
+    booking_type: "self" | "dependent";
+    beneficiary_first_name: string | null;
+    beneficiary_last_name: string | null;
+    patient_first_name: string | null;
+    patient_last_name: string | null;
+  }[] | null;
   staff_users?: { first_name: string; last_name: string } | null;
 };
 
 function toAppRow(r: QueueItemWithJoins, hasVitals: boolean) {
+  const booking = Array.isArray(r.booking_requests)
+    ? (r.booking_requests[0] ?? null)
+    : (r.booking_requests ?? null);
+  const beneficiaryName = [booking?.beneficiary_first_name, booking?.beneficiary_last_name]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .join(" ")
+    .trim();
+  const selfSnapshotName = [booking?.patient_first_name, booking?.patient_last_name]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .join(" ")
+    .trim();
   const patientName =
-    r.patient_users?.first_name && r.patient_users?.last_name
+    booking?.booking_type === "dependent" && beneficiaryName
+      ? beneficiaryName
+      : r.patient_users?.first_name && r.patient_users?.last_name
       ? `${r.patient_users.first_name} ${r.patient_users.last_name}`
+      : selfSnapshotName
+        ? selfSnapshotName
       : r.walk_in_first_name && r.walk_in_last_name
         ? `${r.walk_in_first_name} ${r.walk_in_last_name}`
         : r.walk_in_first_name || r.patient_users?.first_name || "Unknown";
@@ -21,8 +49,11 @@ function toAppRow(r: QueueItemWithJoins, hasVitals: boolean) {
     r.staff_users?.first_name && r.staff_users?.last_name
       ? `${r.staff_users.first_name} ${r.staff_users.last_name}`
       : null;
-  const appointmentDate = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null;
-  const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
+  const appointmentDateObj = r.appointment_at ? new Date(r.appointment_at) : null;
+  const appointmentDate = appointmentDateObj
+    ? `${appointmentDateObj.getFullYear()}-${String(appointmentDateObj.getMonth() + 1).padStart(2, "0")}-${String(appointmentDateObj.getDate()).padStart(2, "0")}`
+    : null;
+  const appointmentTime = appointmentDateObj ? appointmentDateObj.toTimeString().slice(0, 5) : null;
   const statusForApp = r.status === "no_show" ? "no show" : r.status === "in_consultation" ? "in progress" : r.status;
   return {
     ticket: r.ticket,
@@ -57,7 +88,7 @@ export async function GET(request: Request) {
   // Fetch all queue items so confirmed bookings always show in Booked queue (confirmed).
   const q = supabase
     .from("queue_items")
-    .select("*, departments(name), patient_users(first_name, last_name), staff_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)")
+    .select("*, departments(name), patient_users(first_name, last_name), booking_requests(booking_type, beneficiary_first_name, beneficiary_last_name, patient_first_name, patient_last_name), staff_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)")
     .order("added_at", { ascending: true });
   const { data, error } = await q;
   if (error) {

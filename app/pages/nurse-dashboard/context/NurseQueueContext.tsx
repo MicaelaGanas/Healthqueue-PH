@@ -4,6 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { getBookedQueueFromStorage, removeBookedFromStorage } from "../../../lib/queueBookedStorage";
 import { getQueueRowsFromStorage, setQueueRowsInStorage } from "../../../lib/queueSyncStorage";
 import { createSupabaseBrowser } from "../../../lib/supabase/client";
+import { getTodayYYYYMMDD } from "../../../lib/schedule";
 
 export type Priority = "normal" | "urgent";
 
@@ -361,7 +362,7 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
     const patientName = `${pending.firstName} ${pending.lastName}`.trim() || "Unknown";
     const ticket = nextWalkInTicket();
     const now = new Date();
-    const dateStr = (appointmentDate && /^\d{4}-\d{2}-\d{2}$/.test(appointmentDate.trim())) ? appointmentDate.trim() : now.toISOString().slice(0, 10);
+    const dateStr = (appointmentDate && /^\d{4}-\d{2}-\d{2}$/.test(appointmentDate.trim())) ? appointmentDate.trim() : getTodayYYYYMMDD();
     const [y, mo, day] = dateStr.split("-").map(Number);
     let addedAt = now.toISOString();
     let appointmentTime: string | undefined;
@@ -495,7 +496,7 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
 
   const setPatientSlot = useCallback((ticket: string, newTime: string, newDate?: string) => {
     const normalized = newTime.includes(":") ? newTime : `${newTime.padStart(2, "0")}:00`;
-    const dateStr = (newDate && /^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) ? newDate.trim() : new Date().toISOString().slice(0, 10);
+    const dateStr = (newDate && /^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) ? newDate.trim() : getTodayYYYYMMDD();
     const [y, mo, day] = dateStr.split("-").map(Number);
     const [h, m] = normalized.split(":").map(Number);
     const slotDate = new Date(y, mo - 1, day, h, m, 0, 0);

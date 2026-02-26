@@ -21,8 +21,11 @@ function queueItemToBookedEntry(r: QueueItemWithJoins) {
     r.staff_users?.first_name && r.staff_users?.last_name
       ? `${r.staff_users.first_name} ${r.staff_users.last_name}`
       : null;
-  const appointmentDate = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null;
-  const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
+  const appointmentDateObj = r.appointment_at ? new Date(r.appointment_at) : null;
+  const appointmentDate = appointmentDateObj
+    ? `${appointmentDateObj.getFullYear()}-${String(appointmentDateObj.getMonth() + 1).padStart(2, "0")}-${String(appointmentDateObj.getDate()).padStart(2, "0")}`
+    : null;
+  const appointmentTime = appointmentDateObj ? appointmentDateObj.toTimeString().slice(0, 5) : null;
   return {
     referenceNo: r.ticket,
     patientName,

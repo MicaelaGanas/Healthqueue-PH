@@ -1,24 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNurseQueue } from "../../../context/NurseQueueContext";
 import type { Priority } from "../../../context/NurseQueueContext";
 
-const SYMPTOMS = [
-  "Fever",
-  "Cough",
-  "Chest Pain",
-  "Difficulty Breathing",
-  "Dizziness",
-  "Nausea/Vomiting",
-  "Skin Rash",
-  "Headache",
-  "Abdominal Pain",
-  "Body Weakness",
-];
-
 import { formatSlotDisplay, getDefaultSlotNow } from "../../../../../lib/slotTimes";
-import { getDateOptions, getTodayYYYYMMDD } from "../../../../../lib/schedule";
+import { getTodayYYYYMMDD, toYYYYMMDD } from "../../../../../lib/schedule";
 import { WalkInSlotPickerPanel } from "./WalkInSlotPickerPanel";
 import { PatientSummaryOverlay } from "../../PatientSummaryOverlay";
 
@@ -36,16 +23,6 @@ export function WalkInRegistration() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [bookingReference, setBookingReference] = useState("");
-  const [symptoms, setSymptoms] = useState<Record<string, boolean>>({});
-  const [otherSymptoms, setOtherSymptoms] = useState("");
-
-  const toggleSymptom = (s: string) => {
-    setSymptoms((prev) => {
-      const next = { ...prev, [s]: !prev[s] };
-      if (s === "Others" && !next[s]) setOtherSymptoms("");
-      return next;
-    });
-  };
 
   const handleRegister = () => {
     const trimmedFirst = firstName.trim();
@@ -59,8 +36,8 @@ export function WalkInRegistration() {
       phone,
       email,
       bookingReference,
-      symptoms,
-      otherSymptoms,
+      symptoms: {},
+      otherSymptoms: "",
     });
     setFirstName("");
     setLastName("");
@@ -69,8 +46,6 @@ export function WalkInRegistration() {
     setPhone("");
     setEmail("");
     setBookingReference("");
-    setSymptoms({});
-    setOtherSymptoms("");
   };
 
   const canRegister = firstName.trim() && lastName.trim() && age.trim() && sex;
@@ -160,43 +135,6 @@ export function WalkInRegistration() {
             />
           </div>
         </div>
-        <div className="mt-4">
-          <p className="mb-2 text-sm font-medium text-[#333333]">Symptoms (Select all that apply)</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {SYMPTOMS.map((s) => (
-              <label key={s} className="flex items-center gap-2 text-sm text-[#333333]">
-                <input
-                  type="checkbox"
-                  checked={symptoms[s] ?? false}
-                  onChange={() => toggleSymptom(s)}
-                  className="rounded border-[#dee2e6] text-[#007bff] focus:ring-[#007bff]"
-                />
-                {s}
-              </label>
-            ))}
-            <label className="flex items-center gap-2 text-sm text-[#333333]">
-              <input
-                type="checkbox"
-                checked={symptoms["Others"] ?? false}
-                onChange={() => toggleSymptom("Others")}
-                className="rounded border-[#dee2e6] text-[#007bff] focus:ring-[#007bff]"
-              />
-              Others
-            </label>
-          </div>
-          {(symptoms["Others"] ?? false) && (
-            <div className="mt-3">
-              <label className="block text-sm font-medium text-[#333333]">Please specify</label>
-              <input
-                type="text"
-                value={otherSymptoms}
-                onChange={(e) => setOtherSymptoms(e.target.value)}
-                placeholder="Describe other symptoms..."
-                className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] placeholder:text-[#6C757D] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
-              />
-            </div>
-          )}
-        </div>
         <button
           type="button"
           onClick={handleRegister}
@@ -212,14 +150,6 @@ export function WalkInRegistration() {
   );
 }
 
-type SlotPanelFor = {
-  pendingId: string;
-  patientName: string;
-  department: string;
-  doctor: string;
-  dateStr: string;
-};
-
 type AddToQueueOverlayProps = {
   open: boolean;
   onClose: () => void;
@@ -233,6 +163,7 @@ type AddToQueueOverlayProps = {
 };
 
 type DoctorOption = { id: string; name: string; department: string | null; displayLabel: string };
+type SlotPanelFor = { pendingId: string; patientName: string; department: string; doctor: string; dateStr: string };
 
 function AddToQueueOverlay({
   open,
@@ -248,6 +179,10 @@ function AddToQueueOverlay({
   const [department, setDepartment] = useState(initialDepartment);
   const [doctor, setDoctor] = useState("");
   const [date, setDate] = useState(getTodayYYYYMMDD());
+  const [calendarMonthCursor, setCalendarMonthCursor] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [priority, setPriority] = useState<Priority>("normal");
   const [departmentsList, setDepartmentsList] = useState<string[]>([]);
   const [doctorsByDept, setDoctorsByDept] = useState<Record<string, string[]>>({});
@@ -287,9 +222,12 @@ function AddToQueueOverlay({
     if (!open) return;
     setDepartment(initialDepartment && departmentsList.includes(initialDepartment) ? initialDepartment : departmentsList[0] ?? "General Medicine");
     setDoctor("");
-    setDate(getTodayYYYYMMDD());
+    const today = getTodayYYYYMMDD();
+    setDate(today);
+    const d = new Date(today + "T12:00:00");
+    setCalendarMonthCursor(new Date(d.getFullYear(), d.getMonth(), 1));
     setPriority("normal");
-  }, [open, initialDepartment, departmentsList]);
+  }, [open, initialDepartment, departmentsList, selectedTime]);
 
   useEffect(() => {
     if (department && (!doctor || !doctors.includes(doctor))) setDoctor(doctors[0] ?? "");
@@ -305,13 +243,40 @@ function AddToQueueOverlay({
     onClose();
   };
 
+  const calendarMonthLabel = useMemo(
+    () => calendarMonthCursor.toLocaleDateString("en-PH", { month: "long", year: "numeric" }),
+    [calendarMonthCursor]
+  );
+
+  const weekDayLabels = useMemo(() => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], []);
+
+  const calendarDays = useMemo(() => {
+    const year = calendarMonthCursor.getFullYear();
+    const month = calendarMonthCursor.getMonth();
+    const firstOfMonth = new Date(year, month, 1);
+    const firstGridDate = new Date(firstOfMonth);
+    firstGridDate.setDate(1 - firstOfMonth.getDay());
+    const today = getTodayYYYYMMDD();
+    return Array.from({ length: 42 }).map((_, i) => {
+      const d = new Date(firstGridDate);
+      d.setDate(firstGridDate.getDate() + i);
+      const ymd = toYYYYMMDD(d);
+      return {
+        ymd,
+        day: d.getDate(),
+        inCurrentMonth: d.getMonth() === month,
+        isPast: ymd < today,
+      };
+    });
+  }, [calendarMonthCursor]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" aria-hidden onClick={onClose} />
       <div
-        className="relative z-10 w-full max-w-md rounded-xl border border-[#e9ecef] bg-white p-5 shadow-xl"
+        className="relative z-10 w-full max-w-4xl rounded-xl border border-[#e9ecef] bg-white p-4 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between">
@@ -320,8 +285,8 @@ function AddToQueueOverlay({
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-        <p className="mb-4 text-sm font-medium text-[#333333]">{patientName}</p>
-        <div className="space-y-3">
+        <p className="mb-3 text-sm font-medium text-[#333333]">{patientName}</p>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-[#6C757D]">Department</label>
             <select
@@ -353,26 +318,6 @@ function AddToQueueOverlay({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-[#6C757D]">Date</label>
-            <select
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded border border-[#dee2e6] px-3 py-2 text-sm focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
-            >
-              {getDateOptions(7).map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-[#6C757D]">Time slot</label>
-            <button
-              type="button"
-              onClick={() => onOpenSlotPicker(department, effectiveDoctor, date)}
-              className="w-full rounded border border-[#dee2e6] bg-white px-3 py-2 text-left text-sm text-[#333333] hover:bg-[#f8f9fa]"
-            >
-              {formatSlotDisplay(selectedTime)} — pick slot
-            </button>
-          </div>
-          <div>
             <label className="mb-1 block text-xs font-medium text-[#6C757D]">Priority</label>
             <select
               value={priority}
@@ -383,11 +328,63 @@ function AddToQueueOverlay({
             </select>
           </div>
         </div>
+        <div className="mt-2">
+          <label className="mb-1 block text-xs font-medium text-[#6C757D]">Date</label>
+          <div className="rounded border border-[#dee2e6] bg-white p-2">
+            <div className="mb-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setCalendarMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                className="rounded border border-[#dee2e6] px-2 py-1 text-xs text-[#333333] hover:bg-[#f8f9fa]"
+              >
+                Prev
+              </button>
+              <span className="text-xs font-semibold text-[#333333]">{calendarMonthLabel}</span>
+              <button
+                type="button"
+                onClick={() => setCalendarMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                className="rounded border border-[#dee2e6] px-2 py-1 text-xs text-[#333333] hover:bg-[#f8f9fa]"
+              >
+                Next
+              </button>
+            </div>
+            <div className="mb-1 grid grid-cols-7 gap-1">
+              {weekDayLabels.map((label) => (
+                <div key={label} className="py-1 text-center text-[10px] font-medium text-[#6C757D]">{label}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {calendarDays.map((d) => (
+                <button
+                  key={d.ymd}
+                  type="button"
+                    onClick={() => {
+                      if (d.isPast || !effectiveDoctor) return;
+                      setDate(d.ymd);
+                      onOpenSlotPicker(department, effectiveDoctor, d.ymd);
+                    }}
+                    disabled={d.isPast || !effectiveDoctor}
+                  className={`h-8 rounded text-xs font-medium ${
+                    date === d.ymd
+                      ? "bg-[#007bff] text-white"
+                        : d.isPast || !effectiveDoctor
+                        ? "cursor-not-allowed text-[#adb5bd]"
+                        : d.inCurrentMonth
+                          ? "text-[#333333] hover:bg-[#f8f9fa]"
+                          : "text-[#adb5bd] hover:bg-[#f8f9fa]"
+                  }`}
+                >
+                  {d.day}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
         <div className="mt-5 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={handleAdd}
-            disabled={doctorsLoading || doctors.length === 0 || !effectiveDoctor}
+            disabled={doctorsLoading || doctors.length === 0 || !effectiveDoctor || !selectedTime}
             className="rounded-lg bg-[#28a745] px-4 py-2 text-sm font-medium text-white hover:bg-[#218838] disabled:opacity-60 disabled:pointer-events-none"
           >
             Add to queue
@@ -421,17 +418,15 @@ export function WalkInPendingQueue() {
       <div className="overflow-x-auto rounded-lg border border-[#e9ecef]">
         <table className="w-full table-fixed text-left text-sm text-[#333333]">
           <colgroup>
-            <col className="w-[28%]" />
-            <col className="w-[12%]" />
-            <col className="w-[26%]" />
+            <col className="w-[34%]" />
             <col className="w-[14%]" />
-            <col className="w-[20%]" />
+            <col className="w-[22%]" />
+            <col className="w-[30%]" />
           </colgroup>
           <thead className="bg-[#f8f9fa]">
             <tr>
               <th className="px-3 py-2.5 font-medium text-[#333333]">Patient</th>
               <th className="px-3 py-2.5 font-medium text-[#333333]">Age / Sex</th>
-              <th className="px-3 py-2.5 font-medium text-[#333333]">Symptoms</th>
               <th className="px-3 py-2.5 font-medium text-[#333333]">Registered</th>
               <th className="px-3 py-2.5 font-medium text-[#333333]">Actions</th>
             </tr>
@@ -439,14 +434,13 @@ export function WalkInPendingQueue() {
           <tbody>
             {pendingWalkIns.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-[#6C757D]">
+                <td colSpan={4} className="px-3 py-8 text-center text-[#6C757D]">
                   No pending registrations. Register a walk-in above.
                 </td>
               </tr>
             ) : (
               pendingWalkIns.map((p) => {
                 const patientName = `${p.firstName} ${p.lastName}`.trim() || "—";
-                const symptomsText = p.symptoms.length ? p.symptoms.join(", ") : "—";
                 const dept = departmentByRow[p.id] ?? "General Medicine";
                 return (
                   <tr key={p.id} className="border-t border-[#e9ecef] hover:bg-[#f8f9fa]">
@@ -454,9 +448,6 @@ export function WalkInPendingQueue() {
                       <span className="font-medium text-[#333333]">{patientName}</span>
                     </td>
                     <td className="align-middle whitespace-nowrap px-3 py-2.5 text-[#333333]">{p.age || "—"} / {p.sex || "—"}</td>
-                    <td className="align-middle px-3 py-2.5">
-                      <span className="block min-w-0 truncate text-[#333333]" title={symptomsText}>{symptomsText}</span>
-                    </td>
                     <td className="align-middle whitespace-nowrap px-3 py-2.5 text-[#6C757D]" title={p.registeredAt}>
                       {p.createdAt
                         ? (() => {

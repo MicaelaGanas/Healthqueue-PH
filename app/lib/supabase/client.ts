@@ -19,16 +19,45 @@ export function createSupabaseBrowser() {
   if (!url || !anonKey) return null;
 
   supabaseClient = createClient(url, anonKey);
+  hardenSupabaseAuth(supabaseClient);
   return supabaseClient;
 }
 
 function isInvalidRefreshTokenError(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e);
   const name = e && typeof e === "object" && "name" in e ? (e as { name: string }).name : "";
+  const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : "";
   return (
-    name === "AuthApiError" ||
+    (name === "AuthApiError" && /refresh token|token/i.test(msg)) ||
+    /refresh_token_not_found|invalid_refresh_token/i.test(code) ||
     /refresh token not found|invalid refresh token/i.test(msg)
   );
+}
+
+function hardenSupabaseAuth(client: SupabaseClient): void {
+  const originalGetSession = client.auth.getSession.bind(client.auth);
+  type GetSessionResponse = Awaited<ReturnType<typeof originalGetSession>>;
+
+  client.auth.getSession = async (): Promise<GetSessionResponse> => {
+    try {
+      return await originalGetSession();
+    } catch (e) {
+      if (!isInvalidRefreshTokenError(e)) {
+        throw e;
+      }
+
+      try {
+        await client.auth.signOut({ scope: "local" });
+      } catch {
+        // Ignore: we still return a null session to callers.
+      }
+
+      return {
+        data: { session: null },
+        error: null,
+      } as GetSessionResponse;
+    }
+  };
 }
 
 /**
@@ -45,7 +74,11 @@ export async function getSessionOrSignOut(
     return { session: data.session };
   } catch (e) {
     if (isInvalidRefreshTokenError(e)) {
-      await supabase.auth.signOut({ scope: "local" });
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch {
+        // Ignore local sign-out failures for invalid refresh token cleanup.
+      }
       return { session: null };
     }
     throw e;

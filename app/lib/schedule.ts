@@ -5,8 +5,7 @@
 
 /** Today in YYYY-MM-DD. */
 export function getTodayYYYYMMDD(): string {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+  return toYYYYMMDD(new Date());
 }
 
 /** Format YYYY-MM-DD for display (e.g. "Wed, Feb 12, 2026" or "Today, Feb 12"). */

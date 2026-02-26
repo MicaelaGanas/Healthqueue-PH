@@ -13,10 +13,18 @@ type QueueItemWithPatient = {
   patient_users?: { first_name: string; last_name: string; date_of_birth: string; gender: string }[] | { first_name: string; last_name: string; date_of_birth: string; gender: string } | null;
   booking_requests?: {
     booking_type: "self" | "dependent";
+    beneficiary_first_name: string | null;
+    beneficiary_last_name: string | null;
+    patient_first_name: string | null;
+    patient_last_name: string | null;
     beneficiary_date_of_birth: string | null;
     beneficiary_gender: string | null;
   }[] | {
     booking_type: "self" | "dependent";
+    beneficiary_first_name: string | null;
+    beneficiary_last_name: string | null;
+    patient_first_name: string | null;
+    patient_last_name: string | null;
     beneficiary_date_of_birth: string | null;
     beneficiary_gender: string | null;
   } | null;
@@ -60,6 +68,21 @@ function computeAgeYears(dob?: string | null): number | null {
 
 function resolvePatientName(row: QueueItemWithPatient): string {
   const patient = normalizePatient(row);
+  const booking = normalizeBooking(row);
+  const beneficiaryName = [booking?.beneficiary_first_name, booking?.beneficiary_last_name]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .join(" ")
+    .trim();
+  if (booking?.booking_type === "dependent" && beneficiaryName) {
+    return beneficiaryName;
+  }
+  const selfSnapshotName = [booking?.patient_first_name, booking?.patient_last_name]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .join(" ")
+    .trim();
+  if (selfSnapshotName) {
+    return selfSnapshotName;
+  }
   if (patient?.first_name && patient?.last_name) {
     return `${patient.first_name} ${patient.last_name}`;
   }
@@ -86,7 +109,7 @@ export async function GET(request: Request) {
 
   const { data: queueItem, error } = await supabase
     .from("queue_items")
-    .select("ticket, walk_in_first_name, walk_in_last_name, walk_in_age_years, walk_in_sex, patient_users(first_name, last_name, date_of_birth, gender), booking_requests(booking_type, beneficiary_date_of_birth, beneficiary_gender)")
+    .select("ticket, walk_in_first_name, walk_in_last_name, walk_in_age_years, walk_in_sex, patient_users(first_name, last_name, date_of_birth, gender), booking_requests(booking_type, beneficiary_first_name, beneficiary_last_name, patient_first_name, patient_last_name, beneficiary_date_of_birth, beneficiary_gender)")
     .eq("ticket", ticket.trim())
     .maybeSingle();
 

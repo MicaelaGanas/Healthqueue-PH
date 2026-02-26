@@ -5,6 +5,24 @@ This guide describes the booking flow and the tables you need so that:
 - Requests stay **pending** until a doctor/staff confirms.
 - After confirmation you can use the booking info and add the patient to the queue.
 
+## New scheduling setup (Feb 2026)
+
+To support per-department intervals (e.g. 20 mins, 30 mins) and week-by-week release of future booking dates:
+
+1. Run migration `supabase/migrations/20260226120000_add_department_booking_weeks.sql`.
+2. This adds:
+  - `departments.default_slot_interval_minutes` (default `30`)
+  - new table `department_booking_weeks` (`department_id`, `week_start_date`, `slot_interval_minutes`, `is_open`)
+3. Booking behavior after migration:
+  - **Current week**: available by default per department.
+  - **Future weeks**: unavailable unless admin opens that week in Admin Settings.
+  - Booking times are generated from that department/week interval.
+4. Optional quick-seed migration for out-of-the-box setup:
+   - Run `supabase/migrations/20260226130000_seed_department_booking_weeks.sql`
+   - This pre-opens the next 4 future weeks (starting next Monday) for all active departments.
+
+If migration is not applied, new booking schedule endpoints and admin schedule settings will fail.
+
 ---
 
 ## Tables overview

@@ -107,25 +107,49 @@ export function Navbar() {
           }
         }
 
-        // If we know user is staff from cache, skip patient check (no 404!)
+        // If we know user is staff from cache, skip patient check.
         if (cachedUserType === "staff") {
           updateProfile(null);
           setIsLoading(false);
           return;
         }
 
-        // Check patient profile first (more common case, avoids 403 for patients)
+        // Resolve staff first when user type is unknown to avoid expected patient 404s on employee accounts.
+        if (!cachedUserType) {
+          const staffRes = await fetch("/api/auth/me", {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+
+          if (cancelled) {
+            setIsLoading(false);
+            return;
+          }
+
+          if (staffRes.ok) {
+            if (typeof window !== "undefined") {
+              try {
+                sessionStorage.setItem(USER_TYPE_CACHE_KEY, "staff");
+              } catch {
+                // Ignore cache errors
+              }
+            }
+            updateProfile(null);
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // Patient profile lookup (for known/suspected patient sessions).
         const res = await fetch("/api/patient-users", {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
-        
+
         if (cancelled) {
           setIsLoading(false);
           return;
         }
 
         if (res.ok) {
-          // User is a patient - cache this info and update profile (include avatar so it shows after login)
           if (typeof window !== "undefined") {
             try {
               sessionStorage.setItem(USER_TYPE_CACHE_KEY, "patient");
@@ -149,31 +173,12 @@ export function Navbar() {
           return;
         }
 
-        // If not a patient, check if they're staff (only if not already cached as patient)
-        if (cachedUserType !== "patient") {
-          const staffRes = await fetch("/api/auth/me", {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          });
-          
-          if (cancelled) {
-            setIsLoading(false);
-            return;
-          }
-
-          // Cache user type for future page loads
-          if (typeof window !== "undefined") {
-            try {
-              sessionStorage.setItem(USER_TYPE_CACHE_KEY, staffRes.ok ? "staff" : "patient");
-            } catch {
-              // Ignore cache errors
-            }
-          }
-
-          // If user is staff/employee, they don't have patient profile
-          if (staffRes.ok) {
-            updateProfile(null);
-            setIsLoading(false);
-            return;
+        // If we reached here with unknown user type, cache as staff to avoid repeated patient lookups.
+        if (!cachedUserType && typeof window !== "undefined") {
+          try {
+            sessionStorage.setItem(USER_TYPE_CACHE_KEY, "staff");
+          } catch {
+            // Ignore cache errors
           }
         }
 
