@@ -3,57 +3,51 @@ import { getSupabaseServer } from "../../lib/supabase/server";
 import type { DbQueueItem } from "../../lib/supabase/types";
 import { requireRoles } from "../../lib/api/auth";
 
+type BookingRequestJoin = {
+  booking_type?: "self" | "dependent" | null;
+  patient_first_name?: string | null;
+  patient_last_name?: string | null;
+  beneficiary_first_name?: string | null;
+  beneficiary_last_name?: string | null;
+};
+
 type QueueItemWithJoins = DbQueueItem & {
   departments?: { name: string } | null;
   patient_users?: { first_name: string; last_name: string } | null;
-  booking_requests?: {
-    booking_type: "self" | "dependent";
-    beneficiary_first_name: string | null;
-    beneficiary_last_name: string | null;
-    patient_first_name: string | null;
-    patient_last_name: string | null;
-  } | {
-    booking_type: "self" | "dependent";
-    beneficiary_first_name: string | null;
-    beneficiary_last_name: string | null;
-    patient_first_name: string | null;
-    patient_last_name: string | null;
-  }[] | null;
   staff_users?: { first_name: string; last_name: string } | null;
+  booking_requests?: BookingRequestJoin | BookingRequestJoin[] | null;
 };
 
+function resolveQueuePatientName(r: QueueItemWithJoins): string {
+  const booking = r.booking_requests;
+  const b = Array.isArray(booking) ? booking[0] : booking;
+  if (r.source === "booked" && b) {
+    if (b.booking_type === "dependent") {
+      const first = (b.beneficiary_first_name ?? "").trim();
+      const last = (b.beneficiary_last_name ?? "").trim();
+      if (first || last) return `${first} ${last}`.trim() || "Unknown";
+    } else {
+      const first = (b.patient_first_name ?? "").trim();
+      const last = (b.patient_last_name ?? "").trim();
+      if (first || last) return `${first} ${last}`.trim() || "Unknown";
+    }
+  }
+  if (r.patient_users?.first_name && r.patient_users?.last_name)
+    return `${r.patient_users.first_name} ${r.patient_users.last_name}`;
+  if (r.walk_in_first_name && r.walk_in_last_name)
+    return `${r.walk_in_first_name} ${r.walk_in_last_name}`;
+  return r.walk_in_first_name || r.patient_users?.first_name || "Unknown";
+}
+
 function toAppRow(r: QueueItemWithJoins, hasVitals: boolean) {
-  const booking = Array.isArray(r.booking_requests)
-    ? (r.booking_requests[0] ?? null)
-    : (r.booking_requests ?? null);
-  const beneficiaryName = [booking?.beneficiary_first_name, booking?.beneficiary_last_name]
-    .filter((value): value is string => Boolean(value && value.trim()))
-    .join(" ")
-    .trim();
-  const selfSnapshotName = [booking?.patient_first_name, booking?.patient_last_name]
-    .filter((value): value is string => Boolean(value && value.trim()))
-    .join(" ")
-    .trim();
-  const patientName =
-    booking?.booking_type === "dependent" && beneficiaryName
-      ? beneficiaryName
-      : r.patient_users?.first_name && r.patient_users?.last_name
-      ? `${r.patient_users.first_name} ${r.patient_users.last_name}`
-      : selfSnapshotName
-        ? selfSnapshotName
-      : r.walk_in_first_name && r.walk_in_last_name
-        ? `${r.walk_in_first_name} ${r.walk_in_last_name}`
-        : r.walk_in_first_name || r.patient_users?.first_name || "Unknown";
+  const patientName = resolveQueuePatientName(r);
   const department = r.departments?.name ?? "General Medicine";
   const assignedDoctor =
     r.staff_users?.first_name && r.staff_users?.last_name
       ? `${r.staff_users.first_name} ${r.staff_users.last_name}`
       : null;
-  const appointmentDateObj = r.appointment_at ? new Date(r.appointment_at) : null;
-  const appointmentDate = appointmentDateObj
-    ? `${appointmentDateObj.getFullYear()}-${String(appointmentDateObj.getMonth() + 1).padStart(2, "0")}-${String(appointmentDateObj.getDate()).padStart(2, "0")}`
-    : null;
-  const appointmentTime = appointmentDateObj ? appointmentDateObj.toTimeString().slice(0, 5) : null;
+  const appointmentDate = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : null;
+  const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
   const statusForApp = r.status === "no_show" ? "no show" : r.status === "in_consultation" ? "in progress" : r.status;
   return {
     ticket: r.ticket,
@@ -68,6 +62,8 @@ function toAppRow(r: QueueItemWithJoins, hasVitals: boolean) {
     assignedDoctor: assignedDoctor ?? undefined,
     appointmentDate: appointmentDate ?? undefined,
     hasVitals,
+    walkInAgeYears: (r as { walk_in_age_years?: number | null }).walk_in_age_years ?? undefined,
+    walkInGender: (r as { walk_in_sex?: string | null }).walk_in_sex ?? undefined,
   };
 }
 
@@ -88,7 +84,9 @@ export async function GET(request: Request) {
   // Fetch all queue items so confirmed bookings always show in Booked queue (confirmed).
   const q = supabase
     .from("queue_items")
-    .select("*, departments(name), patient_users(first_name, last_name), booking_requests(booking_type, beneficiary_first_name, beneficiary_last_name, patient_first_name, patient_last_name), staff_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)")
+    .select(
+      "*, departments(name), patient_users(first_name, last_name), staff_users!queue_items_assigned_doctor_id_fkey(first_name, last_name), booking_requests(booking_type, patient_first_name, patient_last_name, beneficiary_first_name, beneficiary_last_name)"
+    )
     .order("added_at", { ascending: true });
   const { data, error } = await q;
   if (error) {
@@ -121,16 +119,23 @@ async function resolveDepartmentId(supabase: ReturnType<typeof getSupabaseServer
   return (data?.id as string | undefined) ?? null;
 }
 
-/** Resolve booking_request_id for a booked queue row (ticket = reference_no). */
-async function resolveBookingRequestId(supabase: ReturnType<typeof getSupabaseServer>, ticket: string): Promise<string | null> {
-  if (!ticket?.trim() || !supabase) return null;
+/** Resolve booking_request_id and patient_user_id for a booked queue row (ticket = reference_no). */
+async function resolveBookingRequest(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  ticket: string
+): Promise<{ id: string | null; patient_user_id: string | null }> {
+  if (!ticket?.trim() || !supabase) return { id: null, patient_user_id: null };
   const { data } = await supabase
     .from("booking_requests")
-    .select("id")
+    .select("id, patient_user_id")
     .eq("reference_no", ticket.trim())
     .eq("status", "confirmed")
     .maybeSingle();
-  return (data?.id as string | undefined) ?? null;
+  const row = data as { id?: string; patient_user_id?: string } | null;
+  return {
+    id: (row?.id as string | undefined) ?? null,
+    patient_user_id: (row?.patient_user_id as string | undefined) ?? null,
+  };
 }
 
 async function resolveDoctorId(supabase: ReturnType<typeof getSupabaseServer>, doctorName: string | null | undefined): Promise<string | null> {
@@ -181,7 +186,12 @@ export async function PUT(request: Request) {
         throw new Error(`Department "${r.department}" not found`);
       }
       const doctorId = await resolveDoctorId(supabase, r.assignedDoctor as string | null | undefined);
-      const bookingRequestId = source === "booked" ? await resolveBookingRequestId(supabase, ticket) : null;
+      const bookingResolved =
+        source === "booked"
+          ? await resolveBookingRequest(supabase, ticket)
+          : ({ id: null as string | null, patient_user_id: null as string | null });
+      const bookingRequestId = bookingResolved.id;
+      const patientUserId = source === "booked" ? bookingResolved.patient_user_id : null;
       const patientName = String(r.patientName ?? "").trim();
       const { firstName, lastName } = splitPatientName(patientName);
       const appointmentAt =
@@ -193,6 +203,14 @@ export async function PUT(request: Request) {
 
       const rawStatus = String(r.status ?? "waiting").trim();
       const statusForDb = rawStatus === "no show" ? "no_show" : rawStatus === "in progress" ? "in_consultation" : rawStatus;
+      const walkInAgeYears =
+        source === "walk_in" && (r as { walkInAgeYears?: number | null }).walkInAgeYears != null
+          ? Number((r as { walkInAgeYears?: number | null }).walkInAgeYears)
+          : null;
+      const walkInSex =
+        source === "walk_in" && (r as { walkInGender?: string | null }).walkInGender != null
+          ? String((r as { walkInGender?: string | null }).walkInGender).trim() || null
+          : null;
       return {
         ticket,
         source,
@@ -200,11 +218,11 @@ export async function PUT(request: Request) {
         status: statusForDb,
         wait_time: String(r.waitTime ?? "").trim(),
         department_id: deptId,
-        patient_user_id: null,
+        patient_user_id: patientUserId,
         walk_in_first_name: firstName,
         walk_in_last_name: lastName,
-        walk_in_age_years: null,
-        walk_in_sex: null,
+        walk_in_age_years: Number.isNaN(walkInAgeYears) ? null : walkInAgeYears,
+        walk_in_sex: walkInSex,
         walk_in_phone: null,
         walk_in_email: null,
         booking_request_id: bookingRequestId,

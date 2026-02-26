@@ -15,6 +15,10 @@ export type QueueRowSync = {
   appointmentTime?: string;
   assignedDoctor?: string;
   appointmentDate?: string;
+  /** Walk-in only: age in years (queue_items.walk_in_age_years). */
+  walkInAgeYears?: number | null;
+  /** Walk-in only: gender (queue_items.walk_in_sex). */
+  walkInGender?: string | null;
 };
 
 const QUEUE_ROWS_STORAGE_KEY = "healthqueue_queue_rows";
