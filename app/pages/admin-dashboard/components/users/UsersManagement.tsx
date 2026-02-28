@@ -10,6 +10,8 @@ export type UserRole = "admin" | "nurse" | "doctor" | "receptionist" | "laborato
 export type AdminUser = {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   role: UserRole;
   status: "active" | "inactive";
@@ -18,15 +20,41 @@ export type AdminUser = {
   createdAt: string;
 };
 
+type PatientAccount = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  email: string;
+  phone: string;
+  gender: string;
+  dateOfBirth: string;
+  address: string;
+  createdAt: string;
+};
+
+function splitName(input: string): { firstName: string; lastName: string } {
+  const clean = input.trim().replace(/\s+/g, " ");
+  if (!clean) return { firstName: "", lastName: "" };
+  const parts = clean.split(" ");
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
 export function UsersManagement() {
   const { departments } = useDepartments();
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [patientAccounts, setPatientAccounts] = useState<PatientAccount[]>([]);
+  const [activeView, setActiveView] = useState<"staff" | "patients">("staff");
   const [loading, setLoading] = useState(true);
+  const [patientLoading, setPatientLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState<false | "add" | "edit">(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", role: "nurse" as UserRole, employeeId: "", department: "", password: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", role: "nurse" as UserRole, employeeId: "", department: "", password: "" });
 
   const loadUsers = async () => {
     try {
@@ -62,19 +90,63 @@ export function UsersManagement() {
     }
   };
 
+  const loadPatientAccounts = async () => {
+    try {
+      setPatientLoading(true);
+      setError(null);
+      const supabase = createSupabaseBrowser();
+      if (!supabase) {
+        throw new Error("Supabase not configured");
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Not authenticated");
+      }
+
+      const res = await fetch("/api/admin/patient-users", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to load patient accounts");
+      }
+
+      const data = await res.json();
+      setPatientAccounts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load patient accounts");
+    } finally {
+      setPatientLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadUsers();
+    loadPatientAccounts();
   }, []);
 
   const openAdd = () => {
-    setForm({ name: "", email: "", role: "nurse", employeeId: "", department: "", password: "" });
+    setForm({ firstName: "", lastName: "", email: "", role: "nurse", employeeId: "", department: "", password: "" });
     setEditingUser(null);
     setError(null);
     setModalOpen("add");
   };
 
   const openEdit = (u: AdminUser) => {
-    setForm({ name: u.name, email: u.email, role: u.role, employeeId: u.employeeId, department: u.department ?? "", password: "" });
+    const parsed = splitName(u.name);
+    setForm({
+      firstName: (u.firstName ?? parsed.firstName ?? "").trim(),
+      lastName: (u.lastName ?? parsed.lastName ?? "").trim(),
+      email: u.email,
+      role: u.role,
+      employeeId: u.employeeId,
+      department: u.department ?? "",
+      password: "",
+    });
     setEditingUser(u);
     setError(null);
     setModalOpen("edit");
@@ -84,7 +156,7 @@ export function UsersManagement() {
     setModalOpen(false);
     setEditingUser(null);
     setError(null);
-    setForm({ name: "", email: "", role: "nurse", employeeId: "", department: "", password: "" });
+    setForm({ firstName: "", lastName: "", email: "", role: "nurse", employeeId: "", department: "", password: "" });
   };
 
   const rolesWithDepartment: UserRole[] = ["nurse", "doctor", "receptionist"];
@@ -119,7 +191,8 @@ export function UsersManagement() {
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            name: form.name,
+            firstName: form.firstName,
+            lastName: form.lastName,
             email: form.email,
             role: form.role,
             department: showDepartment ? (form.department.trim() || null) : null,
@@ -144,7 +217,8 @@ export function UsersManagement() {
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            name: form.name,
+            firstName: form.firstName,
+            lastName: form.lastName,
             email: form.email,
             role: form.role,
             employeeId: modalOpen === "add" ? undefined : form.employeeId,
@@ -220,14 +294,40 @@ export function UsersManagement() {
 
       <div className="rounded-lg border border-[#dee2e6] bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dee2e6] px-4 py-3 sm:px-6">
-        <h3 className="text-base font-semibold text-[#333333]">Users</h3>
-        <button
-          type="button"
-          onClick={openAdd}
-          className="rounded-lg bg-[#1e3a5f] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a4a7a]"
-        >
-          Add User
-        </button>
+        <div>
+          <h3 className="text-base font-semibold text-[#333333]">
+            {activeView === "staff" ? "Staff Users" : "Patient Accounts"}
+          </h3>
+          <div className="mt-2 inline-flex rounded-lg border border-[#dee2e6] bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setActiveView("staff")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                activeView === "staff" ? "bg-[#1e3a5f] text-white" : "text-[#495057] hover:bg-[#f8f9fa]"
+              }`}
+            >
+              Staff Users
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView("patients")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                activeView === "patients" ? "bg-[#1e3a5f] text-white" : "text-[#495057] hover:bg-[#f8f9fa]"
+              }`}
+            >
+              Patient Accounts
+            </button>
+          </div>
+        </div>
+        {activeView === "staff" && (
+          <button
+            type="button"
+            onClick={openAdd}
+            className="rounded-lg bg-[#1e3a5f] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a4a7a]"
+          >
+            Add User
+          </button>
+        )}
       </div>
 
       {error && !modalOpen && (
@@ -236,13 +336,13 @@ export function UsersManagement() {
         </div>
       )}
 
-      {loading ? (
+      {activeView === "staff" && loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="relative">
             <div className="w-12 h-12 border-4 border-[#007bff] border-t-transparent rounded-full animate-spin"></div>
           </div>
         </div>
-      ) : (
+      ) : activeView === "staff" ? (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-[#dee2e6]">
             <thead className="bg-[#f8f9fa]">
@@ -302,10 +402,55 @@ export function UsersManagement() {
             </tbody>
           </table>
         </div>
+      ) : patientLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="relative">
+            <div className="w-12 h-12 border-4 border-[#007bff] border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-[#dee2e6]">
+            <thead className="bg-[#f8f9fa]">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">First Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Last Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Phone</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Gender</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Date of Birth</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#6C757D] sm:px-6">Created</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#dee2e6] bg-white">
+              {patientAccounts.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-[#6C757D] sm:px-6">
+                    No patient accounts found
+                  </td>
+                </tr>
+              ) : (
+                patientAccounts.map((p) => (
+                  <tr key={p.id} className="hover:bg-[#f8f9fa]">
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{p.firstName || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{p.lastName || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{p.email || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{p.phone || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{p.gender || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{p.dateOfBirth || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">
+                      {p.createdAt ? p.createdAt.slice(0, 10) : "—"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeModal}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-[#333333]">{modalOpen === "add" ? "Add User" : "Edit User"}</h3>
             
@@ -317,11 +462,22 @@ export function UsersManagement() {
 
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-[#333333]">Name</label>
+                <label className="block text-sm font-medium text-[#333333]">First Name</label>
                 <input
                   type="text"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  value={form.firstName}
+                  onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+                  className="mt-1 w-full rounded border border-[#dee2e6] px-3 py-2 text-sm"
+                  required
+                  disabled={submitting}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#333333]">Last Name</label>
+                <input
+                  type="text"
+                  value={form.lastName}
+                  onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
                   className="mt-1 w-full rounded border border-[#dee2e6] px-3 py-2 text-sm"
                   required
                   disabled={submitting}

@@ -12,6 +12,8 @@ function toAppUser(r: DbAdminUserWithDept | DbStaffUserWithDept) {
   return {
     id: r.id,
     name,
+    firstName: r.first_name ?? "",
+    lastName: r.last_name ?? "",
     email: r.email,
     role: r.role,
     status: r.status,
