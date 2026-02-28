@@ -50,6 +50,20 @@ const CARD_CONFIG: Omit<MetricItem, "value">[] = [
   },
 ];
 
+function parseWaitTimeToMinutes(waitTime: string): number | null {
+  const value = waitTime.trim().toLowerCase();
+  if (!value) return null;
+  let total = 0;
+  const hr = /(\d+)\s*hr/.exec(value);
+  const min = /(\d+)\s*min/.exec(value);
+  if (hr) total += Number.parseInt(hr[1], 10) * 60;
+  if (min) total += Number.parseInt(min[1], 10);
+  if (hr || min) return total;
+  const numeric = /(\d+)/.exec(value);
+  if (!numeric) return null;
+  return Number.parseInt(numeric[1], 10);
+}
+
 export function MetricCards() {
   const { queueRows } = useNurseQueue();
 
@@ -63,10 +77,14 @@ export function MetricCards() {
     ).length;
     const urgent = queueRows.filter((r: QueueRow) => r.priority === "urgent").length;
 
-    const MINS_PER_PATIENT = 10;
     const waiting = queueRows.filter((r: QueueRow) => r.status === "waiting");
+    const waitingMins = waiting
+      .map((r) => parseWaitTimeToMinutes(r.waitTime ?? ""))
+      .filter((mins): mins is number => mins != null);
     const avgTriageMins =
-      waiting.length > 0 ? Math.round((waiting.length * MINS_PER_PATIENT) / 2) : 0;
+      waitingMins.length > 0
+        ? Math.round(waitingMins.reduce((sum, mins) => sum + mins, 0) / waitingMins.length)
+        : 0;
 
     const values = [
       String(waitingForDoctor),

@@ -7,6 +7,7 @@ import type { QueueRow } from "../../context/NurseQueueContext";
 import type { QueueFiltersState } from "./QueueFilters";
 import { formatDateDisplay } from "../../../../lib/schedule";
 import { SLOT_TIMES_24, formatSlotDisplay } from "../../../../lib/slotTimes";
+import { estimateWaitMinutesFromPosition, formatEstimatedWaitFromMinutes } from "../../../../lib/queue/eta";
 
 const PRIORITY_ORDER: Record<string, number> = {
   urgent: 0,
@@ -68,8 +69,6 @@ function formatDateAndTime(r: QueueRow): string {
   return timeStr;
 }
 
-const MINS_PER_PATIENT = 10;
-
 function sortKey(r: QueueRow): string {
   const p = PRIORITY_ORDER[r.priority] ?? 2;
   const date = r.appointmentDate ?? "9999-99-99";
@@ -79,14 +78,34 @@ function sortKey(r: QueueRow): string {
   return `${p}-${date}-${time}`;
 }
 
-function getEstimatedWait(sortedRows: QueueRow[], ticket: string, department: string): string {
+function parseWaitTimeToMinutes(waitTime: string): number | null {
+  const value = waitTime.trim().toLowerCase();
+  if (!value) return null;
+  let total = 0;
+  const hr = /(\d+)\s*hr/.exec(value);
+  const min = /(\d+)\s*min/.exec(value);
+  if (hr) total += Number.parseInt(hr[1], 10) * 60;
+  if (min) total += Number.parseInt(min[1], 10);
+  if (hr || min) return total;
+  const numeric = /(\d+)/.exec(value);
+  if (!numeric) return null;
+  return Number.parseInt(numeric[1], 10);
+}
+
+function getEstimatedWait(
+  sortedRows: QueueRow[],
+  ticket: string,
+  department: string,
+  avgMinutesPerPatient: number | null
+): string {
+  if (avgMinutesPerPatient == null) return "—";
   const waitingInDept = sortedRows.filter(
     (r) => r.status === "waiting" && r.department === department
   );
   const idx = waitingInDept.findIndex((r) => r.ticket === ticket);
-  if (idx < 0) return "";
-  const mins = idx * MINS_PER_PATIENT;
-  return mins > 0 ? `~${mins} min` : "—";
+  if (idx < 0) return "—";
+  const mins = estimateWaitMinutesFromPosition(idx, avgMinutesPerPatient);
+  return formatEstimatedWaitFromMinutes(mins);
 }
 
 function Badge({ value, styles, labels }: { value: string; styles: Record<string, string>; labels?: Record<string, string> }) {
@@ -240,10 +259,16 @@ export function PatientQueueTable({ filters, managedDepartment, doctorOnDuty }: 
     const suggestedNextPatientName = firstWaiting?.patientName ?? null;
 
     const waitingForDoctor = sorted.filter((r) => r.status === "waiting" && isReadyForDoctor(r, ticketsWithVitals));
+    const waitingSamples = waitingForDoctor
+      .map((r) => parseWaitTimeToMinutes(r.waitTime ?? ""))
+      .filter((mins): mins is number => mins != null);
+    const avgMinutesPerPatient = waitingSamples.length > 0
+      ? Math.max(1, Math.round(waitingSamples.reduce((sum, mins) => sum + mins, 0) / waitingSamples.length))
+      : null;
     const waitTimeByTicket: Record<string, string> = {};
     filtered.forEach((r) => {
       if (r.status === "waiting" && isReadyForDoctor(r, ticketsWithVitals)) {
-        waitTimeByTicket[r.ticket] = getEstimatedWait(waitingForDoctor, r.ticket, r.department);
+        waitTimeByTicket[r.ticket] = getEstimatedWait(waitingForDoctor, r.ticket, r.department, avgMinutesPerPatient);
       }
     });
 
