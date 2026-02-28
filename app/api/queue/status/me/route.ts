@@ -10,7 +10,7 @@ import {
   type QueueEtaRow,
 } from "../../../../lib/queue/eta";
 
-const ETA_ACTIVE_STATUSES = new Set(ACTIVE_QUEUE_DB_STATUSES);
+const ETA_ACTIVE_STATUSES: ReadonlySet<string> = new Set(ACTIVE_QUEUE_DB_STATUSES);
 
 /** Format ISO timestamp to YYYY-MM-DD in local time (avoids UTC date shift for UTC+x timezones). */
 function toLocalDateStr(iso: string | null | undefined): string | null {
