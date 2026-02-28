@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../lib/supabase/server";
 import type { DbAdminUser, DbStaffUser } from "../../../lib/supabase/types";
 import { requireRoles } from "../../../lib/api/auth";
+import { recordStaffActivity } from "../../../lib/activityLog";
 
 type DbAdminUserWithDept = DbAdminUser & { departments?: { name: string } | null };
 type DbStaffUserWithDept = DbStaffUser & { departments?: { name: string } | null };
@@ -260,6 +261,18 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await recordStaffActivity(supabase, auth.staff, {
+    action: "admin_user_created",
+    entityType: table === "admin_users" ? "admin_user" : "staff_user",
+    entityId: (data as { id?: string | null } | null)?.id ?? null,
+    details: {
+      email: email.trim(),
+      role: roleNorm,
+      employeeId: finalEmployeeId,
+      departmentId: deptId,
+    },
+  });
 
   return NextResponse.json(toAppUser(data as unknown as DbAdminUserWithDept));
 }

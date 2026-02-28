@@ -19,6 +19,7 @@ type PendingNotification = {
 export function DoctorHeader() {
   const [name, setName] = useState<string | null>(null);
   const [role, setRole] = useState<StaffRole | null>(null);
+  const [department, setDepartment] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
@@ -43,6 +44,7 @@ export function DoctorHeader() {
       const r = body.role in ROLE_LABELS ? (body.role as StaffRole) : null;
       setName(body.name ?? null);
       setRole(r);
+      setDepartment(body.department ?? "");
       setEmail(body.email ?? "");
       setFirstName(body.first_name ?? "");
       setLastName(body.last_name ?? "");
@@ -119,7 +121,11 @@ export function DoctorHeader() {
   }, [notificationsOpen]);
 
   const displayName = (name && name.trim()) || email || "Doctor";
-  const roleLabel = role ? ROLE_LABELS[role] : "Doctor";
+  const roleLabel = role
+    ? role === "doctor" && department
+      ? `${ROLE_LABELS[role]} - ${department}`
+      : ROLE_LABELS[role]
+    : "Doctor";
   const pendingCount = pendingNotifications.length;
 
   return (

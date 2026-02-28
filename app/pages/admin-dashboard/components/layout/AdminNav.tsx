@@ -115,7 +115,7 @@ type AdminNavProps = {
 };
 
 export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
 

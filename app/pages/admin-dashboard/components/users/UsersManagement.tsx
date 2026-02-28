@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { useDepartments } from "../../../../lib/useDepartments";
 import { AdminSectionHeader } from "../layout/AdminSectionHeader";
@@ -48,6 +48,11 @@ export function UsersManagement() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [patientAccounts, setPatientAccounts] = useState<PatientAccount[]>([]);
   const [activeView, setActiveView] = useState<"staff" | "patients">("staff");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [staffRoleFilter, setStaffRoleFilter] = useState<"all" | UserRole>("all");
+  const [staffStatusFilter, setStaffStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [staffDepartmentFilter, setStaffDepartmentFilter] = useState<string>("all");
+  const [patientGenderFilter, setPatientGenderFilter] = useState<"all" | "male" | "female" | "other">("all");
   const [loading, setLoading] = useState(true);
   const [patientLoading, setPatientLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -285,6 +290,35 @@ export function UsersManagement() {
     laboratory: "Laboratory",
   };
 
+  const filteredUsers = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return users.filter((u) => {
+      if (staffRoleFilter !== "all" && u.role !== staffRoleFilter) return false;
+      if (staffStatusFilter !== "all" && u.status !== staffStatusFilter) return false;
+      if (staffDepartmentFilter !== "all" && (u.department ?? "") !== staffDepartmentFilter) return false;
+
+      if (!query) return true;
+      const haystack = [u.name, u.firstName, u.lastName, u.email, u.employeeId, u.department ?? "", roleLabel[u.role]]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [users, searchTerm, staffRoleFilter, staffStatusFilter, staffDepartmentFilter]);
+
+  const filteredPatientAccounts = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return patientAccounts.filter((p) => {
+      const genderNorm = (p.gender || "").trim().toLowerCase();
+      if (patientGenderFilter !== "all" && genderNorm !== patientGenderFilter) return false;
+
+      if (!query) return true;
+      const haystack = [p.name, p.firstName, p.lastName, p.email, p.phone, p.gender, p.address]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [patientAccounts, searchTerm, patientGenderFilter]);
+
   return (
     <div className="space-y-6">
       <AdminSectionHeader
@@ -336,6 +370,80 @@ export function UsersManagement() {
         </div>
       )}
 
+      <div className="border-b border-[#dee2e6] bg-[#f8f9fa] px-4 py-3 sm:px-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="sm:col-span-2 lg:col-span-1">
+            <label className="block text-xs font-medium text-[#6C757D]">Search</label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={activeView === "staff" ? "Name, email, employee ID..." : "Name, email, phone..."}
+              className="mt-1 w-full rounded border border-[#dee2e6] bg-white px-3 py-2 text-sm text-[#333333]"
+            />
+          </div>
+
+          {activeView === "staff" ? (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-[#6C757D]">Role</label>
+                <select
+                  value={staffRoleFilter}
+                  onChange={(e) => setStaffRoleFilter(e.target.value as "all" | UserRole)}
+                  className="mt-1 w-full rounded border border-[#dee2e6] bg-white px-3 py-2 text-sm text-[#333333]"
+                >
+                  <option value="all">All roles</option>
+                  <option value="admin">Administrator</option>
+                  <option value="nurse">Nurse</option>
+                  <option value="doctor">Doctor</option>
+                  <option value="receptionist">Receptionist</option>
+                  <option value="laboratory">Laboratory</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6C757D]">Status</label>
+                <select
+                  value={staffStatusFilter}
+                  onChange={(e) => setStaffStatusFilter(e.target.value as "all" | "active" | "inactive")}
+                  className="mt-1 w-full rounded border border-[#dee2e6] bg-white px-3 py-2 text-sm text-[#333333]"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6C757D]">Department</label>
+                <select
+                  value={staffDepartmentFilter}
+                  onChange={(e) => setStaffDepartmentFilter(e.target.value)}
+                  className="mt-1 w-full rounded border border-[#dee2e6] bg-white px-3 py-2 text-sm text-[#333333]"
+                >
+                  <option value="all">All departments</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium text-[#6C757D]">Gender</label>
+              <select
+                value={patientGenderFilter}
+                onChange={(e) => setPatientGenderFilter(e.target.value as "all" | "male" | "female" | "other")}
+                className="mt-1 w-full rounded border border-[#dee2e6] bg-white px-3 py-2 text-sm text-[#333333]"
+              >
+                <option value="all">All genders</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          )}
+        </div>
+      </div>
+
       {activeView === "staff" && loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="relative">
@@ -357,14 +465,14 @@ export function UsersManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#dee2e6] bg-white">
-              {users.length === 0 ? (
+              {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-sm text-[#6C757D] sm:px-6">
-                    No users found
+                    No staff users match the current search/filter.
                   </td>
                 </tr>
               ) : (
-                users.map((u) => (
+                filteredUsers.map((u) => (
                   <tr key={u.id} className="hover:bg-[#f8f9fa]">
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{u.name}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{u.email}</td>
@@ -423,14 +531,14 @@ export function UsersManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#dee2e6] bg-white">
-              {patientAccounts.length === 0 ? (
+              {filteredPatientAccounts.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-sm text-[#6C757D] sm:px-6">
-                    No patient accounts found
+                    No patient accounts match the current search/filter.
                   </td>
                 </tr>
               ) : (
-                patientAccounts.map((p) => (
+                filteredPatientAccounts.map((p) => (
                   <tr key={p.id} className="hover:bg-[#f8f9fa]">
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{p.firstName || "—"}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-[#333333] sm:px-6">{p.lastName || "—"}</td>

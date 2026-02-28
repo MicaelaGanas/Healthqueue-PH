@@ -22,7 +22,6 @@ export function WalkInRegistration() {
   const [sex, setSex] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [bookingReference, setBookingReference] = useState("");
 
   const handleRegister = () => {
     const trimmedFirst = firstName.trim();
@@ -35,7 +34,6 @@ export function WalkInRegistration() {
       sex,
       phone,
       email,
-      bookingReference,
       symptoms: {},
       otherSymptoms: "",
     });
@@ -45,7 +43,6 @@ export function WalkInRegistration() {
     setSex("");
     setPhone("");
     setEmail("");
-    setBookingReference("");
   };
 
   const canRegister = firstName.trim() && lastName.trim() && age.trim() && sex;
@@ -59,7 +56,7 @@ export function WalkInRegistration() {
           <h2 className="text-lg font-bold text-[#333333]">Walk-In Patient Registration</h2>
         </div>
         <p className="mb-4 text-sm text-[#6C757D]">
-          Register the patient first. They will appear in <strong>Pending queue</strong> below. Add them to the queue only after triage (e.g. vitals) or when ready. Add phone, email, or booking reference to link to an existing record.
+          Register the patient first. They will appear in <strong>Pending queue</strong> below. Add them to the queue only after triage (e.g. vitals) or when ready.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -105,7 +102,7 @@ export function WalkInRegistration() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#333333]">Phone (optional, for record sync)</label>
+            <label className="block text-sm font-medium text-[#333333]">Phone (optional)</label>
             <input
               type="text"
               value={phone}
@@ -115,22 +112,12 @@ export function WalkInRegistration() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#333333]">Email (optional, for record sync)</label>
+            <label className="block text-sm font-medium text-[#333333]">Email (optional)</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="e.g. patient@email.com"
-              className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] placeholder:text-[#6C757D] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-[#333333]">Booking reference (optional)</label>
-            <input
-              type="text"
-              value={bookingReference}
-              onChange={(e) => setBookingReference(e.target.value)}
-              placeholder="e.g. APT-2026-0131-001 — if they booked online"
               className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] placeholder:text-[#6C757D] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
             />
           </div>

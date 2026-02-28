@@ -24,6 +24,7 @@ type StaffHeaderProps = {
 export function StaffHeader({ onGoToAppointments, onGoToAlerts }: StaffHeaderProps) {
   const [name, setName] = useState<string | null>(null);
   const [role, setRole] = useState<StaffRole | null>(null);
+  const [department, setDepartment] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
@@ -48,6 +49,7 @@ export function StaffHeader({ onGoToAppointments, onGoToAlerts }: StaffHeaderPro
       const r = body.role in ROLE_LABELS ? (body.role as StaffRole) : null;
       setName(body.name ?? null);
       setRole(r);
+      setDepartment(body.department ?? "");
       setEmail(body.email ?? "");
       setFirstName(body.first_name ?? "");
       setLastName(body.last_name ?? "");
@@ -124,7 +126,11 @@ export function StaffHeader({ onGoToAppointments, onGoToAlerts }: StaffHeaderPro
   }, [notificationsOpen]);
 
   const displayName = (name && name.trim()) || email || "Staff";
-  const roleLabel = role ? ROLE_LABELS[role] : "Staff";
+  const roleLabel = role
+    ? role === "nurse" && department
+      ? `${ROLE_LABELS[role]} - ${department}`
+      : ROLE_LABELS[role]
+    : "Staff";
   const pendingCount = pendingNotifications.length;
 
   return (

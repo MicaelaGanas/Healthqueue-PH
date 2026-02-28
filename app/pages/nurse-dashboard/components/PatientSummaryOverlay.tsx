@@ -37,7 +37,6 @@ function buildSummaryText(queueRow?: QueueRow | null, pendingWalkIn?: PendingWal
     lines.push("Sex:", pendingWalkIn.sex || "—");
     lines.push("Phone:", pendingWalkIn.phone || "—");
     lines.push("Email:", pendingWalkIn.email || "—");
-    lines.push("Booking reference:", pendingWalkIn.bookingReference || "—");
     lines.push("Registered at:", pendingWalkIn.registeredAt || "—");
   }
   lines.push("", "—".repeat(40));
@@ -197,10 +196,6 @@ export function PatientSummaryOverlay({
                 <div>
                   <dt className="text-[#6C757D]">Email</dt>
                   <dd className="text-[#333333]">{pendingWalkIn.email || "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-[#6C757D]">Booking reference</dt>
-                  <dd className="text-[#333333]">{pendingWalkIn.bookingReference || "—"}</dd>
                 </div>
                 <div>
                   <dt className="text-[#6C757D]">Registered at</dt>
