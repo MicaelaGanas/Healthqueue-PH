@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
+import { AdminSectionHeader } from "../layout/AdminSectionHeader";
 
 export type AnnouncementType = "notice" | "info" | "alert";
 
@@ -210,10 +211,10 @@ export function AnnouncementsContent() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-xl font-bold text-[#333333]">Announcements</h2>
-        <p className="mt-0.5 text-sm text-[#6C757D]">Post notices, info, or alerts. They appear on the landing page.</p>
-      </div>
+      <AdminSectionHeader
+        title="Announcements"
+        description="Post notices, info, or alerts. They appear on the landing page."
+      />
 
       <form onSubmit={handleSubmit} className="rounded-xl border border-[#e9ecef] bg-white p-5 shadow-sm">
         <h3 className="text-base font-semibold text-[#333333]">New announcement</h3>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 
@@ -60,7 +61,7 @@ type DoctorSidebarProps = {
 };
 
 export function DoctorSidebar({ activeTab, onTabChange }: DoctorSidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
 
@@ -107,7 +108,18 @@ export function DoctorSidebar({ activeTab, onTabChange }: DoctorSidebarProps) {
           collapsed ? "justify-center px-0" : "justify-between px-3"
         }`}
       >
-        {!collapsed && <span className="truncate font-semibold">HealthQueue PH</span>}
+        {!collapsed && (
+          <div className="flex min-w-0 items-center gap-2">
+            <Image
+              src="/hqlogo.svg"
+              alt="HealthQueue PH logo"
+              width={24}
+              height={24}
+              className="h-6 w-6 shrink-0 object-contain"
+            />
+            <span className="truncate font-semibold">HealthQueue PH</span>
+          </div>
+        )}
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}

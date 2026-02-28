@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase/server";
+import {
+  ACTIVE_QUEUE_DB_STATUSES,
+  estimateWaitMinutesFromPosition,
+  formatEstimatedWaitFromMinutes,
+  getRollingAverageConsultationMinutes,
+  getWaitingAheadForTicket,
+  type QueueEtaRow,
+} from "../../../../lib/queue/eta";
+
+const ETA_ACTIVE_STATUSES: ReadonlySet<string> = new Set(ACTIVE_QUEUE_DB_STATUSES);
 
 /** Format ISO timestamp to YYYY-MM-DD in local time (avoids UTC date shift for UTC+x timezones). */
 function toLocalDateStr(iso: string | null | undefined): string | null {
@@ -73,7 +83,7 @@ export async function GET(request: Request) {
 
   const { data: row, error } = await supabase
     .from("queue_items")
-    .select("ticket, status, wait_time, appointment_at, added_at, departments(name)")
+    .select("ticket, status, wait_time, appointment_at, added_at, department_id, assigned_doctor_id, departments(name)")
     .eq("ticket", ref)
     .maybeSingle();
 
@@ -83,11 +93,42 @@ export async function GET(request: Request) {
 
   // In queue: return live status (if waiting/scheduled and no vitals yet, patient is awaiting_triage). Use same statusMap as /api/queue/status/[number] for consistent API.
   if (row) {
-    type Row = { ticket: string; status: string; wait_time: string | null; appointment_at: string | null; departments?: { name: string } | null };
+    type Row = {
+      ticket: string;
+      status: string;
+      wait_time: string | null;
+      appointment_at: string | null;
+      department_id: string | null;
+      assigned_doctor_id: string | null;
+      departments?: { name: string } | null;
+    };
     const r = row as unknown as Row;
     const appointmentDate = toLocalDateStr(r.appointment_at);
     const appointmentTime = r.appointment_at ? new Date(r.appointment_at).toTimeString().slice(0, 5) : null;
     const raw = (r.status || "").toLowerCase().trim();
+    let estimatedWaitTime = r.wait_time ?? "";
+
+    if (ETA_ACTIVE_STATUSES.has(raw) && r.department_id) {
+      const { data: sameDepartmentRows, error: sameDepartmentRowsError } = await supabase
+        .from("queue_items")
+        .select("ticket, status, appointment_at, added_at")
+        .eq("department_id", r.department_id)
+        .in("status", [...ACTIVE_QUEUE_DB_STATUSES]);
+
+      if (!sameDepartmentRowsError && Array.isArray(sameDepartmentRows)) {
+        const queueRows = sameDepartmentRows as QueueEtaRow[];
+        const waitingAhead = getWaitingAheadForTicket(queueRows, r.ticket);
+        if (waitingAhead != null) {
+          const avgMinutes = await getRollingAverageConsultationMinutes(
+            supabase,
+            r.department_id,
+            r.assigned_doctor_id
+          );
+          const estimatedMinutes = estimateWaitMinutesFromPosition(waitingAhead, avgMinutes);
+          estimatedWaitTime = formatEstimatedWaitFromMinutes(estimatedMinutes);
+        }
+      }
+    }
 
     const statusMap: Record<string, string> = {
       waiting: "waiting",
@@ -124,7 +165,7 @@ export async function GET(request: Request) {
       queueNumber: r.ticket,
       department: r.departments?.name ?? "—",
       status,
-      waitTime: r.wait_time ?? "",
+      waitTime: estimatedWaitTime,
       appointmentDate,
       appointmentTime,
     });

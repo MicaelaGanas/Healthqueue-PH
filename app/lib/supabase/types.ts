@@ -145,6 +145,8 @@ export type DbQueueItem = {
   walk_in_email: string | null;
   booking_request_id: string | null;
   assigned_doctor_id: string | null;
+  consultation_started_at: string | null;
+  consultation_completed_at: string | null;
   appointment_at: string | null;
   added_at: string;
   created_at: string;

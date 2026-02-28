@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase/server";
 import { requireRoles } from "../../../../lib/api/auth";
+import { recordStaffActivity } from "../../../../lib/activityLog";
 
 const requireAdmin = requireRoles(["admin"]);
 
@@ -59,6 +60,15 @@ export async function PATCH(
     console.error("admin announcements PATCH [id] error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await recordStaffActivity(supabase, auth.staff, {
+    action: "admin_announcement_updated",
+    entityType: "announcement",
+    entityId: id,
+    details: {
+      updatedFields: Object.keys(updates).filter((k) => k !== "updated_at"),
+    },
+  });
 
   return NextResponse.json(data);
 }

@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../lib/supabase/server";
 import type { DbQueueItem } from "../../lib/supabase/types";
 import { requireRoles } from "../../lib/api/auth";
+import {
+  ACTIVE_QUEUE_DB_STATUSES,
+  estimateWaitMinutesFromPosition,
+  formatEstimatedWaitFromMinutes,
+  getRollingAverageConsultationMinutes,
+  getWaitingAheadForTicket,
+  type QueueEtaRow,
+} from "../../lib/queue/eta";
+import { buildConsultationTimestampUpdate, normalizeQueueStatusForDb } from "../../lib/queue/status";
 
 type BookingRequestJoin = {
   booking_type?: "self" | "dependent" | null;
@@ -39,7 +48,7 @@ function resolveQueuePatientName(r: QueueItemWithJoins): string {
   return r.walk_in_first_name || r.patient_users?.first_name || "Unknown";
 }
 
-function toAppRow(r: QueueItemWithJoins, hasVitals: boolean) {
+function toAppRow(r: QueueItemWithJoins, hasVitals: boolean, computedWaitByTicket: Record<string, string>) {
   const patientName = resolveQueuePatientName(r);
   const department = r.departments?.name ?? "General Medicine";
   const assignedDoctor =
@@ -55,7 +64,7 @@ function toAppRow(r: QueueItemWithJoins, hasVitals: boolean) {
     department,
     priority: r.priority,
     status: statusForApp,
-    waitTime: r.wait_time ?? "",
+    waitTime: computedWaitByTicket[r.ticket] ?? r.wait_time ?? "",
     source: r.source === "walk_in" ? "walk-in" : r.source,
     addedAt: r.added_at ?? undefined,
     appointmentTime: appointmentTime ?? undefined,
@@ -93,6 +102,37 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   const rows = (data ?? []) as unknown as QueueItemWithJoins[];
+  const computedWaitByTicket: Record<string, string> = {};
+
+  const departmentIds = Array.from(new Set(rows.map((r) => r.department_id).filter((v): v is string => Boolean(v))));
+  const avgByDepartmentId = new Map<string, number>();
+  await Promise.all(
+    departmentIds.map(async (departmentId) => {
+      const avg = await getRollingAverageConsultationMinutes(supabase, departmentId, null);
+      avgByDepartmentId.set(departmentId, avg);
+    })
+  );
+
+  for (const departmentId of departmentIds) {
+    const queueRows = rows
+      .filter((r) => r.department_id === departmentId)
+      .filter((r) => ACTIVE_QUEUE_DB_STATUSES.includes(normalizeQueueStatusForDb(r.status) as (typeof ACTIVE_QUEUE_DB_STATUSES)[number]))
+      .map((r) => ({
+        ticket: r.ticket,
+        status: r.status,
+        appointment_at: r.appointment_at,
+        added_at: r.added_at,
+      })) as QueueEtaRow[];
+
+    const avgMinutes = avgByDepartmentId.get(departmentId) ?? 10;
+    for (const queueRow of queueRows) {
+      const waitingAhead = getWaitingAheadForTicket(queueRows, queueRow.ticket);
+      if (waitingAhead == null) continue;
+      const estimated = estimateWaitMinutesFromPosition(waitingAhead, avgMinutes);
+      computedWaitByTicket[queueRow.ticket] = formatEstimatedWaitFromMinutes(estimated);
+    }
+  }
+
   const tickets = rows.map((r) => r.ticket).filter(Boolean);
   const ticketsWithVitals = new Set<string>();
   if (tickets.length > 0) {
@@ -109,7 +149,7 @@ export async function GET(request: Request) {
     (vitals ?? []).forEach((v: { ticket: string }) => ticketsWithVitals.add(v.ticket));
   }
   return NextResponse.json(
-    rows.map((r) => toAppRow(r, ticketsWithVitals.has(r.ticket)))
+    rows.map((r) => toAppRow(r, ticketsWithVitals.has(r.ticket), computedWaitByTicket))
   );
 }
 
@@ -176,6 +216,45 @@ export async function PUT(request: Request) {
     rows = rows.filter((r: Record<string, unknown>) => (r.department as string) === dept);
   }
 
+  const tickets = rows
+    .map((r: Record<string, unknown>) => String(r.ticket ?? "").trim())
+    .filter(Boolean);
+
+  const existingByTicket = new Map<
+    string,
+    {
+      status: string | null;
+      consultation_started_at: string | null;
+      consultation_completed_at: string | null;
+      wait_time: string | null;
+    }
+  >();
+
+  if (tickets.length > 0) {
+    const { data: existingRows, error: existingError } = await supabase
+      .from("queue_items")
+      .select("ticket, status, consultation_started_at, consultation_completed_at, wait_time")
+      .in("ticket", tickets);
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 500 });
+    }
+    for (const row of existingRows ?? []) {
+      const existing = row as {
+        ticket: string;
+        status: string | null;
+        consultation_started_at: string | null;
+        consultation_completed_at: string | null;
+        wait_time: string | null;
+      };
+      existingByTicket.set(existing.ticket, {
+        status: existing.status,
+        consultation_started_at: existing.consultation_started_at,
+        consultation_completed_at: existing.consultation_completed_at,
+        wait_time: existing.wait_time,
+      });
+    }
+  }
+
   const dbRows = await Promise.all(
     rows.map(async (r: Record<string, unknown>) => {
       const source = r.source === "walk-in" ? "walk_in" : (r.source === "booked" ? "booked" : "walk_in");
@@ -201,8 +280,13 @@ export async function PUT(request: Request) {
             ? new Date(`${r.appointmentDate}T00:00:00`).toISOString()
             : null;
 
-      const rawStatus = String(r.status ?? "waiting").trim();
-      const statusForDb = rawStatus === "no show" ? "no_show" : rawStatus === "in progress" ? "in_consultation" : rawStatus;
+      const statusForDb = normalizeQueueStatusForDb(r.status);
+      const existing = existingByTicket.get(ticket);
+      const timestampUpdate = buildConsultationTimestampUpdate(
+        existing?.status ?? null,
+        statusForDb,
+        existing?.consultation_started_at ?? null
+      );
       const walkInAgeYears =
         source === "walk_in" && (r as { walkInAgeYears?: number | null }).walkInAgeYears != null
           ? Number((r as { walkInAgeYears?: number | null }).walkInAgeYears)
@@ -211,12 +295,13 @@ export async function PUT(request: Request) {
         source === "walk_in" && (r as { walkInGender?: string | null }).walkInGender != null
           ? String((r as { walkInGender?: string | null }).walkInGender).trim() || null
           : null;
+      const incomingWaitTime = String(r.waitTime ?? "").trim();
       return {
         ticket,
         source,
         priority,
         status: statusForDb,
-        wait_time: String(r.waitTime ?? "").trim(),
+        wait_time: incomingWaitTime || existing?.wait_time || "",
         department_id: deptId,
         patient_user_id: patientUserId,
         walk_in_first_name: firstName,
@@ -227,6 +312,14 @@ export async function PUT(request: Request) {
         walk_in_email: null,
         booking_request_id: bookingRequestId,
         assigned_doctor_id: doctorId,
+        consultation_started_at:
+          timestampUpdate.consultation_started_at !== undefined
+            ? timestampUpdate.consultation_started_at
+            : (existing?.consultation_started_at ?? null),
+        consultation_completed_at:
+          timestampUpdate.consultation_completed_at !== undefined
+            ? timestampUpdate.consultation_completed_at
+            : (existing?.consultation_completed_at ?? null),
         appointment_at: appointmentAt,
         added_at: r.addedAt ? new Date(r.addedAt as string).toISOString() : new Date().toISOString(),
       };

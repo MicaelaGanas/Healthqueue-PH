@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 
@@ -114,7 +115,7 @@ type AdminNavProps = {
 };
 
 export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
 
@@ -161,7 +162,18 @@ export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
           collapsed ? "justify-center px-0" : "justify-between px-3"
         }`}
       >
-        {!collapsed && <span className="truncate font-semibold">HealthQueue PH</span>}
+        {!collapsed && (
+          <div className="flex min-w-0 items-center gap-2">
+            <Image
+              src="/hqlogo.svg"
+              alt="HealthQueue PH logo"
+              width={24}
+              height={24}
+              className="h-6 w-6 shrink-0 object-contain"
+            />
+            <span className="truncate font-semibold" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>HealthQueue PH</span>
+          </div>
+        )}
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
@@ -192,7 +204,7 @@ export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
                 className={baseClass}
               >
                 <Icon className="h-5 w-5 shrink-0" />
-                {!collapsed && <span className="truncate">{item.label}</span>}
+                {!collapsed && <span className="truncate" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>{item.label}</span>}
               </button>
             );
           }
@@ -204,7 +216,7 @@ export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
               className={baseClass}
             >
               <Icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              {!collapsed && <span className="truncate" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>{item.label}</span>}
             </Link>
           );
         })}
@@ -220,7 +232,7 @@ export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
           }`}
         >
           <LogoutIcon className="h-5 w-5 shrink-0" />
-          {!collapsed && <span className="truncate">Logout</span>}
+          {!collapsed && <span className="truncate" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Logout</span>}
         </button>
       </div>
     </aside>

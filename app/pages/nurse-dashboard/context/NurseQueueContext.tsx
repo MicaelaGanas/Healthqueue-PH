@@ -40,7 +40,6 @@ export type PendingWalkIn = {
   sex: string;
   phone: string;
   email: string;
-  bookingReference: string;
   symptoms: string[];
   otherSymptoms: string;
   registeredAt: string;
@@ -85,7 +84,6 @@ type RegisterWalkInInput = {
   sex: string;
   phone: string;
   email: string;
-  bookingReference: string;
   symptoms: Record<string, boolean>;
   otherSymptoms: string;
 };
@@ -336,7 +334,6 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
         sex: data.sex,
         phone: data.phone.trim(),
         email: data.email.trim(),
-        bookingReference: data.bookingReference.trim(),
         symptoms: symptomsList,
         otherSymptoms: data.otherSymptoms.trim(),
         registeredAt,
@@ -358,7 +355,6 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
         sex: data.sex,
         phone: data.phone.trim(),
         email: data.email.trim(),
-        bookingReference: data.bookingReference.trim(),
         symptoms: symptomsList,
         otherSymptoms: data.otherSymptoms.trim(),
         registeredAt,

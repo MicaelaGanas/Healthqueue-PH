@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase/server";
+import {
+  estimateWaitMinutesFromPosition,
+  formatEstimatedWaitFromMinutes,
+  getRollingAverageConsultationMinutes,
+} from "../../../lib/queue/eta";
 
 const NOW_SERVING_STATUSES = new Set(["in consultation", "in_consultation", "in progress", "called"]);
 const WAITING_STATUSES = new Set(["waiting", "scheduled", "called"]);
 const HIDDEN_STATUSES = new Set(["completed", "no show", "no_show"]);
-const EST_MINS_PER_PATIENT = 5;
 
 type QueueDisplayRow = {
   ticket: string;
@@ -27,17 +31,6 @@ function normalizeStatus(value: string | null | undefined): string {
   if (status === "in_consultation") return "in consultation";
   if (status === "no_show") return "no show";
   return status;
-}
-
-function formatEstimatedWait(waitingAhead: number): string {
-  const minutes = waitingAhead * EST_MINS_PER_PATIENT;
-  if (minutes <= 0) return "Now";
-  if (minutes >= 60) {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins === 0 ? `${hours} hr` : `${hours} hr ${mins} min`;
-  }
-  return `${minutes} min`;
 }
 
 function pickDate(dateParam: string | null): string {
@@ -89,13 +82,31 @@ export async function GET(request: Request) {
       ? `${nextUp.staff_users.first_name} ${nextUp.staff_users.last_name}`.trim()
       : null;
 
+  const { data: departmentRow } = await supabase
+    .from("departments")
+    .select("id")
+    .eq("name", department)
+    .maybeSingle();
+
+  const avgMinutes = await getRollingAverageConsultationMinutes(
+    supabase,
+    (departmentRow as { id?: string | null } | null)?.id ?? null,
+    null
+  );
+
+  const offsetFromNowServing = nowServing ? 1 : 0;
+
   const upcoming = waitingRows
     .filter((row) => row.ticket !== nextUp?.ticket)
     .slice(0, 10)
     .map((row, index) => ({
       ticket: row.ticket,
       status: normalizeStatus(row.status),
-      estimatedWait: row.wait_time?.trim() || formatEstimatedWait(index + 2),
+      estimatedWait:
+        row.wait_time?.trim() ||
+        formatEstimatedWaitFromMinutes(
+          estimateWaitMinutesFromPosition(offsetFromNowServing + index + 1, avgMinutes)
+        ),
     }));
 
   return NextResponse.json({
@@ -111,7 +122,11 @@ export async function GET(request: Request) {
       ? {
           ticket: nextUp.ticket,
           status: normalizeStatus(nextUp.status),
-          estimatedWait: nextUp.wait_time?.trim() || "Now",
+          estimatedWait:
+            nextUp.wait_time?.trim() ||
+            formatEstimatedWaitFromMinutes(
+              estimateWaitMinutesFromPosition(offsetFromNowServing, avgMinutes)
+            ),
         }
       : null,
     upcoming,

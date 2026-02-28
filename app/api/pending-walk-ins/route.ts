@@ -12,7 +12,6 @@ function toAppPending(r: {
   sex: string;
   phone: string | null;
   email: string | null;
-  booking_reference: string | null;
   symptoms: unknown;
   other_symptoms: string | null;
   registered_at: string;
@@ -27,7 +26,6 @@ function toAppPending(r: {
     sex: r.sex,
     phone: r.phone ?? "",
     email: r.email ?? "",
-    bookingReference: r.booking_reference ?? "",
     symptoms: symptoms as string[],
     otherSymptoms: r.other_symptoms ?? "",
     registeredAt: r.registered_at,
@@ -80,7 +78,6 @@ export async function POST(request: Request) {
     sex,
     phone: (body.phone ?? "").trim() || null,
     email: (body.email ?? "").trim() || null,
-    booking_reference: (body.bookingReference ?? "").trim() || null,
     symptoms,
     other_symptoms: (body.otherSymptoms ?? "").trim() || null,
     registered_at: body.registeredAt ?? new Date().toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" }) + " " + new Date().toLocaleDateString("en-PH", { month: "short", day: "numeric" }),

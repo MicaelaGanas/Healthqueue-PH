@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { AdminTabId } from "../layout/AdminNav";
+import { AdminSectionHeader } from "../layout/AdminSectionHeader";
 
 const STORAGE_KEY = "healthqueue-admin-settings";
 
@@ -65,12 +66,10 @@ export function AdminSettingsContent({ onNavigateToTab }: AdminSettingsContentPr
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-[#333333]">Settings</h2>
-        <p className="mt-0.5 text-sm text-[#6C757D]">
-          Configure general options, notifications, and display for the admin dashboard.
-        </p>
-      </div>
+      <AdminSectionHeader
+        title="Settings"
+        description="Configure general options, notifications, and display for the admin dashboard."
+      />
 
       <div className="rounded-lg border border-[#dee2e6] bg-white p-5 shadow-sm sm:p-6">
         <h3 className="text-base font-semibold text-[#333333]">General</h3>

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase/server";
 import { requireRoles } from "../../../lib/api/auth";
+import {
+  estimateWaitMinutesFromPosition,
+  getRollingAverageConsultationMinutes,
+} from "../../../lib/queue/eta";
 
 const requireAdmin = requireRoles(["admin"]);
 
@@ -15,8 +19,6 @@ function getYesterdayStart(): string {
   d.setUTCHours(0, 0, 0, 0);
   return d.toISOString();
 }
-
-const EST_MINS_PER_PATIENT = 5;
 
 /** Parse wait_time string (e.g. "15 min", "1 hr", "30 min") to minutes. */
 function parseWaitTimeToMins(waitTime: string | null): number | null {
@@ -86,7 +88,7 @@ export async function GET(request: Request) {
     supabase.from("admin_users").select("id, first_name, last_name, email, role, status").order("first_name"),
     supabase.from("staff_users").select("id, first_name, last_name, email, role, status").order("first_name"),
     supabase.from("booking_requests").select("status, confirmed_at"),
-    supabase.from("departments").select("name").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
+    supabase.from("departments").select("id, name").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
   ]);
 
   type QueueItemRow = {
@@ -100,7 +102,9 @@ export async function GET(request: Request) {
     walk_in_last_name: string | null;
   };
   const queueRows = (queueItemsRes.error ? [] : (queueItemsRes.data ?? [])) as unknown as QueueItemRow[];
-  const departmentNames = (departmentsRes.error ? [] : (departmentsRes.data ?? []).map((r: { name: string }) => r.name)) as string[];
+  const departments = (departmentsRes.error ? [] : (departmentsRes.data ?? [])) as { id: string; name: string }[];
+  const departmentNames = departments.map((r) => r.name);
+  const departmentIdByName = new Map(departments.map((r) => [r.name, r.id]));
   const pendingBookingsCount = pendingBookingsRes.error ? 0 : (pendingBookingsRes.count ?? 0);
   const pendingWalkInsCount = pendingWalkInsRes.error ? 0 : (pendingWalkInsRes.count ?? 0);
   const toStaff = (s: { id: string; first_name: string; last_name: string; email: string; role: string; status: string }) => ({
@@ -154,12 +158,32 @@ export async function GET(request: Request) {
   }
 
   const allDeptNames = Array.from(new Set<string>([...departmentNames, ...Object.keys(queueByDepartment)]));
+  const avgMinutesByDepartmentName = new Map<string, number>();
+  await Promise.all(
+    allDeptNames.map(async (deptName) => {
+      let departmentId = departmentIdByName.get(deptName) ?? null;
+      if (!departmentId) {
+        const { data: deptRow } = await supabase
+          .from("departments")
+          .select("id")
+          .eq("name", deptName)
+          .maybeSingle();
+        departmentId = (deptRow as { id?: string | null } | null)?.id ?? null;
+      }
+      const avg = await getRollingAverageConsultationMinutes(supabase, departmentId);
+      avgMinutesByDepartmentName.set(deptName, avg);
+    })
+  );
+
   const liveQueueByDepartment: { department: string; inQueue: number; avgWaitMins: number; status: "Normal" | "Delayed" | "Critical" }[] = allDeptNames.map((dept) => {
     const inQueue = queueByDepartment[dept] ?? 0;
     const minsList = deptWaitMins[dept];
     let avgWaitMins = inQueue > 0 && minsList && minsList.length > 0
       ? Math.round(minsList.reduce((a, b) => a + b, 0) / minsList.length)
-      : inQueue * EST_MINS_PER_PATIENT;
+      : estimateWaitMinutesFromPosition(
+          inQueue,
+          avgMinutesByDepartmentName.get(dept) ?? 0
+        );
     if (inQueue === 0) avgWaitMins = 0;
     let status: "Normal" | "Delayed" | "Critical" = "Normal";
     if (inQueue > 15 || avgWaitMins > 45) status = "Critical";

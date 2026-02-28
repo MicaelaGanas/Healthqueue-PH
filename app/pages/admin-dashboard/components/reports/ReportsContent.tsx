@@ -18,6 +18,7 @@ import { getQueueRowsFromStorage } from "../../../../lib/queueSyncStorage";
 import { getBookedQueueFromStorage } from "../../../../lib/queueBookedStorage";
 import type { QueueRowSync } from "../../../../lib/queueSyncStorage";
 import type { BookedQueueEntry } from "../../../../lib/queueBookedStorage";
+import { AdminSectionHeader } from "../layout/AdminSectionHeader";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -211,10 +212,10 @@ export function ReportsContent() {
     <div className="space-y-6 print:space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-[#333333] sm:text-2xl">Reports & Analytics</h2>
-          <p className="mt-0.5 text-sm text-[#6C757D]">Performance tracking and compliance reports</p>
-        </div>
+        <AdminSectionHeader
+          title="Reports & Analytics"
+          description="Performance tracking and compliance reports"
+        />
         <div className="flex flex-wrap items-center gap-2 print:hidden">
           <div className="relative">
             <button

@@ -3,7 +3,19 @@
 import { useMemo } from "react";
 import { useNurseQueue } from "../../context/NurseQueueContext";
 
-const MINS_PER_PATIENT = 10;
+function parseWaitTimeToMinutes(waitTime: string): number | null {
+  const value = waitTime.trim().toLowerCase();
+  if (!value) return null;
+  let total = 0;
+  const hr = /(\d+)\s*hr/.exec(value);
+  const min = /(\d+)\s*min/.exec(value);
+  if (hr) total += Number.parseInt(hr[1], 10) * 60;
+  if (min) total += Number.parseInt(min[1], 10);
+  if (hr || min) return total;
+  const numeric = /(\d+)/.exec(value);
+  if (!numeric) return null;
+  return Number.parseInt(numeric[1], 10);
+}
 
 type QueueSummaryCardsProps = {
   /** When set, counts are for this specialty only. */
@@ -24,8 +36,11 @@ export function QueueSummaryCards({ managedDepartment, doctorOnDuty }: QueueSumm
       ["scheduled", "waiting", "called", "in progress"].includes(r.status)
     ).length;
     const waiting = dept.filter((r) => r.status === "waiting");
-    const avgWaitMins = waiting.length > 0
-      ? Math.round((waiting.length * MINS_PER_PATIENT) / 2)
+    const waitingMins = waiting
+      .map((r) => parseWaitTimeToMinutes(r.waitTime ?? ""))
+      .filter((mins): mins is number => mins != null);
+    const avgWaitMins = waitingMins.length > 0
+      ? Math.round(waitingMins.reduce((sum, mins) => sum + mins, 0) / waitingMins.length)
       : 0;
     const serving = dept.filter((r) => r.status === "in progress").length;
 

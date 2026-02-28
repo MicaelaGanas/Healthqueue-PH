@@ -61,7 +61,7 @@ type LabSidebarProps = {
 };
 
 export function LabSidebar({ activeTab, onTabChange }: LabSidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
 

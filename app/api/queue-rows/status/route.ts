@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase/server";
 import { requireRoles } from "../../../lib/api/auth";
+import { buildConsultationTimestampUpdate, normalizeQueueStatusForDb } from "../../../lib/queue/status";
 
 const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
 
@@ -24,10 +25,30 @@ export async function PATCH(request: Request) {
       { status: 400 }
     );
   }
-  const status = rawStatus === "no show" ? "no_show" : rawStatus === "in progress" ? "in_consultation" : rawStatus.trim();
+  const status = normalizeQueueStatusForDb(rawStatus);
+  const { data: existingRow, error: existingError } = await supabase
+    .from("queue_items")
+    .select("status, consultation_started_at")
+    .eq("ticket", ticket)
+    .maybeSingle();
+
+  if (existingError) {
+    return NextResponse.json({ error: existingError.message }, { status: 500 });
+  }
+
+  if (!existingRow) {
+    return NextResponse.json({ error: "Queue ticket not found" }, { status: 404 });
+  }
+
+  const timestampUpdate = buildConsultationTimestampUpdate(
+    (existingRow as { status?: string | null }).status ?? null,
+    status,
+    (existingRow as { consultation_started_at?: string | null }).consultation_started_at ?? null
+  );
+
   const { error } = await supabase
     .from("queue_items")
-    .update({ status })
+    .update({ status, ...timestampUpdate })
     .eq("ticket", ticket);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
