@@ -26,55 +26,55 @@ export default function AdminDashboardPage() {
         <main className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
           <div className="w-full min-w-0 max-w-[1920px]">
             {activeTab === "overview" && (
-              <div className="mt-4 sm:mt-6">
+              <div className="mt-0">
                 <AdminOverviewContent onNavigateToTab={(tab) => setActiveTab(tab)} />
               </div>
             )}
 
             {activeTab === "insights" && (
-              <div className="mt-4 sm:mt-6">
+              <div className="mt-0">
                 <InsightsContent />
               </div>
             )}
 
             {activeTab === "announcements" && (
-              <div className="mt-4 sm:mt-6">
+              <div className="mt-0">
                 <AnnouncementsContent />
               </div>
             )}
 
             {activeTab === "users" && (
-              <div className="mt-4 sm:mt-6">
+              <div className="mt-0">
                 <UsersManagement />
               </div>
             )}
 
             {activeTab === "reports" && (
-              <div className="mt-4 sm:mt-6">
+              <div className="mt-0">
                 <ReportsContent />
               </div>
             )}
 
             {activeTab === "records" && (
-              <div className="mt-4 sm:mt-6">
+              <div className="mt-0">
                 <RecordsContent />
               </div>
             )}
 
             {activeTab === "schedule" && (
-              <div className="mt-4 sm:mt-6">
+              <div className="mt-0">
                 <AdminScheduleContent />
               </div>
             )}
 
             {activeTab === "settings" && (
-              <div className="mt-4 sm:mt-6">
+              <div className="mt-0">
                 <AdminSettingsContent onNavigateToTab={(tab) => setActiveTab(tab)} />
               </div>
             )}
 
             {activeTab === "queue-display" && (
-              <div className="mt-4 sm:mt-6">
+              <div className="mt-0">
                 <QueueDisplayContent />
               </div>
             )}

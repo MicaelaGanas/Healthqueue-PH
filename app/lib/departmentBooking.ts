@@ -2,7 +2,7 @@ export const DEFAULT_SLOT_INTERVAL_MINUTES = 30;
 
 export const BOOKING_DAY_WINDOWS_24: Array<{ start: string; end: string }> = [
   { start: "08:00", end: "11:30" },
-  { start: "13:00", end: "16:00" },
+  { start: "13:00", end: "17:00" },
 ];
 
 function toMinutes(hhmm: string): number {
@@ -26,7 +26,7 @@ export function normalizeSlotIntervalMinutes(input: number | null | undefined): 
 
 /**
  * Generate appointment slots for a day using the configured interval.
- * Keeps existing clinic windows (morning + afternoon) while supporting non-30-minute intervals.
+ * Keeps existing clinic windows (morning + afternoon up to 5:00 PM) while supporting non-30-minute intervals.
  */
 export function generateTimeSlots24(intervalMinutes: number): string[] {
   const interval = normalizeSlotIntervalMinutes(intervalMinutes);

@@ -42,15 +42,7 @@ export function AdminHeader() {
   const roleLabel = role ? ROLE_LABELS[role] : "Administrator";
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#dee2e6] bg-white px-4 sm:px-6">
-      <div className="min-w-0 flex-1">
-        <h1 className="truncate text-base font-bold leading-tight text-[#333333] sm:text-lg">
-          Admin Dashboard
-        </h1>
-        <p className="mt-0.5 truncate text-xs leading-tight text-[#6C757D] sm:text-sm">
-          User management, reports & records
-        </p>
-      </div>
+    <header className="flex h-14 shrink-0 items-center justify-end border-b border-[#dee2e6] bg-white px-4 sm:px-6">
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         <div className="h-8 w-px shrink-0 bg-[#e9ecef]" aria-hidden />
         <button
@@ -67,10 +59,10 @@ export function AdminHeader() {
             imageKey={avatarUpdatedAt}
           />
           <div className="min-w-0 max-w-[140px] sm:max-w-[180px] text-left">
-            <p className="truncate text-sm font-medium leading-tight text-[#333333]">
+            <p className="truncate text-sm font-medium leading-tight text-[#333333]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
               {displayName}
             </p>
-            <p className="truncate text-xs leading-tight text-[#6C757D]">
+            <p className="truncate text-xs leading-tight text-[#6C757D]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
               {roleLabel}
             </p>
           </div>

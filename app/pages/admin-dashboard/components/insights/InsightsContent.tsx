@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { getQueueRowsFromStorage } from "../../../../lib/queueSyncStorage";
 import { getBookedQueueFromStorage } from "../../../../lib/queueBookedStorage";
+import { AdminSectionHeader } from "../layout/AdminSectionHeader";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -251,10 +252,10 @@ export function InsightsContent() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-[#333333] sm:text-2xl">Insights & Recommendations</h2>
-        <p className="mt-0.5 text-sm text-[#6C757D]">Data-driven insights from your queue and bookings. All numbers and recommendations are computed from live data—no dummy or placeholder values.</p>
-      </div>
+      <AdminSectionHeader
+        title="Insights & Recommendations"
+        description="Data-driven insights from your queue and bookings. All numbers and recommendations are computed from live data—no dummy or placeholder values."
+      />
 
       {/* KPI cards – all from real data */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

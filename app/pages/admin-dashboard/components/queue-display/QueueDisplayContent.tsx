@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useDepartments } from "../../../../lib/useDepartments";
+import { AdminSectionHeader } from "../layout/AdminSectionHeader";
 
 export function QueueDisplayContent() {
   const { departments, loading, error } = useDepartments();
@@ -17,12 +18,10 @@ export function QueueDisplayContent() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-[#333333]">Queue Display Control</h2>
-        <p className="mt-1 text-sm text-[#6C757D]">
-          Open a patient-facing queue display table for a specific department.
-        </p>
-      </div>
+      <AdminSectionHeader
+        title="Queue Display Control"
+        description="Open a patient-facing queue display table for a specific department."
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-[#dee2e6] bg-white p-5 shadow-sm lg:col-span-2">

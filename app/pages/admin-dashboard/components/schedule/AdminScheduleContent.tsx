@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { addDaysYmd, parseYYYYMMDDLocal, toYYYYMMDDLocal } from "../../../../lib/departmentBooking";
+import { AdminSectionHeader } from "../layout/AdminSectionHeader";
 
 type DepartmentWeek = {
   weekStartDate: string;
@@ -104,6 +105,12 @@ export function AdminScheduleContent() {
 
   const getEdit = (week: DepartmentWeek) => edits[week.weekStartDate] ?? { interval: week.slotIntervalMinutes, isOpen: week.isOpen };
 
+  const hasWeekChanges = (week: DepartmentWeek) => {
+    const draft = getEdit(week);
+    const normalizedDraftInterval = Math.max(5, Math.min(60, Math.round(draft.interval / 5) * 5));
+    return normalizedDraftInterval !== week.slotIntervalMinutes || draft.isOpen !== week.isOpen;
+  };
+
   const onSaveWeek = async (week: DepartmentWeek) => {
     if (!selectedDepartment) return;
     const draft = getEdit(week);
@@ -150,6 +157,11 @@ export function AdminScheduleContent() {
 
   return (
     <div className="space-y-6">
+      <AdminSectionHeader
+        title="Schedule"
+        description="Configure department booking weeks and slot intervals."
+      />
+
       <section className="rounded-lg border border-[#dee2e6] bg-white p-5 shadow-sm sm:p-6">
         <h3 className="text-lg font-semibold text-[#333333]">Department Booking Schedule</h3>
         <p className="mt-2 text-sm text-[#6C757D]">
@@ -219,12 +231,14 @@ export function AdminScheduleContent() {
                   {weekRows.map((week, index) => {
                     const edit = getEdit(week);
                     const isCurrentWeek = week.weekStartDate === currentWeekStart;
+                    const hasChanges = hasWeekChanges(week);
                     const disableCurrentWeekInterval =
                       isCurrentWeek && Boolean(selectedDepartment?.hasCurrentWeekBookings);
                     const disableCurrentWeekClose =
                       isCurrentWeek && Boolean(selectedDepartment?.hasCurrentWeekBookings) && !edit.isOpen;
                     const saveDisabled =
                       savingWeek === week.weekStartDate ||
+                      !hasChanges ||
                       disableCurrentWeekClose ||
                       edit.interval < 5 ||
                       edit.interval > 60;

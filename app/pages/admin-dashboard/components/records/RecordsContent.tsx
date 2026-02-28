@@ -7,6 +7,7 @@ import { getBookedQueueFromStorage } from "../../../../lib/queueBookedStorage";
 import type { QueueRowSync } from "../../../../lib/queueSyncStorage";
 import type { BookedQueueEntry } from "../../../../lib/queueBookedStorage";
 import { useDepartments } from "../../../../lib/useDepartments";
+import { AdminSectionHeader } from "../layout/AdminSectionHeader";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -177,6 +178,11 @@ export function RecordsContent() {
 
   return (
     <div className="space-y-6">
+      <AdminSectionHeader
+        title="Records"
+        description="Review booking requests, appointments, queue history, consultations, and staff activity logs."
+      />
+
       {/* Filters */}
       <div className="rounded-xl border border-[#e9ecef] bg-white shadow-sm overflow-hidden">
         <div className="border-b border-[#e9ecef] bg-[#f8f9fa] px-4 py-3 sm:px-5">

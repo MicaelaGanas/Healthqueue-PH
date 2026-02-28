@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createSupabaseBrowser } from "../../../../lib/supabase/client";
 import { useDepartments } from "../../../../lib/useDepartments";
+import { AdminSectionHeader } from "../layout/AdminSectionHeader";
 
 export type UserRole = "admin" | "nurse" | "doctor" | "receptionist" | "laboratory";
 
@@ -211,7 +212,13 @@ export function UsersManagement() {
   };
 
   return (
-    <div className="rounded-lg border border-[#dee2e6] bg-white shadow-sm">
+    <div className="space-y-6">
+      <AdminSectionHeader
+        title="User Management"
+        description="Manage admin and staff accounts, roles, and account status."
+      />
+
+      <div className="rounded-lg border border-[#dee2e6] bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dee2e6] px-4 py-3 sm:px-6">
         <h3 className="text-base font-semibold text-[#333333]">Users</h3>
         <button
@@ -428,6 +435,7 @@ export function UsersManagement() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
