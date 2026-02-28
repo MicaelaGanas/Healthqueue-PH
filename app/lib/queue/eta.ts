@@ -8,12 +8,28 @@ const MAX_VALID_DURATION_MINUTES = 180;
 const LOOKBACK_DAYS = 30;
 const SAMPLE_LIMIT = 200;
 
+export const ACTIVE_QUEUE_DB_STATUSES = ["waiting", "scheduled", "called", "in_consultation"] as const;
+
 export type QueueEtaRow = {
   ticket: string;
   status: string | null;
   appointment_at: string | null;
   added_at: string | null;
 };
+
+export function parseEstimatedWaitToMinutes(waitTime: string | null | undefined): number | null {
+  const value = String(waitTime ?? "").trim().toLowerCase();
+  if (!value) return null;
+  let total = 0;
+  const hr = /(\d+)\s*hr/.exec(value);
+  const min = /(\d+)\s*min/.exec(value);
+  if (hr) total += Number.parseInt(hr[1], 10) * 60;
+  if (min) total += Number.parseInt(min[1], 10);
+  if (hr || min) return total;
+  const numeric = /(\d+)/.exec(value);
+  if (!numeric) return null;
+  return Number.parseInt(numeric[1], 10);
+}
 
 function normalizeStatus(status: string | null | undefined): string {
   const value = (status ?? "").trim().toLowerCase();

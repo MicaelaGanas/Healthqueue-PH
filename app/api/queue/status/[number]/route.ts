@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase/server";
 import {
+  ACTIVE_QUEUE_DB_STATUSES,
   estimateWaitMinutesFromPosition,
   formatEstimatedWaitFromMinutes,
   getRollingAverageConsultationMinutes,
@@ -8,7 +9,7 @@ import {
   type QueueEtaRow,
 } from "../../../../lib/queue/eta";
 
-const ETA_ACTIVE_STATUSES = new Set(["waiting", "scheduled", "called", "in_consultation"]);
+const ETA_ACTIVE_STATUSES = new Set(ACTIVE_QUEUE_DB_STATUSES);
 
 /** Format ISO timestamp to YYYY-MM-DD in local time (avoids UTC date shift for UTC+x timezones). */
 function toLocalDateStr(iso: string | null | undefined): string | null {
@@ -116,7 +117,7 @@ export async function GET(
         .from("queue_items")
         .select("ticket, status, appointment_at, added_at")
         .eq("department_id", r.department_id)
-        .in("status", ["waiting", "scheduled", "called", "in_consultation"]);
+        .in("status", [...ACTIVE_QUEUE_DB_STATUSES]);
 
       if (!sameDepartmentRowsError && Array.isArray(sameDepartmentRows)) {
         const queueRows = sameDepartmentRows as QueueEtaRow[];

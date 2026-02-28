@@ -1,43 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase/server";
 import { requireRoles } from "../../../lib/api/auth";
+import { buildConsultationTimestampUpdate, normalizeQueueStatusForDb } from "../../../lib/queue/status";
 
 const requireStaff = requireRoles(["admin", "nurse", "doctor", "receptionist"]);
-
-function buildConsultationTimestampUpdate(
-  previousStatus: string | null,
-  nextStatus: string,
-  existingStartedAt: string | null
-): {
-  consultation_started_at?: string | null;
-  consultation_completed_at?: string | null;
-} {
-  const prev = (previousStatus ?? "").trim().toLowerCase();
-  const next = (nextStatus ?? "").trim().toLowerCase();
-  const nowIso = new Date().toISOString();
-
-  if (next === "in_consultation") {
-    if (prev !== "in_consultation") {
-      return {
-        consultation_started_at: nowIso,
-        consultation_completed_at: null,
-      };
-    }
-    return {};
-  }
-
-  if (next === "completed") {
-    if (prev !== "completed") {
-      return {
-        consultation_started_at: existingStartedAt ?? nowIso,
-        consultation_completed_at: nowIso,
-      };
-    }
-    return {};
-  }
-
-  return {};
-}
 
 /** PATCH body: { ticket: string, status: string } */
 export async function PATCH(request: Request) {
@@ -59,7 +25,7 @@ export async function PATCH(request: Request) {
       { status: 400 }
     );
   }
-  const status = rawStatus === "no show" ? "no_show" : rawStatus === "in progress" ? "in_consultation" : rawStatus.trim();
+  const status = normalizeQueueStatusForDb(rawStatus);
   const { data: existingRow, error: existingError } = await supabase
     .from("queue_items")
     .select("status, consultation_started_at")
