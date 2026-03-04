@@ -9,6 +9,7 @@ const navItems: { href: string; label: string; icon: string; tabId?: string }[] 
   { href: "/pages/nurse-dashboard", label: "Dashboard", icon: "grid", tabId: "registration" },
   { href: "#queue", label: "Queue Management", icon: "people", tabId: "queue" },
   { href: "#appointments", label: "Manage bookings", icon: "calendar", tabId: "appointments" },
+  { href: "#devices", label: "Devices", icon: "device", tabId: "devices" },
   { href: "#settings", label: "Settings", icon: "gear", tabId: "settings" },
 ];
 
@@ -40,6 +41,27 @@ function AlertIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+  );
+}
+function DeviceIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+    >
+      {/* Watch band top */}
+      <rect x="10" y="2" width="4" height="3" rx="1" strokeWidth={2} />
+      {/* Watch body */}
+      <rect x="7" y="5" width="10" height="14" rx="3" strokeWidth={2} />
+      {/* Watch band bottom */}
+      <rect x="10" y="19" width="4" height="3" rx="1" strokeWidth={2} />
+      {/* Watch dial */}
+      <circle cx="12" cy="12" r="3" strokeWidth={2} />
+      {/* Watch hand */}
+      <path d="M12 12V10.5L13.5 9.5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -78,10 +100,11 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   people: PeopleIcon,
   calendar: CalendarIcon,
   alert: AlertIcon,
+  device: DeviceIcon,
   gear: GearIcon,
 };
 
-type TabId = "registration" | "vitals" | "queue" | "appointments" | "alerts" | "settings";
+type TabId = "registration" | "vitals" | "queue" | "appointments" | "alerts"| "devices" | "settings";
 
 type StaffSidebarProps = {
   activeTab?: string;

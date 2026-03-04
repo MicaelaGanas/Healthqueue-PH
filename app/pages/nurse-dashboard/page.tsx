@@ -14,6 +14,7 @@ import { AccessRestrictionsFooter } from "./components/AccessRestrictionsFooter"
 import { AuthGuard } from "../../components/AuthGuard";
 import { NurseQueueProvider } from "./context/NurseQueueContext";
 import { SettingsContent } from "./components/settings/SettingsContent";
+import { DevicesContent } from "./components/devices/DevicesContent";
 
 const TABS = [
   { id: "registration", label: "Registration" },
@@ -22,7 +23,7 @@ const TABS = [
   { id: "alerts", label: "Alerts" },
 ] as const;
 
-type ActiveView = (typeof TABS)[number]["id"] | "appointments" | "settings";
+type ActiveView = (typeof TABS)[number]["id"] | "appointments" | "settings" | "devices";
 
 export default function NurseDashboardPage() {
   const [activeTab, setActiveTab] = useState<ActiveView>("registration");
@@ -33,7 +34,7 @@ export default function NurseDashboardPage() {
     <div className="flex h-screen min-h-0 overflow-hidden bg-[#f8f9fa]">
       <StaffSidebar
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
+        onTabChange={(tab) => setActiveTab(tab as ActiveView)}
       />
       <div className="flex min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
         <StaffHeader
@@ -46,6 +47,13 @@ export default function NurseDashboardPage() {
               <>
                 <div className="mt-0 sm:mt-0">
                   <AppointmentsContent onGoToVitals={() => setActiveTab("vitals")} />
+                </div>
+                <AccessRestrictionsFooter />
+              </>
+            ) : activeTab === "devices" ? (
+              <>
+                <div className="mt-0 sm:mt-0">
+                  <DevicesContent />
                 </div>
                 <AccessRestrictionsFooter />
               </>
