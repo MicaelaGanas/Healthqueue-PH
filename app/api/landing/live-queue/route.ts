@@ -12,23 +12,26 @@ export const revalidate = 0;
 /** Statuses that mean "patient is currently being seen". DB stores in_consultation; UI may use "in progress". */
 const NOW_SERVING_STATUSES = ["in consultation", "in_consultation", "in progress", "called"];
 const HIDDEN_STATUSES = new Set(["completed", "no show", "no_show"]);
+const MANILA_TIMEZONE = "Asia/Manila";
 
-function toLocalDateYmd(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const date = new Date(iso);
+function toManilaDateYmd(input: string | Date | null | undefined): string {
+  if (!input) return "";
+  const date = input instanceof Date ? input : new Date(input);
   if (Number.isNaN(date.getTime())) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: MANILA_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value ?? "";
+  const month = parts.find((p) => p.type === "month")?.value ?? "";
+  const day = parts.find((p) => p.type === "day")?.value ?? "";
+  return year && month && day ? `${year}-${month}-${day}` : "";
 }
 
 function getTodayLocalYmd(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return toManilaDateYmd(new Date());
 }
 
 /** GET: public live queue summary by department. No auth. Query ?date=YYYY-MM-DD for a specific day. */
@@ -83,8 +86,8 @@ export async function GET(request: Request) {
     if (HIDDEN_STATUSES.has(status)) return false;
     const source = (r.source ?? "").trim().toLowerCase();
     if (source === "walk_in" || source === "walk-in") return true;
-    const apt = toLocalDateYmd(r.appointment_at);
-    const added = toLocalDateYmd(r.added_at);
+    const apt = toManilaDateYmd(r.appointment_at);
+    const added = toManilaDateYmd(r.added_at);
     return apt === effectiveDate || added === effectiveDate;
   });
 

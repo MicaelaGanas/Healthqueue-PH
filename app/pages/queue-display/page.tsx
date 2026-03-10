@@ -144,6 +144,12 @@ function QueueDisplayClient() {
     if (!voiceEnabled || !data?.nowServing?.ticket) return;
     const current = data.nowServing.ticket;
     const previous = previousNowServingRef.current;
+    // Avoid announcing immediately on initial page load.
+    // Announce only when the now-serving ticket actually changes afterwards.
+    if (previous == null) {
+      previousNowServingRef.current = current;
+      return;
+    }
     if (previous === current) return;
     previousNowServingRef.current = current;
 

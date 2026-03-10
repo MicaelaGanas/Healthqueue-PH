@@ -12,6 +12,7 @@ export const revalidate = 0;
 const NOW_SERVING_STATUSES = new Set(["in consultation", "in_consultation", "in progress", "called"]);
 const WAITING_STATUSES = new Set(["waiting", "scheduled", "called"]);
 const HIDDEN_STATUSES = new Set(["completed", "no show", "no_show"]);
+const MANILA_TIMEZONE = "Asia/Manila";
 
 type QueueDisplayRow = {
   ticket: string;
@@ -40,21 +41,23 @@ function normalizeStatus(value: string | null | undefined): string {
 function pickDate(dateParam: string | null): string {
   const trimmed = dateParam?.trim().slice(0, 10) ?? "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return toManilaDateYmd(new Date());
 }
 
-function toLocalDateYmd(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const date = new Date(iso);
+function toManilaDateYmd(input: string | Date | null | undefined): string {
+  if (!input) return "";
+  const date = input instanceof Date ? input : new Date(input);
   if (Number.isNaN(date.getTime())) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: MANILA_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value ?? "";
+  const month = parts.find((p) => p.type === "month")?.value ?? "";
+  const day = parts.find((p) => p.type === "day")?.value ?? "";
+  return year && month && day ? `${year}-${month}-${day}` : "";
 }
 
 export async function GET(request: Request) {
@@ -84,8 +87,8 @@ export async function GET(request: Request) {
     .filter((row) => {
       const source = (row.source ?? "").trim().toLowerCase();
       if (source === "walk_in" || source === "walk-in") return true;
-      const appointmentDate = toLocalDateYmd(row.appointment_at);
-      const addedDate = toLocalDateYmd(row.added_at);
+      const appointmentDate = toManilaDateYmd(row.appointment_at);
+      const addedDate = toManilaDateYmd(row.added_at);
       return appointmentDate === date || addedDate === date;
     })
     .filter((row) => !HIDDEN_STATUSES.has(normalizeStatus(row.status)))
