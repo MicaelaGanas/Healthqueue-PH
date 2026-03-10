@@ -332,18 +332,23 @@ function QueueDisplayClient() {
                 <p className="text-base text-[#6C757D]">No other waiting tickets right now.</p>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  {data.upcoming.map((item) => (
+                  {data.upcoming.map((item, index) => (
                     <div
                       key={item.ticket}
                       className="flex items-center justify-between rounded-xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3"
                     >
-                      <div>
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex min-w-[3.2rem] items-center justify-center rounded-full bg-[#e7f0ff] px-2 py-1 text-xs font-bold text-[#1d4ed8]">
+                          #{index + 1}
+                        </span>
+                        <div>
                         <p className="text-lg font-semibold text-[#0f172a] sm:text-xl">
                           {item.ticket}
                         </p>
                         <p className="text-xs uppercase text-[#6C757D]">
                           {item.status}
                         </p>
+                        </div>
                       </div>
                       <p className="text-sm font-medium text-[#1f2933]">
                         {item.estimatedWait}
