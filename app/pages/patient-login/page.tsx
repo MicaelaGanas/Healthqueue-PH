@@ -176,94 +176,99 @@ function PatientLoginContent() {
           {/* Login card - entrance animation on page load */}
           <div className="flex flex-1 items-start justify-center pt-6 pb-10">
             <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg animate-fade-in-up">
-            {/* User Icon */}
-            <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center">
-                <svg 
-                    className="w-8 h-8 text-gray-600" 
+              {/* User Icon */}
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center border-4 border-blue-100">
+                  <svg 
+                    className="w-8 h-8 text-[#007bff]" 
                     fill="currentColor" 
                     viewBox="0 0 20 20"
-                >
+                  >
                     <path 
-                    fillRule="evenodd" 
-                    d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" 
-                    clipRule="evenodd" 
+                      fillRule="evenodd" 
+                      d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" 
+                      clipRule="evenodd" 
                     />
-                </svg>
+                  </svg>
                 </div>
-            </div>
+              </div>
 
-            {/* Title */}
-            <h1 className="text-2xl font-bold text-center mb-1">Patient Login</h1>
-            <p className="text-gray-600 text-center text-sm mb-4">
+              {/* Title */}
+              <h1
+                className="text-2xl font-bold text-center mb-1 text-[#003566]"
+                style={{ fontFamily: "var(--font-rosario), sans-serif" }}
+              >
+                Patient Login
+              </h1>
+              <p className="text-gray-600 text-center text-sm mb-4">
                 Access your queue status and appointments
-            </p>
+              </p>
 
-            {/* Account login */}
-            <div className="min-h-[200px] overflow-hidden">
-            {activeTab === 'account' && (
-                <form key="account" onSubmit={handleAccountLogin} className="space-y-6 animate-tab-in">
-                {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              {/* Account login */}
+              <div className="min-h-[200px] overflow-hidden">
+                {activeTab === 'account' && (
+                  <form key="account" onSubmit={handleAccountLogin} className="space-y-6 animate-tab-in">
+                    {error && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
                         {error}
+                      </div>
+                    )}
+                    <div>
+                      <label 
+                        htmlFor="email" 
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        required
+                        disabled={loading}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
                     </div>
-                )}
-                <div>
-                    <label 
-                    htmlFor="email" 
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                    Email
-                    </label>
-                    <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    required
-                    disabled={loading}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                </div>
 
-                <div>
-                    <label 
-                    htmlFor="password" 
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                    Password
-                    </label>
-                    <input
-                    type="password"
-                    id="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    required
-                    disabled={loading}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                </div>
+                    <div>
+                      <label 
+                        htmlFor="password" 
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        required
+                        disabled={loading}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
 
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 rounded-lg transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
-                >
-                    {loading ? 'Logging in...' : 'Login'}
-                </button>
-                <p className="text-center text-sm text-gray-500 mt-4">
-                    Don&apos;t have an account?{' '}
-                    <Link href="/pages/patient-signup" className="text-blue-600 hover:underline">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 rounded-lg transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Logging in...' : 'Login'}
+                    </button>
+                    <p className="text-center text-sm text-gray-500 mt-4">
+                      Don&apos;t have an account?{' '}
+                      <Link href="/pages/patient-signup" className="text-blue-600 hover:underline">
                         Sign up
-                    </Link>
-                </p>
-                </form>
-            )}
+                      </Link>
+                    </p>
+                  </form>
+                )}
+              </div>
             </div>
-            </div>
-        </div>
+          </div>
         </div>
       </div>
     </>

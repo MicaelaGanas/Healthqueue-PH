@@ -125,14 +125,19 @@ export default function EmployeeLoginPage() {
           <div className="flex flex-1 items-start justify-center pt-6 pb-10">
             <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg animate-fade-in-up">
               <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center border-4 border-blue-100">
+                  <svg className="w-8 h-8 text-[#007bff]" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                   </svg>
                 </div>
               </div>
 
-              <h1 className="text-2xl font-bold text-center mb-1">Staff Login</h1>
+              <h1
+                className="text-2xl font-bold text-center mb-1 text-[#003566]"
+                style={{ fontFamily: "var(--font-rosario), sans-serif" }}
+              >
+                Staff Login
+              </h1>
               <p className="text-gray-600 text-center text-sm mb-6">
                 {useAuth ? 'Sign in with your hospital email' : 'Demo mode: select a role (configure Supabase for real sign-in)'}
               </p>

@@ -8,6 +8,7 @@ import { PatientAuthGuard } from "../../components/PatientAuthGuard";
 import { QueueStatus } from "./components/QueueStatus";
 import { Appointment } from "./components/Appointment";
 import { Notification } from "./components/Notification";
+import { createSupabaseBrowser } from "../../lib/supabase/client";
 
 export type AppointmentForQueue = {
   referenceNo: string;
@@ -34,6 +35,7 @@ function PatientDashboardContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"queue" | "appointment" | "notification">("queue");
   const [selectedAppointmentForQueue, setSelectedAppointmentForQueue] = useState<AppointmentForQueue | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -45,6 +47,31 @@ function PatientDashboardContent() {
       setActiveTab("queue");
     }
   }, [searchParams]);
+
+  // Fetch unread notification count so we can show an indicator on the tab.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+
+    let cancelled = false;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token || cancelled) return;
+      const res = await fetch("/api/patient-notifications", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json().catch(() => []);
+      if (cancelled) return;
+      if (!res.ok || !Array.isArray(data)) return;
+      const unread = data.filter((n: any) => n?.unread).length;
+      setUnreadNotifications(unread);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleViewQueueStatus = useCallback((appointment: AppointmentForQueue) => {
     setSelectedAppointmentForQueue(appointment);
@@ -114,7 +141,17 @@ function PatientDashboardContent() {
                     : "text-gray-600 hover:text-gray-800"
                 }`}
               >
-                Notification
+                <span className="inline-flex items-center justify-center gap-2">
+                  <span>Notification</span>
+                  {unreadNotifications > 0 && (
+                    <span
+                      className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-[#dc3545] px-1.5 text-[11px] font-bold text-white"
+                      aria-label={`${unreadNotifications} unread notifications`}
+                    >
+                      {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                    </span>
+                  )}
+                </span>
               </button>
             </div>
 
@@ -132,7 +169,9 @@ function PatientDashboardContent() {
             )}
 
             {/* Notification Tab Content */}
-            {activeTab === "notification" && <Notification />}
+            {activeTab === "notification" && (
+              <Notification onUnreadCountChange={setUnreadNotifications} />
+            )}
           </div>
         </div>
       </div>

@@ -263,16 +263,19 @@ export default function PatientSignUpPage() {
           </div>
 
           <div className="flex flex-1 items-start justify-center pt-6 pb-10">
-            <div className={`w-full ${step === 'form' ? 'max-w-2xl' : 'max-w-lg'} rounded-lg bg-white p-6 sm:p-8 shadow-lg animate-fade-in-up`}>
+            <div className={`w-full ${step === 'form' ? 'max-w-2xl' : 'max-w-lg'} rounded-lg bg-white p-6 sm:p-8 shadow-lg animate-fade-in-up transition duration-300 hover:shadow-xl`}>
               <div className="flex justify-center mb-6">
-                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
-                  <svg className="w-10 h-10 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center border-4 border-blue-100 transition-transform duration-300 hover:scale-[1.02]">
+                  <svg className="w-10 h-10 text-[#007bff]" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                   </svg>
                 </div>
               </div>
 
-              <h1 className="text-2xl font-bold text-center mb-2">
+              <h1
+                className="text-2xl font-bold text-center mb-2 text-[#003566]"
+                style={{ fontFamily: "var(--font-rosario), sans-serif" }}
+              >
                 {step === 'form' ? 'Patient Sign Up' : 'Verify your email'}
               </h1>
               <p className="text-gray-600 text-center mb-6">
@@ -320,7 +323,7 @@ export default function PatientSignUpPage() {
               </div>
 
               {step === 'otp' ? (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <form onSubmit={handleVerifyOtp} className="space-y-4 animate-tab-in">
                   <div className="flex justify-center gap-2">
                     {otp.map((digit, i) => (
                       <input
@@ -332,7 +335,7 @@ export default function PatientSignUpPage() {
                         value={digit}
                         onChange={(e) => handleOtpChange(i, e.target.value)}
                         onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                        className="w-11 h-12 text-center text-lg font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        className="w-11 h-12 text-center text-lg font-semibold border border-gray-300 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         aria-label={`Digit ${i + 1}`}
                       />
                     ))}
@@ -348,7 +351,7 @@ export default function PatientSignUpPage() {
                   <button
                     type="button"
                     onClick={() => { setStep('form'); setFormStep(2); setError(''); }}
-                    className="w-full text-gray-600 hover:text-gray-800 text-sm"
+                    className="w-full text-gray-600 hover:text-gray-800 text-sm transition-colors"
                   >
                     Back to form
                   </button>
@@ -356,8 +359,10 @@ export default function PatientSignUpPage() {
               ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
                 {formStep === 1 ? (
-                  <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 space-y-4">
-                    <h2 className="text-sm font-semibold text-gray-800">Step 1: Account security</h2>
+                  <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 space-y-4 animate-tab-in">
+                    <h2 className="text-sm font-semibold text-gray-800" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
+                      Step 1: Account security
+                    </h2>
 
                     <div>
                       <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -370,7 +375,7 @@ export default function PatientSignUpPage() {
                         value={form.email}
                         onChange={handleChange}
                         placeholder="you@example.com"
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         required
                       />
                     </div>
@@ -387,7 +392,7 @@ export default function PatientSignUpPage() {
                         onChange={handleChange}
                         placeholder="••••••••"
                         minLength={MIN_PASSWORD_LENGTH}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         required
                         aria-describedby="password-requirements"
                       />
@@ -455,15 +460,17 @@ export default function PatientSignUpPage() {
                         onChange={handleChange}
                         placeholder="••••••••"
                         minLength={MIN_PASSWORD_LENGTH}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         required
                       />
                       {passwordsMismatch && <p className="text-sm text-red-600 mt-1 p-2 rounded">Passwords do not match</p>}
                     </div>
                   </section>
                 ) : (
-                  <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 space-y-4">
-                    <h2 className="text-sm font-semibold text-gray-800">Step 2: Personal information</h2>
+                  <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 space-y-4 animate-tab-in">
+                    <h2 className="text-sm font-semibold text-gray-800" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>
+                      Step 2: Personal information
+                    </h2>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
@@ -477,7 +484,7 @@ export default function PatientSignUpPage() {
                           value={form.first_name}
                           onChange={handleChange}
                           placeholder="Juan"
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                           required
                         />
                       </div>
@@ -492,7 +499,7 @@ export default function PatientSignUpPage() {
                           value={form.last_name}
                           onChange={handleChange}
                           placeholder="Dela Cruz"
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                           required
                         />
                       </div>
@@ -509,7 +516,7 @@ export default function PatientSignUpPage() {
                           name="date_of_birth"
                           value={form.date_of_birth}
                           onChange={handleChange}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                           required
                         />
                       </div>
@@ -523,7 +530,7 @@ export default function PatientSignUpPage() {
                           name="gender"
                           value={form.gender}
                           onChange={handleChange}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
                           required
                         >
                           <option value="">Select gender</option>
@@ -546,7 +553,7 @@ export default function PatientSignUpPage() {
                         value={form.number}
                         onChange={handleChange}
                         placeholder="+63 912 345 6789"
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         required
                       />
                     </div>
@@ -562,7 +569,7 @@ export default function PatientSignUpPage() {
                         onChange={handleChange}
                         placeholder="Street, Barangay, City, Province"
                         rows={3}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
                         required
                       />
                     </div>
@@ -578,7 +585,7 @@ export default function PatientSignUpPage() {
                     <button
                       type="button"
                       onClick={() => setFormStep(1)}
-                      className="w-full sm:w-auto rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className="w-full sm:w-auto rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                     >
                       Back
                     </button>

@@ -24,7 +24,7 @@ function formatWhen(value?: string): string {
   }
 }
 
-export function Notification() {
+export function Notification({ onUnreadCountChange }: { onUnreadCountChange?: (count: number) => void } = {}) {
   const [items, setItems] = useState<PatientNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -73,6 +73,10 @@ export function Notification() {
   }, []);
 
   const unreadCount = useMemo(() => items.filter((item) => item.unread).length, [items]);
+
+  useEffect(() => {
+    onUnreadCountChange?.(unreadCount);
+  }, [unreadCount, onUnreadCountChange]);
 
   if (loading) {
     return (

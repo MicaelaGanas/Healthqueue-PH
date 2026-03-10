@@ -9,6 +9,7 @@ const HIDE_NAVBAR_PATHS = [
   "/pages/nurse-dashboard",
   "/pages/doctor-dashboard",
   "/pages/queue-display",
+  "/pages/book",
   "/pages/patient-signup",
   "/pages/patient-login",
   "/pages/employee-login",

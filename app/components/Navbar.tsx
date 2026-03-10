@@ -288,6 +288,7 @@ export function Navbar() {
   };
 
   const checkQueueHref = profile ? "/pages/patient-dashboard?tab=queue" : "/pages/queue";
+  const bookAppointmentHref = profile ? "/pages/book" : "/pages/patient-login";
 
   return (
     <>
@@ -300,7 +301,7 @@ export function Navbar() {
             <Link href={checkQueueHref} className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
               Check Queue
             </Link>
-            <Link href="/pages/book" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
+            <Link href={bookAppointmentHref} className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
               Book Appointment
             </Link>
             <Link href="/pages/about" className="text-sm font-medium text-[#333333] hover:text-[#007bff]">
@@ -413,7 +414,7 @@ export function Navbar() {
                   Check Queue
                 </Link>
                 <Link
-                  href="/pages/book"
+                  href={bookAppointmentHref}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="px-3 py-3 text-sm font-medium text-[#333333] hover:bg-[#F5F5F5] rounded-lg transition-colors"
                 >

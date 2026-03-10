@@ -28,7 +28,7 @@ function LocationIcon({ className }: { className?: string }) {
 
 export function Footer() {
   return (
-    <footer className="mt-20 border-t border-[#E9ECEF] bg-white text-[#6C757D]">
+    <footer className="border-t border-[#E9ECEF] bg-white text-[#6C757D]">
       <div className="mx-auto max-w-7xl px-8 py-12 sm:px-12 lg:px-16">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-[minmax(28rem,1fr)_repeat(3,minmax(0,1fr))]">
           <div className="min-w-0 overflow-hidden">
@@ -44,7 +44,7 @@ export function Footer() {
                 <Link href="/pages/queue" className="hover:text-[#333333]">Check Queue</Link>
               </li>
               <li>
-                <Link href="/book" className="hover:text-[#333333]">Book Appointment</Link>
+                <Link href="/pages/book" className="hover:text-[#333333]">Book Appointment</Link>
               </li>
               <li>
                 <Link href="#about" className="hover:text-[#333333]">About Us</Link>
@@ -58,10 +58,10 @@ export function Footer() {
             <h3 className="font-semibold text-[#333333]">Hospital Staff</h3>
             <ul className="mt-3 space-y-2 text-sm">
               <li>
-                <Link href="/staff-login" className="hover:text-[#333333]">Staff Login</Link>
+                <Link href="/pages/employee-login" className="hover:text-[#333333]">Staff Login</Link>
               </li>
               <li>
-                <Link href="/dashboard" className="hover:text-[#333333]">Dashboard</Link>
+                <Link href="/pages/nurse-dashboard" className="hover:text-[#333333]">Dashboard</Link>
               </li>
             </ul>
           </div>

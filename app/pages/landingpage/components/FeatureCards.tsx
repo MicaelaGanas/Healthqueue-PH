@@ -126,7 +126,7 @@ export function FeatureCards() {
   ];
 
   return (
-    <FadeInSection className="relative z-10 mx-auto -mt-8 max-w-7xl px-4 pb-14 sm:px-6">
+    <FadeInSection className="relative z-10 mx-auto -mt-16 max-w-7xl px-4 pb-14 sm:px-6">
       <section aria-labelledby="actions-heading">
         <h2 id="actions-heading" className="sr-only">
           Get started
@@ -138,7 +138,7 @@ export function FeatureCards() {
             return (
               <FadeInSection key={card.title} delay={index * 80}>
                 <article
-                  className="group flex flex-col items-center text-center rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-shadow duration-300 hover:shadow-[0_8px_32px_rgba(0,0,0,0.1)]"
+                  className="group flex flex-col items-center text-center rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_14px_40px_rgba(15,23,42,0.18)]"
                 >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#f1f5f9] text-[#007bff]">
                 <Icon className="h-6 w-6" />

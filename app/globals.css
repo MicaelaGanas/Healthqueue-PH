@@ -89,3 +89,26 @@ body {
 .animate-tab-in {
   animation: tab-in 0.35s ease-out both;
 }
+
+/* Gentle floating animation for illustrations */
+@keyframes float-soft {
+  0% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-10px);
+  }
+  50% {
+    transform: translateY(0);
+  }
+  75% {
+    transform: translateY(8px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.animate-float-soft {
+  animation: float-soft 3.8s ease-in-out infinite;
+}

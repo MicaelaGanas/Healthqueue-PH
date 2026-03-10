@@ -8,8 +8,8 @@ import { Announcements } from "./components/Announcements";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
-      <main>
+    <div className="min-h-screen bg-[#f8f9fa] text-[#212529] flex flex-col">
+      <main className="flex-1">
         <HeroBanner />
         <FeatureCards />
         <LiveQueue />

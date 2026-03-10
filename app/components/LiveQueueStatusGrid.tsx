@@ -52,6 +52,18 @@ function formatReadableDate(dateIso: string) {
   return new Intl.DateTimeFormat("en-PH", { year: "numeric", month: "long", day: "numeric" }).format(d);
 }
 
+function formatUpdatedTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    return new Intl.DateTimeFormat("en-PH", {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(d);
+  } catch {
+    return iso;
+  }
+}
+
 type LiveQueueStatusGridProps = {
   /** "page" = full heading for check queue page; "landing" = compact for landing */
   variant?: "page" | "landing";
@@ -105,6 +117,12 @@ export function LiveQueueStatusGrid({ variant = "page", sectionId = "live-queue"
           <p className="mt-1 text-sm text-[#6C757D]">
             Estimated wait times by department as of {formatReadableDate(today)}
           </p>
+          {updatedAt && (
+            <p className="mt-1 inline-flex items-center gap-2 rounded-full bg-[#e7f0ff] px-3 py-1 text-xs font-medium text-[#1d4ed8]">
+              <ClockIcon className="h-3 w-3" />
+              <span>Live – last updated at {formatUpdatedTime(updatedAt)}</span>
+            </p>
+          )}
         </div>
       </div>
 
@@ -124,35 +142,40 @@ export function LiveQueueStatusGrid({ variant = "page", sectionId = "live-queue"
       {!loading && !error && departments.length > 0 && (
         <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {departments.map((dept) => (
-            <article
+            <Link
               key={dept.name}
-              className="rounded-xl border border-[#e9ecef] bg-white p-4 shadow-sm"
+              href={`/pages/queue-display?department=${encodeURIComponent(dept.name)}`}
+              className="group block rounded-xl border border-[#e0e7f1] bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-1.5 hover:border-[#b7c7ff] hover:shadow-[0_14px_40px_rgba(15,23,42,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007bff]"
             >
-              <h3 className="font-semibold text-[#333333]" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>{dept.name}</h3>
-              <div className="mt-3 flex items-center gap-2 text-sm text-[#6C757D]">
-                <UsersIcon className="h-4 w-4 shrink-0" />
-                <span>Waiting</span>
-                <span className="font-semibold text-[#333333]">{dept.waiting}</span>
-              </div>
-              <div className="mt-2 flex items-center gap-2 text-sm text-[#6C757D]">
-                <ClockIcon className="h-4 w-4 shrink-0" />
-                <span>Est. Wait</span>
-                <span className="text-[#333333]">{dept.waitTime}</span>
-              </div>
-              <p className="mt-3 text-sm">
-                <span className="text-[#6C757D]">Now Serving</span>{" "}
-                {dept.nowServing ? (
-                  <Link
-                    href={`/pages/queue/result?q=${encodeURIComponent(dept.nowServing)}`}
-                    className="font-medium text-[#007bff] underline hover:text-[#0056b3]"
-                  >
-                    {dept.nowServing}
-                  </Link>
-                ) : (
-                  <span className="font-medium text-[#333333]">—</span>
-                )}
-              </p>
-            </article>
+              <article>
+                <h3
+                  className="font-semibold text-[#333333] group-hover:text-[#0056b3]"
+                  style={{ fontFamily: "var(--font-rosario), sans-serif" }}
+                >
+                  {dept.name}
+                </h3>
+                <div className="mt-3 flex items-center gap-2 text-sm text-[#6C757D]">
+                  <UsersIcon className="h-4 w-4 shrink-0" />
+                  <span>Waiting</span>
+                  <span className="font-semibold text-[#333333]">{dept.waiting}</span>
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-sm text-[#6C757D]">
+                  <ClockIcon className="h-4 w-4 shrink-0" />
+                  <span>Est. Wait</span>
+                  <span className="text-[#333333]">{dept.waitTime}</span>
+                </div>
+                <div className="mt-3 inline-flex w-full items-center justify-between rounded-lg border border-[#d4e2ff] bg-[#f5f8ff] px-3 py-2 text-sm">
+                  <span className="text-[#6C757D]">Now Serving</span>
+                  {dept.nowServing ? (
+                    <span className="font-semibold text-[#007bff]">
+                      {dept.nowServing}
+                    </span>
+                  ) : (
+                    <span className="font-medium text-[#333333]">—</span>
+                  )}
+                </div>
+              </article>
+            </Link>
           ))}
         </div>
       )}
