@@ -91,17 +91,15 @@ function PatientLoginContent() {
         return;
       }
 
-      // Verify patient profile exists (or send to complete-profile if missing)
+      // Verify patient profile exists
       const res = await fetch('/api/patient-users', {
         headers: { Authorization: `Bearer ${data.session.access_token}` },
       });
 
       if (res.status === 404) {
-        // Account verified but no profile row (e.g. signed up with email confirmation). Complete profile.
-        const completeUrl = safeRedirect
-          ? `/pages/patient-complete-profile?redirect=${encodeURIComponent(safeRedirect)}`
-          : '/pages/patient-complete-profile';
-        router.push(completeUrl);
+        // Old flow used a separate "complete profile" page; new flow uses the step-based signup.
+        // Treat missing profile as an error instead of sending to the old page.
+        setError('We could not find your patient profile. Please contact support so we can fix your account.');
         setLoading(false);
         return;
       }

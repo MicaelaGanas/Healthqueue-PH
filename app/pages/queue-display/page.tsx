@@ -206,7 +206,7 @@ function QueueDisplayClient() {
                 Live Queue Display
               </p>
               <h1
-                className="mt-1 truncate text-2xl font-bold text-[#003566] sm:text-4xl"
+                className="mt-1 truncate text-xl font-bold text-[#003566] sm:text-3xl md:text-4xl"
                 style={{ fontFamily: "var(--font-rosario), sans-serif" }}
               >
                 {title}
@@ -282,12 +282,12 @@ function QueueDisplayClient() {
       {!loading && !error && data && (
         <section className="w-full rounded-3xl border border-[#d0def4] bg-white/95 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.1)] sm:p-6 lg:p-8">
           <div className="grid gap-6 lg:grid-cols-2">
-            <article className="relative overflow-hidden rounded-2xl border border-[#dbe4ff] bg-gradient-to-br from-[#e0f2fe] via-white to-[#f5f8ff] p-6 shadow-sm sm:p-10">
+            <article className="relative overflow-hidden rounded-2xl border border-[#dbe4ff] bg-gradient-to-br from-[#e0f2fe] via-white to-[#f5f8ff] p-4 shadow-sm sm:p-8 md:p-10">
               <div className="absolute -right-10 -top-16 h-40 w-40 rounded-full bg-[#93c5fd]/30 blur-2xl" aria-hidden />
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">
                 Now Serving
               </p>
-              <p className="mt-3 text-4xl font-extrabold text-[#0f172a] sm:text-6xl">
+              <p className="mt-3 text-3xl font-extrabold text-[#0f172a] sm:text-5xl md:text-6xl">
                 {data.nowServing?.ticket ?? "—"}
               </p>
               <p className="mt-3 text-sm text-[#4b5563]">
@@ -295,12 +295,12 @@ function QueueDisplayClient() {
               </p>
             </article>
 
-            <article className="relative overflow-hidden rounded-2xl border border-[#dbe4ff] bg-gradient-to-br from-[#e0edff] via-white to-[#f5f8ff] p-6 shadow-sm sm:p-10">
+            <article className="relative overflow-hidden rounded-2xl border border-[#dbe4ff] bg-gradient-to-br from-[#e0edff] via-white to-[#f5f8ff] p-4 shadow-sm sm:p-8 md:p-10">
               <div className="absolute -left-10 -bottom-16 h-40 w-40 rounded-full bg-[#bfdbfe]/40 blur-2xl" aria-hidden />
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2563eb]">
                 Next Patient
               </p>
-              <p className="mt-3 text-4xl font-extrabold text-[#0f172a] sm:text-6xl">
+              <p className="mt-3 text-3xl font-extrabold text-[#0f172a] sm:text-5xl md:text-6xl">
                 {data.nextUp?.ticket ?? "—"}
               </p>
               <p className="mt-3 text-sm text-[#4b5563]">
@@ -309,7 +309,7 @@ function QueueDisplayClient() {
               </p>
             </article>
 
-            <article className="rounded-2xl border border-[#e2e8f0] bg-white p-5 shadow-sm sm:p-7 lg:col-span-2">
+            <article className="rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-sm sm:p-6 lg:p-7 lg:col-span-2">
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#6b7280]">
                 Upcoming Queue
               </p>
@@ -323,7 +323,7 @@ function QueueDisplayClient() {
                       className="flex items-center justify-between rounded-xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3"
                     >
                       <div>
-                        <p className="text-xl font-semibold text-[#0f172a]">
+                        <p className="text-lg font-semibold text-[#0f172a] sm:text-xl">
                           {item.ticket}
                         </p>
                         <p className="text-xs uppercase text-[#6C757D]">

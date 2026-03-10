@@ -80,9 +80,9 @@ export default function AboutPage() {
 
   return (
     <>
-      <div className="bg-white">
+      <div className="min-h-screen bg-[#f8f9fa] text-[#212529]">
         {/* Hero Section */}
-        <div className="relative py-32 overflow-hidden bg-gray-900">
+        <div className="relative overflow-hidden bg-gradient-to-b from-[#e7f0ff] via-[#f5f8ff] to-white py-24 sm:py-28">
           {/* Background Image with Overlay */}
           <div className="absolute inset-0 z-0">
             <Image
@@ -93,15 +93,16 @@ export default function AboutPage() {
               unoptimized
               priority
             />
-            <div className="absolute inset-0 bg-gray-900/50"></div>
+            <div className="absolute inset-0 bg-white/70" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#e7f0ff]/85 via-[#f5f8ff]/92 to-white" />
           </div>
           
           <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center relative z-10">
-            <div className="inline-block mb-6 px-5 py-2 bg-white/10 backdrop-blur-sm border border-white/30 text-white rounded-full text-sm font-medium animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+            <div className="inline-block mb-6 px-5 py-2 bg-white/80 backdrop-blur-sm border border-[#007bff]/10 text-[#1e293b] rounded-full text-sm font-medium animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
               About Us
             </div>
-            <h1 className="text-6xl font-bold text-white mb-6 animate-fade-in-up" style={{ fontFamily: "var(--font-rosario), sans-serif", animationDelay: '0.4s' }}>About HealthQueue</h1>
-            <p className="text-xl text-white/90 max-w-3xl mx-auto leading-relaxed animate-fade-in-up" style={{ animationDelay: '0.6s' }}>
+            <h1 className="text-5xl sm:text-6xl font-bold text-[#003566] mb-6 animate-fade-in-up" style={{ fontFamily: "var(--font-rosario), sans-serif", animationDelay: '0.4s' }}>About HealthQueue</h1>
+            <p className="text-lg sm:text-xl text-[#4b5563] max-w-3xl mx-auto leading-relaxed animate-fade-in-up" style={{ animationDelay: '0.6s' }}>
               Make your diagnosis convenient and reassuring. Welcome to HealthQueue PH — your partner in smarter healthcare.
             </p>
           </div>
@@ -109,7 +110,7 @@ export default function AboutPage() {
 
         {/* Mission & Image Section */}
         <FadeInSection>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="relative h-[400px] rounded-2xl overflow-hidden shadow-xl">
               <Image
@@ -119,16 +120,17 @@ export default function AboutPage() {
                 className="object-cover"
                 unoptimized
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#003566]/15 via-transparent to-transparent" aria-hidden />
             </div>
             <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-6" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Our Mission</h2>
-              <p className="text-gray-600 leading-relaxed mb-4">
+              <h2 className="text-3xl font-bold text-[#0f172a] mb-6" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Our Mission</h2>
+              <p className="text-[#4b5563] leading-relaxed mb-4">
                 HealthQueue PH was created to address one of the most pressing challenges in Philippine healthcare: long waiting times and inefficient queue management systems. We believe that every patient deserves timely, organized, and stress-free access to medical care.
               </p>
-              <p className="text-gray-600 leading-relaxed mb-4">
+              <p className="text-[#4b5563] leading-relaxed mb-4">
                 By leveraging cutting-edge technology including AI-powered predictions and IoT integration, we're transforming how hospitals manage patient flow and how patients experience healthcare services.
               </p>
-              <p className="text-gray-600 leading-relaxed">
+              <p className="text-[#4b5563] leading-relaxed">
                 Our platform empowers both patients and healthcare providers, creating a seamless ecosystem where quality healthcare is accessible, efficient, and patient-centered.
               </p>
             </div>
@@ -138,10 +140,10 @@ export default function AboutPage() {
 
         {/* Features Section */}
         <FadeInSection>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Why Choose HealthQueue?</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold text-[#0f172a] mb-4" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Why Choose HealthQueue?</h2>
+            <p className="text-[#6C757D] max-w-2xl mx-auto">
               We're committed to transforming your healthcare experience with cutting-edge technology and patient-first design.
             </p>
           </div>
@@ -149,13 +151,13 @@ export default function AboutPage() {
             {features.map((feature, index) => (
               <div 
                 key={index} 
-                className="group bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-blue-300 hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
+                className="group bg-white p-8 rounded-2xl border border-[#E2E8F0] shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-[#BFDBFE] hover:shadow-[0_14px_40px_rgba(15,23,42,0.18)]"
               >
-                <div className="w-16 h-16 bg-blue-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-blue-500 transition-colors">
+                <div className="w-16 h-16 bg-[#f1f5f9] rounded-xl flex items-center justify-center mb-6 text-[#007bff] transition-colors group-hover:bg-[#007bff]">
                   <img src={feature.icon} alt={feature.title} className="w-8 h-8 object-contain group-hover:brightness-0 group-hover:invert transition-all" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>{feature.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+                <h3 className="text-xl font-bold text-[#0f172a] mb-3" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>{feature.title}</h3>
+                <p className="text-[#4b5563] leading-relaxed">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -164,23 +166,23 @@ export default function AboutPage() {
 
         {/* System Information Section */}
         <FadeInSection>
-        <div className="bg-white py-20 border-y border-gray-100">
+        <div className="bg-[#F5F8FF] py-16 sm:py-20 border-y border-[#E2E8F0]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Powerful Features</h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">
+              <h2 className="text-3xl font-bold text-[#0f172a] mb-4" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Powerful Features</h2>
+              <p className="text-[#6C757D] max-w-2xl mx-auto">
                 Experience healthcare management like never before with our comprehensive feature set.
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {systemFeatures.map((feature, index) => (
-                <div key={index} className="flex items-start gap-4 bg-gray-50 rounded-xl p-5 hover:bg-gray-100 transition-colors border border-gray-200">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                <div key={index} className="flex items-start gap-4 bg-white/85 rounded-2xl p-5 border border-[#E2E8F0] shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#BFDBFE] hover:shadow-[0_12px_36px_rgba(15,23,42,0.12)]">
+                  <div className="flex-shrink-0 w-9 h-9 bg-[#e7f0ff] rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-[#007bff]" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <p className="text-gray-700 font-medium">{feature}</p>
+                  <p className="text-[#334155] font-medium">{feature}</p>
                 </div>
               ))}
             </div>
@@ -190,10 +192,10 @@ export default function AboutPage() {
 
         {/* Registration Requirements Section */}
         <FadeInSection>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Registration Requirements</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold text-[#0f172a] mb-4" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Registration Requirements</h2>
+            <p className="text-[#6C757D] max-w-2xl mx-auto">
               Get started quickly by preparing these essential documents for a smooth registration process.
             </p>
           </div>
@@ -231,16 +233,16 @@ export default function AboutPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {requirements.map((req, index) => (
-              <div key={index} className="group bg-white border-2 border-gray-100 p-8 rounded-2xl hover:border-blue-300 hover:shadow-lg transition-all">
+              <div key={index} className="group bg-white border border-[#E2E8F0] p-8 rounded-2xl shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-[#BFDBFE] hover:shadow-[0_14px_40px_rgba(15,23,42,0.18)]">
                 <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center group-hover:bg-blue-500 transition-colors">
-                    <svg className="w-6 h-6 text-blue-600 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex-shrink-0 w-12 h-12 bg-[#f1f5f9] rounded-xl flex items-center justify-center text-[#007bff] group-hover:bg-[#007bff] transition-colors">
+                    <svg className="w-6 h-6 text-[#007bff] group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>{req.title}</h3>
-                    <p className="text-gray-600 leading-relaxed">{req.description}</p>
+                    <h3 className="text-xl font-bold text-[#0f172a] mb-2" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>{req.title}</h3>
+                    <p className="text-[#4b5563] leading-relaxed">{req.description}</p>
                   </div>
                 </div>
               </div>
@@ -251,26 +253,26 @@ export default function AboutPage() {
 
         {/* FAQ Section */}
         <FadeInSection>
-        <div className="bg-gray-50 py-20">
+        <div className="bg-[#F5F8FF] py-16 sm:py-20 border-t border-[#E2E8F0]">
           <div className="max-w-4xl mx-auto px-4 sm:px-6">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Frequently Asked Questions</h2>
-              <p className="text-gray-600">
+              <h2 className="text-3xl font-bold text-[#0f172a] mb-4" style={{ fontFamily: "var(--font-rosario), sans-serif" }}>Frequently Asked Questions</h2>
+              <p className="text-[#6C757D]">
                 Find answers to common questions about HealthQueue PH
               </p>
             </div>
 
             <div className="space-y-4">
               {faqs.map((faq, index) => (
-                <div key={index} className="bg-white rounded-2xl border-2 border-gray-100 overflow-hidden hover:border-blue-200 transition-colors">
+                <div key={index} className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden transition duration-300 hover:-translate-y-1 hover:border-[#BFDBFE] hover:shadow-[0_12px_36px_rgba(15,23,42,0.12)]">
                   <button
                     onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
-                    className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-between p-6 text-left hover:bg-[#f8fafc] transition-colors"
                   >
-                    <h3 className="font-semibold text-gray-900 pr-8">{faq.question}</h3>
-                    <div className={`flex-shrink-0 w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center transition-all ${expandedFaq === index ? "rotate-180 bg-blue-500" : ""}`}>
+                    <h3 className="font-semibold text-[#0f172a] pr-8">{faq.question}</h3>
+                    <div className={`flex-shrink-0 w-8 h-8 bg-[#e7f0ff] rounded-full flex items-center justify-center transition-all ${expandedFaq === index ? "rotate-180 bg-[#007bff]" : ""}`}>
                       <svg
-                        className={`w-5 h-5 transition-colors ${expandedFaq === index ? "text-white" : "text-blue-600"}`}
+                        className={`w-5 h-5 transition-colors ${expandedFaq === index ? "text-white" : "text-[#007bff]"}`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -281,7 +283,7 @@ export default function AboutPage() {
                   </button>
                   {expandedFaq === index && (
                     <div className="px-6 pb-6 pt-0">
-                      <p className="text-gray-600 leading-relaxed">{faq.answer}</p>
+                      <p className="text-[#4b5563] leading-relaxed">{faq.answer}</p>
                     </div>
                   )}
                 </div>
