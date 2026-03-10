@@ -262,7 +262,9 @@ export async function PUT(request: Request) {
       const priority = r.priority === "urgent" ? "urgent" : "normal";
       const deptId = await resolveDepartmentId(supabase, r.department as string | null | undefined);
       if (!deptId) {
-        throw new Error(`Department "${r.department}" not found`);
+        // Do not fail the whole sync if one row has an invalid department label.
+        // Skipping bad rows allows valid/new rows (e.g. newly added walk-ins) to persist.
+        return null;
       }
       const doctorId = await resolveDoctorId(supabase, r.assignedDoctor as string | null | undefined);
       const bookingResolved =
@@ -326,7 +328,12 @@ export async function PUT(request: Request) {
     })
   );
 
-  const { error } = await supabase.from("queue_items").upsert(dbRows, {
+  const rowsToUpsert = dbRows.filter((row): row is NonNullable<typeof row> => row !== null);
+  if (rowsToUpsert.length === 0) {
+    return NextResponse.json({ ok: true, warning: "No valid queue rows to sync." });
+  }
+
+  const { error } = await supabase.from("queue_items").upsert(rowsToUpsert, {
     onConflict: "ticket",
   });
   if (error) {

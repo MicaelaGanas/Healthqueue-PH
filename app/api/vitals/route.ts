@@ -42,10 +42,19 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const ticket = searchParams.get("ticket");
 
+  // Non-admin staff must be department-scoped.
+  if (staff.role !== "admin" && !staff.department) {
+    return NextResponse.json([], { status: 200 });
+  }
+
   let q = supabase
     .from("vital_signs")
     .select("*")
     .order("recorded_at", { ascending: false });
+  // Enforce department-level isolation for non-admin staff to prevent cross-department triage visibility.
+  if (staff.role !== "admin" && staff.department) {
+    q = q.eq("department", staff.department);
+  }
   if (ticket) q = q.eq("ticket", ticket);
 
   const { data, error } = await q;
@@ -63,6 +72,13 @@ export async function POST(request: Request) {
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  }
+
+  if (staff.role !== "admin" && !staff.department) {
+    return NextResponse.json(
+      { error: "Staff department is not configured. Contact an administrator." },
+      { status: 403 }
+    );
   }
 
   const body = await request.json().catch(() => ({}));
@@ -87,7 +103,11 @@ export async function POST(request: Request) {
   const row = {
     ticket: String(ticket).trim(),
     patient_name: String(patientName).trim() || "Unknown",
-    department: String(department).trim() || "General",
+    // Always trust the logged-in staff department (except admin fallback) to keep triage data scoped.
+    department:
+      (staff.role !== "admin" && staff.department)
+        ? staff.department
+        : (String(department).trim() || "General"),
     systolic: parseNum(body.systolic),
     diastolic: parseNum(body.diastolic),
     heart_rate: parseNum(body.heartRate),

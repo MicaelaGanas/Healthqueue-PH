@@ -27,6 +27,14 @@ function formatVoiceTicket(ticket: string): string {
   return ticket.replace(/-/g, " ");
 }
 
+function getTodayLocalYmd(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function pickPreferredVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
   if (!voices.length) return null;
   const femaleHints = [
@@ -79,7 +87,8 @@ function QueueDisplayClient() {
     try {
       if (!data) setLoading(true);
       setError(null);
-      const res = await fetch(`/api/landing/department-display?department=${encodeURIComponent(department)}`, {
+      const date = getTodayLocalYmd();
+      const res = await fetch(`/api/landing/department-display?department=${encodeURIComponent(department)}&date=${encodeURIComponent(date)}`, {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to load queue display.");

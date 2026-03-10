@@ -47,7 +47,7 @@ function isScheduledForToday(r: QueueRow): boolean {
 }
 
 type QueuePatient = { ticket: string; patientName: string; department: string };
-type VitalsRecord = { ticket: string; patientName: string; department: string; recordedAt: string };
+type VitalsRecord = { ticket: string; patientName: string; department: string; recordedAt: string; recordedAtIso?: string };
 
 function formatRecordedAt(iso?: string) {
   const d = iso ? new Date(iso) : new Date();
@@ -67,11 +67,25 @@ function matchPatient(q: string, p: QueuePatient) {
 
 export function VitalSignsForm() {
   const { queueRows, setPatientPriority, confirmedForTriage, clearConfirmedForTriage } = useNurseQueue();
+  const [staffDepartment, setStaffDepartment] = useState<string>("");
   // Only today's patients or just-confirmed: need vitals AND (scheduled for today OR in confirmedForTriage). Avoids old patients accumulating.
   // Include todayDateStr in deps so the list updates when the date changes (e.g. past midnight while component stays mounted).
   const todayDateStr = getTodayDateStr();
+
+  // Map tickets to department using the live queue data so we always trust the ticket's department,
+  // not whatever might be saved on the vitals record.
+  const ticketDepartmentMap = useMemo(() => {
+    const map = new Map<string, string>();
+    queueRows.forEach((r) => {
+      if (r.ticket && r.department) map.set(r.ticket, r.department);
+    });
+    return map;
+  }, [queueRows]);
   const queuePatients = useMemo<QueuePatient[]>(() => {
-    const included = queueRows.filter(
+    const scopedRows = staffDepartment
+      ? queueRows.filter((r) => r.department === staffDepartment)
+      : queueRows;
+    const included = scopedRows.filter(
       (r) =>
         r.hasVitals !== true &&
         (
@@ -82,7 +96,7 @@ export function VitalSignsForm() {
         )
     );
     return included.map((r) => ({ ticket: r.ticket, patientName: r.patientName, department: r.department }));
-  }, [queueRows, confirmedForTriage, todayDateStr]);
+  }, [queueRows, confirmedForTriage, todayDateStr, staffDepartment]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -93,12 +107,32 @@ export function VitalSignsForm() {
   const [saving, setSaving] = useState(false);
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
-  const [heartRate, setHeartRate] = useState("72");
-  const [temperature, setTemperature] = useState("36.5");
+  const [heartRate, setHeartRate] = useState("");
+  const [temperature, setTemperature] = useState("");
   const [weight, setWeight] = useState("");
   const [height, setHeight] = useState("");
   const [severity, setSeverity] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Limit triage list to the logged-in nurse's department so different departments don't see each other's triage queue.
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createSupabaseBrowser();
+    if (!supabase) return;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled || !session?.access_token) return;
+      const res = await fetch("/api/staff-profile", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok || cancelled) return;
+      const body = await res.json().catch(() => ({}));
+      if (typeof body.department === "string" && body.department.trim().length > 0) {
+        setStaffDepartment(body.department.trim());
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const fetchRecordedVitals = useCallback(async () => {
     const supabase = createSupabaseBrowser();
@@ -119,7 +153,7 @@ export function VitalSignsForm() {
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : [];
-        const byTicket = new Map<string, { patientName: string; department: string; recordedAt: string }>();
+        const byTicket = new Map<string, { patientName: string; department: string; recordedAt: string; recordedAtIso?: string }>();
         list.forEach((v: { ticket: string; patientName: string; department: string; recordedAt: string }) => {
           const existing = byTicket.get(v.ticket);
           if (!existing || new Date(v.recordedAt) > new Date(existing.recordedAt)) {
@@ -127,6 +161,7 @@ export function VitalSignsForm() {
               patientName: v.patientName,
               department: v.department,
               recordedAt: formatRecordedAt(v.recordedAt),
+              recordedAtIso: v.recordedAt,
             });
           }
         });
@@ -136,6 +171,7 @@ export function VitalSignsForm() {
             patientName: v.patientName,
             department: v.department,
             recordedAt: v.recordedAt,
+            recordedAtIso: v.recordedAtIso,
           }))
         );
       }
@@ -151,7 +187,19 @@ export function VitalSignsForm() {
   const selectedPatient = queuePatients.find((p) => p.ticket === selectedTicket);
   const filteredPatients = queuePatients.filter((p) => matchPatient(searchQuery, p));
   const showSearchResults = searchFocused && searchQuery.trim().length >= 0;
-  const checkedTickets = new Set(vitalsCompleted.map((r) => r.ticket));
+  const departmentVitalsCompleted = vitalsCompleted.filter((r) => {
+    const deptFromTicket = ticketDepartmentMap.get(r.ticket);
+    // If the ticket is no longer in today's queue, or we can't map it back to a department,
+    // don't show it in this department's "Checked" list.
+    if (!deptFromTicket) return false;
+    const matchesDept = !staffDepartment || deptFromTicket === staffDepartment;
+    if (!matchesDept) return false;
+    // Only show vitals recorded today so past-day triage doesn't clutter the list
+    if (!r.recordedAtIso) return true;
+    const recordedDate = toLocalDateStr(r.recordedAtIso);
+    return recordedDate === todayDateStr;
+  });
+  const checkedTickets = new Set(departmentVitalsCompleted.map((r) => r.ticket));
   const uncheckedPatients = queuePatients.filter((p) => !checkedTickets.has(p.ticket));
   /** Patients in the list who still need vitals (show in green box so they persist after refresh). */
   const awaitingTriageRefs = useMemo(
@@ -171,11 +219,11 @@ export function VitalSignsForm() {
     setSelectedTicket(p.ticket);
     setSearchQuery("");
     setSearchFocused(false);
-    // Reset form fields to default prefilled values
+    // Reset form fields to blank values
     setSystolic("");
     setDiastolic("");
-    setHeartRate("72");
-    setTemperature("36.5");
+    setHeartRate("");
+    setTemperature("");
     setWeight("");
     setHeight("");
     setSeverity("");
@@ -264,7 +312,12 @@ export function VitalSignsForm() {
       setSearchQuery("");
       setSystolic("");
       setDiastolic("");
+      setHeartRate("");
+      setTemperature("");
+      setWeight("");
+      setHeight("");
       setSeverity("");
+      setSaveError("");
     } finally {
       setSaving(false);
     }
@@ -357,7 +410,7 @@ export function VitalSignsForm() {
           </div>
           {/* Checked — right */}
           <div>
-            <h4 className="mb-2 text-sm font-semibold text-[#28a745]">Checked ({vitalsCompleted.length})</h4>
+            <h4 className="mb-2 text-sm font-semibold text-[#28a745]">Checked ({departmentVitalsCompleted.length})</h4>
             <div className="overflow-x-auto rounded-lg border border-[#e9ecef]">
               <table className="w-full min-w-[280px] text-left text-sm text-[#333333]">
                 <thead className="bg-[#f8f9fa]">
@@ -368,12 +421,12 @@ export function VitalSignsForm() {
                   </tr>
                 </thead>
                 <tbody>
-                  {vitalsCompleted.length === 0 ? (
+                  {departmentVitalsCompleted.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="px-3 py-4 text-center text-xs text-[#6C757D]">None yet</td>
                     </tr>
                   ) : (
-                    vitalsCompleted.map((r) => (
+                    departmentVitalsCompleted.map((r) => (
                       <tr key={`${r.ticket}-${r.recordedAt}`} className="border-t border-[#e9ecef]">
                         <td className="px-3 py-2 font-medium">{r.patientName}</td>
                         <td className="px-3 py-2">{r.ticket}</td>
@@ -454,7 +507,7 @@ export function VitalSignsForm() {
             <input
               type="text"
               value={systolic}
-              onChange={(e) => setSystolic(e.target.value)}
+              onChange={(e) => setSystolic(e.target.value.replace(/\s+/g, ""))}
               placeholder="Systolic"
               required
               className="w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
@@ -462,7 +515,7 @@ export function VitalSignsForm() {
             <input
               type="text"
               value={diastolic}
-              onChange={(e) => setDiastolic(e.target.value)}
+              onChange={(e) => setDiastolic(e.target.value.replace(/\s+/g, ""))}
               placeholder="Diastolic"
               required
               className="w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
@@ -476,7 +529,7 @@ export function VitalSignsForm() {
           <input
             type="text"
             value={heartRate}
-            onChange={(e) => setHeartRate(e.target.value)}
+            onChange={(e) => setHeartRate(e.target.value.replace(/\s+/g, ""))}
             required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
@@ -488,7 +541,7 @@ export function VitalSignsForm() {
           <input
             type="text"
             value={temperature}
-            onChange={(e) => setTemperature(e.target.value)}
+            onChange={(e) => setTemperature(e.target.value.replace(/\s+/g, ""))}
             required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
@@ -500,7 +553,7 @@ export function VitalSignsForm() {
           <input
             type="text"
             value={weight}
-            onChange={(e) => setWeight(e.target.value)}
+            onChange={(e) => setWeight(e.target.value.replace(/\s+/g, ""))}
             required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />
@@ -512,7 +565,7 @@ export function VitalSignsForm() {
           <input
             type="text"
             value={height}
-            onChange={(e) => setHeight(e.target.value)}
+            onChange={(e) => setHeight(e.target.value.replace(/\s+/g, ""))}
             required
             className="mt-1 w-full rounded-lg border border-[#dee2e6] px-3 py-2 text-[#333333] focus:border-[#007bff] focus:outline-none focus:ring-1 focus:ring-[#007bff]"
           />

@@ -40,7 +40,9 @@ export async function GET(request: Request) {
   ]);
   if (adminRes.error) return NextResponse.json({ error: adminRes.error.message }, { status: 500 });
   if (staffRes.error) return NextResponse.json({ error: staffRes.error.message }, { status: 500 });
-  const staff = adminRes.data ?? staffRes.data ?? null;
+  // Prefer staff_users over admin_users when an email exists in both.
+  // This avoids nurse/receptionist sessions being interpreted as admin.
+  const staff = staffRes.data ?? adminRes.data ?? null;
   if (!staff || staff.status !== "active") {
     return NextResponse.json({ error: "No access; contact an administrator" }, { status: 403 });
   }

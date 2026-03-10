@@ -47,6 +47,17 @@ export type PendingWalkIn = {
   createdAt?: string | null;
 };
 
+function sortPendingWalkIns(rows: PendingWalkIn[]): PendingWalkIn[] {
+  return [...rows].sort((a, b) => {
+    const aMs = a.createdAt ? Date.parse(a.createdAt) : Number.NaN;
+    const bMs = b.createdAt ? Date.parse(b.createdAt) : Number.NaN;
+    if (Number.isFinite(aMs) && Number.isFinite(bMs)) return bMs - aMs;
+    if (Number.isFinite(aMs)) return -1;
+    if (Number.isFinite(bMs)) return 1;
+    return String(b.registeredAt ?? "").localeCompare(String(a.registeredAt ?? ""));
+  });
+}
+
 /** Slot freed when a booked patient is marked no-show. Offered to next booked, then walk-ins. */
 export type OpenSlot = {
   id: string;
@@ -129,10 +140,15 @@ const NurseQueueContext = createContext<NurseQueueContextValue | null>(null);
 
 const CONFIRMED_FOR_TRIAGE_STORAGE_KEY = "healthqueue_confirmed_for_triage";
 
-let walkInTicketCounter = 1;
-function nextWalkInTicket(): string {
-  const n = walkInTicketCounter++;
-  return `W-${String(n).padStart(3, "0")}`;
+function nextWalkInTicket(existingTickets: Set<string>): string {
+  // Timestamp + random suffix avoids collisions across refreshes/sessions.
+  let candidate = "";
+  do {
+    const stamp = Date.now().toString(36).toUpperCase();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    candidate = `W-${stamp}-${rand}`;
+  } while (existingTickets.has(candidate));
+  return candidate;
 }
 
 function formatRegisteredAt(): string {
@@ -257,9 +273,15 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
     });
     if (res.ok) {
       const data = await res.json();
-      setPendingWalkIns(Array.isArray(data) ? data : []);
+      setPendingWalkIns(sortPendingWalkIns(Array.isArray(data) ? data : []));
     }
   }, []);
+
+  // Keep a stable ref so queue sync effect doesn't need function deps.
+  const refetchQueueRef = useRef(refetchQueue);
+  useEffect(() => {
+    refetchQueueRef.current = refetchQueue;
+  }, [refetchQueue]);
 
   // Fetch queue and pending walk-ins from API on mount (nurse dashboard is behind AuthGuard).
   useEffect(() => {
@@ -291,7 +313,7 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (cancelled || !session?.access_token) return;
-      await fetch("/api/queue-rows", {
+      const res = await fetch("/api/queue-rows", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -299,6 +321,10 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
         },
         body: JSON.stringify(queueRows),
       });
+      if (!res.ok && !cancelled) {
+        // Keep client state aligned with server when sync fails.
+        await refetchQueueRef.current().catch(() => {});
+      }
     })();
     return () => { cancelled = true; };
   }, [queueRows]);
@@ -326,7 +352,7 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
     const supabase = createSupabaseBrowser();
     if (!supabase) {
       const id = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      setPendingWalkIns((prev) => [...prev, {
+      setPendingWalkIns((prev) => sortPendingWalkIns([{
         id,
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
@@ -337,7 +363,7 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
         symptoms: symptomsList,
         otherSymptoms: data.otherSymptoms.trim(),
         registeredAt,
-      }]);
+      }, ...prev]));
       return;
     }
     const { data: { session } } = await supabase.auth.getSession();
@@ -362,24 +388,29 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
     });
     if (res.ok) {
       const created = await res.json();
-      setPendingWalkIns((prev) => [...prev, created]);
+      setPendingWalkIns((prev) =>
+        sortPendingWalkIns([created, ...prev.filter((row) => row.id !== created.id)])
+      );
+      return;
     }
-  }, []);
+    // Keep table in sync even when POST response is non-200.
+    await refetchPendingWalkIns();
+  }, [refetchPendingWalkIns]);
 
   const addWalkInToQueue = useCallback((pendingId: string, priority: Priority, department: string, slotTime?: string, assignedDoctor?: string, appointmentDate?: string) => {
     const pending = pendingWalkIns.find((p) => p.id === pendingId);
     if (!pending) return;
     const patientName = `${pending.firstName} ${pending.lastName}`.trim() || "Unknown";
-    const ticket = nextWalkInTicket();
+    const ticket = nextWalkInTicket(new Set(queueRows.map((r) => r.ticket)));
     const now = new Date();
     const dateStr = (appointmentDate && /^\d{4}-\d{2}-\d{2}$/.test(appointmentDate.trim())) ? appointmentDate.trim() : getTodayYYYYMMDD();
     const [y, mo, day] = dateStr.split("-").map(Number);
-    let addedAt = now.toISOString();
+    // Keep addedAt as actual queue-entry time so live/public feeds can reflect
+    // newly added walk-ins immediately, even when a future slot date is chosen.
+    const addedAt = now.toISOString();
     let appointmentTime: string | undefined;
     if (slotTime && /^\d{1,2}:\d{2}$/.test(slotTime.trim())) {
       const [h, m] = slotTime.trim().split(":").map(Number);
-      const slotDate = new Date(y, mo - 1, day, h, m, 0, 0);
-      addedAt = slotDate.toISOString();
       appointmentTime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     }
     const ageYears = parseWalkInAge(pending.age);
@@ -413,11 +444,15 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
           fetch(`/api/pending-walk-ins/${pendingId}`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${session.access_token}` },
-          }).catch(() => {});
+          })
+            .catch(() => {})
+            .finally(() => {
+              refetchPendingWalkIns().catch(() => {});
+            });
         }
       });
     }
-  }, [pendingWalkIns]);
+  }, [pendingWalkIns, queueRows, refetchPendingWalkIns]);
 
   const scheduleWalkInForLater = useCallback((pendingId: string, scheduledTime: string) => {
     const pending = pendingWalkIns.find((p) => p.id === pendingId);
@@ -437,11 +472,15 @@ export function NurseQueueProvider({ children }: { children: React.ReactNode }) 
           fetch(`/api/pending-walk-ins/${pendingId}`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${session.access_token}` },
-          }).catch(() => {});
+          })
+            .catch(() => {})
+            .finally(() => {
+              refetchPendingWalkIns().catch(() => {});
+            });
         }
       });
     }
-  }, []);
+  }, [refetchPendingWalkIns]);
 
   const setPatientPriority = useCallback((ticket: string, priority: Priority) => {
     setQueueRows((prev) =>

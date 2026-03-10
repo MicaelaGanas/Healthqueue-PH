@@ -6,7 +6,7 @@ import type { Priority } from "../../../context/NurseQueueContext";
 
 import { formatSlotDisplay, getDefaultSlotNow } from "../../../../../lib/slotTimes";
 import { getTodayYYYYMMDD, toYYYYMMDD } from "../../../../../lib/schedule";
-import { WalkInSlotPickerPanel } from "./WalkInSlotPickerPanel";
+import { compareYmd, getWeekStartYYYYMMDD } from "../../../../../lib/departmentBooking";
 import { PatientSummaryOverlay } from "../../PatientSummaryOverlay";
 
 const PRIORITIES: { value: Priority; label: string }[] = [
@@ -146,11 +146,9 @@ type AddToQueueOverlayProps = {
   setDepartmentByRow: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   selectedTime: string;
   onAddToQueue: (priority: Priority, department: string, slotTime: string, doctor: string, appointmentDate: string) => void;
-  onOpenSlotPicker: (department: string, doctor: string, dateStr: string) => void;
 };
 
 type DoctorOption = { id: string; name: string; department: string | null; displayLabel: string };
-type SlotPanelFor = { pendingId: string; patientName: string; department: string; doctor: string; dateStr: string };
 
 function AddToQueueOverlay({
   open,
@@ -161,7 +159,6 @@ function AddToQueueOverlay({
   setDepartmentByRow,
   selectedTime,
   onAddToQueue,
-  onOpenSlotPicker,
 }: AddToQueueOverlayProps) {
   const [department, setDepartment] = useState(initialDepartment);
   const [doctor, setDoctor] = useState("");
@@ -171,9 +168,19 @@ function AddToQueueOverlay({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [priority, setPriority] = useState<Priority>("normal");
+  const [selectedTime24, setSelectedTime24] = useState(selectedTime);
   const [departmentsList, setDepartmentsList] = useState<string[]>([]);
   const [doctorsByDept, setDoctorsByDept] = useState<Record<string, string[]>>({});
   const [doctorsLoading, setDoctorsLoading] = useState(false);
+  const [takenTimes24, setTakenTimes24] = useState<string[]>([]);
+  const [timeSlots24, setTimeSlots24] = useState<string[]>([]);
+  const [departmentRules, setDepartmentRules] = useState<{
+    currentWeekStart: string;
+    openWeekStarts: string[];
+  } | null>(null);
+  const [rulesLoading, setRulesLoading] = useState(false);
+  const [rulesError, setRulesError] = useState<string | null>(null);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -204,29 +211,129 @@ function AddToQueueOverlay({
 
   const doctors = doctorsByDept[department] ?? [];
   const effectiveDoctor = doctor || (doctors[0] ?? "");
+  const disabledSlots = useMemo(
+    () => timeSlots24.filter((t) => takenTimes24.includes(t)),
+    [timeSlots24, takenTimes24]
+  );
 
   useEffect(() => {
     if (!open) return;
-    setDepartment(initialDepartment && departmentsList.includes(initialDepartment) ? initialDepartment : departmentsList[0] ?? "General Medicine");
+    setDepartment(initialDepartment && initialDepartment !== "—" ? initialDepartment : "General Medicine");
     setDoctor("");
     const today = getTodayYYYYMMDD();
     setDate(today);
     const d = new Date(today + "T12:00:00");
     setCalendarMonthCursor(new Date(d.getFullYear(), d.getMonth(), 1));
     setPriority("normal");
-  }, [open, initialDepartment, departmentsList, selectedTime]);
+    setSelectedTime24(selectedTime || getDefaultSlotNow());
+    setTakenTimes24([]);
+    setTimeSlots24([]);
+    setDepartmentRules(null);
+    setRulesError(null);
+    setAvailabilityError(null);
+    setRulesLoading(Boolean(initialDepartment && initialDepartment !== "—"));
+  }, [open, initialDepartment, selectedTime]);
+
+  useEffect(() => {
+    if (!open || departmentsList.length === 0) return;
+    if (!department || department === "—" || !departmentsList.includes(department)) {
+      setDepartment(departmentsList[0]);
+    }
+  }, [open, departmentsList, department]);
 
   useEffect(() => {
     if (department && (!doctor || !doctors.includes(doctor))) setDoctor(doctors[0] ?? "");
   }, [department, doctors, doctor]);
 
+  useEffect(() => {
+    if (!open || !department || department === "—") return;
+    let cancelled = false;
+    setRulesLoading(true);
+    setRulesError(null);
+    fetch(`/api/availability/department-rules?department=${encodeURIComponent(department)}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to load department schedule."))))
+      .then((data) => {
+        if (cancelled) return;
+        setDepartmentRules({
+          currentWeekStart: String(data.currentWeekStart ?? ""),
+          openWeekStarts: Array.isArray(data.openWeekStarts)
+            ? data.openWeekStarts.map((v: unknown) => String(v))
+            : [],
+        });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setDepartmentRules(null);
+        setRulesError(error instanceof Error ? error.message : "Failed to load department schedule.");
+      })
+      .finally(() => {
+        if (!cancelled) setRulesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, department]);
+
+  const isDateAllowedForDepartment = (dateYmd: string) => {
+    if (!department || department === "—") return true;
+    if (!departmentRules) return false;
+    const weekStart = getWeekStartYYYYMMDD(dateYmd);
+    if (!weekStart) return false;
+    if (compareYmd(weekStart, departmentRules.currentWeekStart) === 0) return true;
+    return departmentRules.openWeekStarts.includes(weekStart);
+  };
+
+  useEffect(() => {
+    if (!open || !date || !department || department === "—") return;
+    let cancelled = false;
+    fetch(
+      `/api/availability/slots?date=${encodeURIComponent(date)}&department=${encodeURIComponent(department)}`
+    )
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to load available slots."))))
+      .then((data) => {
+        if (cancelled) return;
+        const slots24 = Array.isArray(data.timeSlots24)
+          ? data.timeSlots24.map((v: unknown) => String(v))
+          : [];
+        const taken24 = Array.isArray(data.takenTimes)
+          ? data.takenTimes.map((v: unknown) => String(v))
+          : [];
+        setTimeSlots24(slots24);
+        setTakenTimes24(taken24);
+        setAvailabilityError(data.isDepartmentReady === false ? String(data.reason ?? "") : null);
+        if (!slots24.includes(selectedTime24) || taken24.includes(selectedTime24)) {
+          const firstAvailable = slots24.find((t: string) => !taken24.includes(t)) ?? "";
+          setSelectedTime24(firstAvailable);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTakenTimes24([]);
+        setTimeSlots24([]);
+        setAvailabilityError("Failed to load available slots.");
+        setSelectedTime24("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, date, department]);
+
   const handleDepartmentChange = (dept: string) => {
     setDepartment(dept);
+    setDate(getTodayYYYYMMDD());
+    setSelectedTime24("");
+    setTakenTimes24([]);
+    setTimeSlots24([]);
+    setDepartmentRules(null);
+    setRulesError(null);
+    setAvailabilityError(null);
+    setRulesLoading(Boolean(dept && dept !== "—"));
     setDepartmentByRow((prev) => ({ ...prev, [pendingId]: dept }));
   };
 
   const handleAdd = () => {
-    onAddToQueue(priority, department, selectedTime, effectiveDoctor, date);
+    if (!selectedTime24) return;
+    onAddToQueue(priority, department, selectedTime24, effectiveDoctor, date);
     onClose();
   };
 
@@ -253,9 +360,10 @@ function AddToQueueOverlay({
         day: d.getDate(),
         inCurrentMonth: d.getMonth() === month,
         isPast: ymd < today,
+          isAllowed: isDateAllowedForDepartment(ymd),
       };
     });
-  }, [calendarMonthCursor]);
+  }, [calendarMonthCursor, departmentRules, department]);
 
   if (!open) return null;
 
@@ -263,7 +371,7 @@ function AddToQueueOverlay({
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" aria-hidden onClick={onClose} />
       <div
-        className="relative z-10 w-full max-w-4xl rounded-xl border border-[#e9ecef] bg-white p-4 shadow-xl"
+        className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl border border-[#e9ecef] bg-white p-4 shadow-xl sm:max-h-[88vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between">
@@ -345,16 +453,15 @@ function AddToQueueOverlay({
                 <button
                   key={d.ymd}
                   type="button"
-                    onClick={() => {
-                      if (d.isPast || !effectiveDoctor) return;
-                      setDate(d.ymd);
-                      onOpenSlotPicker(department, effectiveDoctor, d.ymd);
-                    }}
-                    disabled={d.isPast || !effectiveDoctor}
+                  onClick={() => {
+                    if (d.isPast || !d.isAllowed) return;
+                    setDate(d.ymd);
+                  }}
+                  disabled={d.isPast || !d.isAllowed}
                   className={`h-8 rounded text-xs font-medium ${
                     date === d.ymd
                       ? "bg-[#007bff] text-white"
-                        : d.isPast || !effectiveDoctor
+                        : d.isPast || !d.isAllowed
                         ? "cursor-not-allowed text-[#adb5bd]"
                         : d.inCurrentMonth
                           ? "text-[#333333] hover:bg-[#f8f9fa]"
@@ -367,11 +474,58 @@ function AddToQueueOverlay({
             </div>
           </div>
         </div>
+        <div className="mt-3">
+          <label className="mb-1 block text-xs font-medium text-[#6C757D]">Time slot</label>
+          <p className="mb-2 text-[11px] text-[#6C757D]">
+            Blue = selected, Light = available, Gray = taken.
+          </p>
+          <div className="grid max-h-52 grid-cols-2 gap-2 overflow-auto rounded border border-[#e9ecef] bg-[#f8f9fa] p-2 sm:grid-cols-3">
+            {timeSlots24.length === 0 ? (
+              <div className="col-span-full rounded border border-dashed border-[#dee2e6] bg-white px-3 py-4 text-center text-xs text-[#6C757D]">
+                No available slots for this date.
+              </div>
+            ) : (
+              timeSlots24.map((t24) => {
+                const isTaken = disabledSlots.includes(t24);
+                const isSelected = selectedTime24 === t24;
+                return (
+                  <button
+                    key={t24}
+                    type="button"
+                    disabled={isTaken}
+                    onClick={() => setSelectedTime24(t24)}
+                    className={`rounded-lg border px-2.5 py-2 text-left text-xs font-medium transition-colors ${
+                      isTaken
+                        ? "cursor-not-allowed border-[#dee2e6] bg-[#e9ecef] text-[#adb5bd]"
+                        : isSelected
+                          ? "border-[#007bff] bg-[#007bff] text-white"
+                          : "border-[#dee2e6] bg-white text-[#333333] hover:border-[#007bff] hover:bg-[#f0f7ff]"
+                    }`}
+                  >
+                    <span className="block">{formatSlotDisplay(t24)}</span>
+                    <span className={`mt-0.5 block text-[10px] ${isTaken ? "text-[#adb5bd]" : isSelected ? "text-blue-100" : "text-[#6C757D]"}`}>
+                      {isTaken ? "Taken" : "Available"}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          {(rulesLoading || rulesError || availabilityError) && (
+            <p className="mt-1 text-xs text-[#6C757D]">
+              {rulesLoading
+                ? "Loading department schedule..."
+                : rulesError
+                  ? rulesError
+                  : availabilityError}
+            </p>
+          )}
+        </div>
         <div className="mt-5 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={handleAdd}
-            disabled={doctorsLoading || doctors.length === 0 || !effectiveDoctor || !selectedTime}
+            disabled={doctorsLoading || !selectedTime24}
             className="rounded-lg bg-[#28a745] px-4 py-2 text-sm font-medium text-white hover:bg-[#218838] disabled:opacity-60 disabled:pointer-events-none"
           >
             Add to queue
@@ -388,8 +542,6 @@ function AddToQueueOverlay({
 export function WalkInPendingQueue() {
   const { pendingWalkIns, addWalkInToQueue, cancelPendingWalkIn } = useNurseQueue();
   const [departmentByRow, setDepartmentByRow] = useState<Record<string, string>>({});
-  const [slotPanelFor, setSlotPanelFor] = useState<SlotPanelFor | null>(null);
-  const [selectedSlotByPendingId, setSelectedSlotByPendingId] = useState<Record<string, string>>({});
   const [summaryForPendingId, setSummaryForPendingId] = useState<string | null>(null);
   const [addToQueueOverlayFor, setAddToQueueOverlayFor] = useState<string | null>(null);
 
@@ -480,18 +632,6 @@ export function WalkInPendingQueue() {
           </tbody>
         </table>
       </div>
-      {slotPanelFor && (
-        <WalkInSlotPickerPanel
-          patientName={slotPanelFor.patientName}
-          department={slotPanelFor.department}
-          doctor={slotPanelFor.doctor}
-          dateStr={slotPanelFor.dateStr}
-          onSelect={(time24) => {
-            setSelectedSlotByPendingId((prev) => ({ ...prev, [slotPanelFor.pendingId]: time24 }));
-          }}
-          onClose={() => setSlotPanelFor(null)}
-        />
-      )}
       {addToQueueOverlayFor && (() => {
         const p = pendingWalkIns.find((x) => x.id === addToQueueOverlayFor);
         if (!p) return null;
@@ -505,18 +645,10 @@ export function WalkInPendingQueue() {
             patientName={patientName}
             initialDepartment={dept}
             setDepartmentByRow={setDepartmentByRow}
-            selectedTime={selectedSlotByPendingId[p.id] ?? getDefaultSlotNow()}
+            selectedTime={getDefaultSlotNow()}
             onAddToQueue={(priority, department, slotTime, doctor, appointmentDate) => {
               addWalkInToQueue(p.id, priority, department, slotTime, doctor, appointmentDate);
-              setSelectedSlotByPendingId((prev) => {
-                const next = { ...prev };
-                delete next[p.id];
-                return next;
-              });
               setAddToQueueOverlayFor(null);
-            }}
-            onOpenSlotPicker={(department, doctor, dateStr) => {
-              setSlotPanelFor({ pendingId: p.id, patientName, department, doctor, dateStr });
             }}
           />
         );

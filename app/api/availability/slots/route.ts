@@ -9,6 +9,8 @@ import {
   normalizeSlotIntervalMinutes,
   toYYYYMMDDLocal,
 } from "../../../lib/departmentBooking";
+import { ACTIVE_QUEUE_DB_STATUSES } from "../../../lib/queue/eta";
+import { normalizeQueueStatusForDb } from "../../../lib/queue/status";
 
 type DepartmentRow = {
   id: string;
@@ -110,21 +112,23 @@ export async function GET(request: Request) {
     if (t) takenSet.add(parseTimeTo24(String(t)));
   }
 
-  // queue_items (source=booked) for that date
+  // queue_items (booked + walk-in) for that date:
+  // active queue statuses should block a slot in both Booking and Walk-in Add to queue.
   const { data: queueItems } = await supabase
     .from("queue_items")
-    .select("appointment_at")
-    .eq("department_id", department.id)
-    .eq("source", "booked");
+    .select("appointment_at, status")
+    .eq("department_id", department.id);
 
   for (const row of queueItems ?? []) {
-    if (row.appointment_at) {
-      const aptDate = new Date(row.appointment_at).toISOString().slice(0, 10);
-      if (aptDate === date) {
-        const t = new Date(row.appointment_at).toTimeString().slice(0, 5);
-        if (t) takenSet.add(parseTimeTo24(t));
-      }
+    if (!row.appointment_at) continue;
+    const normalizedStatus = normalizeQueueStatusForDb(row.status);
+    if (!ACTIVE_QUEUE_DB_STATUSES.includes(normalizedStatus as (typeof ACTIVE_QUEUE_DB_STATUSES)[number])) {
+      continue;
     }
+    const aptDate = new Date(row.appointment_at).toISOString().slice(0, 10);
+    if (aptDate !== date) continue;
+    const t = new Date(row.appointment_at).toTimeString().slice(0, 5);
+    if (t) takenSet.add(parseTimeTo24(t));
   }
 
   return NextResponse.json({

@@ -6,6 +6,9 @@ import {
   getRollingAverageConsultationMinutes,
 } from "../../../lib/queue/eta";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const NOW_SERVING_STATUSES = new Set(["in consultation", "in_consultation", "in progress", "called"]);
 const WAITING_STATUSES = new Set(["waiting", "scheduled", "called"]);
 const HIDDEN_STATUSES = new Set(["completed", "no show", "no_show"]);
@@ -13,6 +16,7 @@ const HIDDEN_STATUSES = new Set(["completed", "no show", "no_show"]);
 type QueueDisplayRow = {
   ticket: string;
   status: string;
+  source?: string | null;
   wait_time: string | null;
   added_at: string | null;
   appointment_at: string | null;
@@ -36,7 +40,21 @@ function normalizeStatus(value: string | null | undefined): string {
 function pickDate(dateParam: string | null): string {
   const trimmed = dateParam?.trim().slice(0, 10) ?? "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function toLocalDateYmd(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export async function GET(request: Request) {
@@ -54,7 +72,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from("queue_items")
-    .select("ticket, status, wait_time, added_at, appointment_at, departments(name), staff_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)");
+    .select("ticket, status, source, wait_time, added_at, appointment_at, departments(name), staff_users!queue_items_assigned_doctor_id_fkey(first_name, last_name)");
 
   if (error) {
     console.error("landing department-display error:", error);
@@ -64,8 +82,10 @@ export async function GET(request: Request) {
   const rows = ((data ?? []) as unknown as QueueDisplayRow[])
     .filter((row) => (row.departments?.name ?? "").trim() === department)
     .filter((row) => {
-      const appointmentDate = row.appointment_at ? new Date(row.appointment_at).toISOString().slice(0, 10) : "";
-      const addedDate = row.added_at ? new Date(row.added_at).toISOString().slice(0, 10) : "";
+      const source = (row.source ?? "").trim().toLowerCase();
+      if (source === "walk_in" || source === "walk-in") return true;
+      const appointmentDate = toLocalDateYmd(row.appointment_at);
+      const addedDate = toLocalDateYmd(row.added_at);
       return appointmentDate === date || addedDate === date;
     })
     .filter((row) => !HIDDEN_STATUSES.has(normalizeStatus(row.status)))

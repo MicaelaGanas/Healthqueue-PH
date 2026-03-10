@@ -6,8 +6,30 @@ import {
   getRollingAverageConsultationMinutes,
 } from "../../../lib/queue/eta";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /** Statuses that mean "patient is currently being seen". DB stores in_consultation; UI may use "in progress". */
 const NOW_SERVING_STATUSES = ["in consultation", "in_consultation", "in progress", "called"];
+const HIDDEN_STATUSES = new Set(["completed", "no show", "no_show"]);
+
+function toLocalDateYmd(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getTodayLocalYmd(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 /** GET: public live queue summary by department. No auth. Query ?date=YYYY-MM-DD for a specific day. */
 export async function GET(request: Request) {
@@ -21,7 +43,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const dateParam = searchParams.get("date")?.trim().slice(0, 10);
-  const effectiveDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : new Date().toISOString().slice(0, 10);
+  const effectiveDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : getTodayLocalYmd();
 
   const [deptRes, queueRes] = await Promise.all([
     supabase
@@ -32,7 +54,7 @@ export async function GET(request: Request) {
       .order("name", { ascending: true }),
     supabase
       .from("queue_items")
-      .select("ticket, status, wait_time, added_at, appointment_at, departments(name)"),
+      .select("ticket, status, source, wait_time, added_at, appointment_at, departments(name)"),
   ]);
 
   if (deptRes.error) {
@@ -48,6 +70,7 @@ export async function GET(request: Request) {
   type Row = {
     ticket: string;
     status: string;
+    source?: string | null;
     wait_time: string | null;
     added_at: string | null;
     appointment_at: string | null;
@@ -56,8 +79,12 @@ export async function GET(request: Request) {
   const allRows = (queueRes.data ?? []) as unknown as Row[];
 
   const rows = allRows.filter((r) => {
-    const apt = r.appointment_at ? new Date(r.appointment_at).toISOString().slice(0, 10) : "";
-    const added = r.added_at ? new Date(r.added_at).toISOString().slice(0, 10) : "";
+    const status = (r.status ?? "").trim().toLowerCase();
+    if (HIDDEN_STATUSES.has(status)) return false;
+    const source = (r.source ?? "").trim().toLowerCase();
+    if (source === "walk_in" || source === "walk-in") return true;
+    const apt = toLocalDateYmd(r.appointment_at);
+    const added = toLocalDateYmd(r.added_at);
     return apt === effectiveDate || added === effectiveDate;
   });
 
